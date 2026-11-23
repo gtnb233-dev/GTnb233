@@ -3,11 +3,26 @@
   <h1>工程测量工具箱（遵义版）v1.2.0</h1>
   <p>面向工程测量现场与教学算例的纯离线桌面 / 移动端计算工具箱 · 交互式坐标绘图 · 专项工程图表 · 一键导出</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-win"><strong>Windows x64 便携版下载 (v1.2.0-win)</strong></a>
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-win"><strong>正式版下载 (v1.2.0-win · Windows)</strong></a>
     ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-win/survey_pro-1.2.0-windows-x64.zip">直接下载 ZIP (11.0 MB)</a>
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.1"><strong>测试版下载 (v1.2.0-beta.1 · Windows + Android 双端同步)</strong></a>
   </p>
 </div>
+
+---
+
+## 下载通道（正式版 vs 测试版）
+
+| 通道 | 标签 | 适用平台与说明 | 下载直链 |
+| :--- | :--- | :--- | :--- |
+| **正式版 (Release)** | [`v1.2.0-win`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-win) | Windows x64 便携版（稳定版） | [survey_pro-1.2.0-windows-x64.zip](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-win/survey_pro-1.2.0-windows-x64.zip) |
+| **测试版 (Pre-release)** | [`v1.2.0-beta.1`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.1) | **Windows x64** 便携版（含量级选择、手簿 Excel、自定义点名、五类弹出层） | [survey_pro-1.2.0-windows-x64.zip](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.1/survey_pro-1.2.0-windows-x64.zip) |
+| **测试版 (Pre-release)** | [`v1.2.0-beta.1`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.1) | **Android ARM64-v8a**（主流手机推荐，v1/v2/v3 正式签名） | [survey_pro-1.2.0-android-arm64-v8a.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.1/survey_pro-1.2.0-android-arm64-v8a.apk) |
+| **测试版 (Pre-release)** | [`v1.2.0-beta.1`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.1) | Android ARMv7（老旧 32 位机型） | [survey_pro-1.2.0-android-armeabi-v7a.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.1/survey_pro-1.2.0-android-armeabi-v7a.apk) |
+| **测试版 (Pre-release)** | [`v1.2.0-beta.1`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.1) | Android 通用全架构包（不确定机型选此项） | [survey_pro-1.2.0-android-universal.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.1/survey_pro-1.2.0-android-universal.apk) |
+| **测试版 (Pre-release)** | [`v1.2.0-beta.1`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.1) | Android x86_64（模拟器适用） | [survey_pro-1.2.0-android-x86_64.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.1/survey_pro-1.2.0-android-x86_64.apk) |
+
+> **测试版 `v1.2.0-beta.1` 双端同步新特性**：支持 `m / cm / mm` 输入量级切换与等值米制提示、三（四）等水准测量观测手簿 12 列合并单元格标准 Excel (`.xlsx`) 导出、自定义点名（号）/尺号配置、五类弹出层（`Tooltip` / `Toast` / `Alert` / `Modal` / `Popconfirm`）体系与设置页「数据与提示」交互演示；已通过 `flutter analyze` 0 问题、`survey_core` 83/83、`flutter test` 194/194 及 Android `apksigner` 验签。
 
 ---
 
