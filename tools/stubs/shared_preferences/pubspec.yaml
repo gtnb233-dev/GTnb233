@@ -1,0 +1,5 @@
+name: shared_preferences
+description: 本地静态分析用的最小桩（真实构建请用 pub.dev 版本）
+version: 2.3.3
+environment:
+  sdk: ^3.10.0

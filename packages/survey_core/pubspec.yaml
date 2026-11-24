@@ -1,0 +1,14 @@
+name: survey_core
+description: >-
+  Pure-Dart surveying computation core used by the SurveyPro app: angles,
+  coordinate forward/inverse, traverses, intersections, circular and
+  clothoid curves, vertical curves, leveling adjustment, area/volume,
+  datum transformations and Gauss projection.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dev_dependencies:
+  lints: ^5.0.0

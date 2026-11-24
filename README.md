@@ -5,7 +5,8 @@
   <p>
     <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-windows-x64.zip"><strong>下载 Windows</strong></a> ·
     <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.0">查看 v2.0.0 发布说明</a>
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.0">查看 v2.0.0 发布说明</a> ·
+    <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
@@ -55,6 +56,37 @@
 - **查找和录入**：Windows 使用 `Ctrl+K` 查找工具与公式。计算页本地保存草稿，支持逐格录入和批量粘贴。
 - **绘图和检核**：交互式坐标图支持缩放和图表联动。专项图表包括方格网挖填图、竖曲线纵断面及水准成果图。
 - **成果导出**：按工具支持 Excel、CSV、TXT 或 PNG，适合整理手簿、成果表和附图。
+
+## 源码与本地构建
+
+Windows 和 Android 共用 Flutter 界面与 Dart 测量核心。
+
+| 目录 | 内容 |
+| --- | --- |
+| [`app/lib`](app/lib) | 工作台、测量工具、绘图、草稿与成果导出 |
+| [`app/windows`](app/windows) · [`app/android`](app/android) | Windows 和 Android 平台工程 |
+| [`packages/survey_core`](packages/survey_core) | 可独立运行与测试的 Dart 测量计算库 |
+| [`app/test`](app/test) · [`tools`](tools) | 应用回归测试和构建辅助脚本 |
+
+本版使用 Flutter **3.35.5** 和 Dart **3.9.2**。Windows 的常规构建需要 Visual Studio 的「使用 C++ 的桌面开发」工作负载。Android 需要 JDK 17 或更高版本及 Android SDK 36。 [Flutter Windows 环境](https://docs.flutter.dev/platform-integration/windows/setup) · [Flutter Android 构建说明](https://docs.flutter.dev/deployment/android)
+
+```sh
+git clone https://github.com/gtnb233-dev/GTnb233.git
+cd GTnb233/app
+flutter pub get
+flutter analyze
+flutter test
+```
+
+从 `app/` 目录按目标平台执行构建命令。
+
+- **Windows** 运行 `flutter build windows --release`。使用 Zig 的 Windows x64 构建可从仓库根目录运行 `powershell -File tools/build_windows_zig.ps1`，需要 Zig、Python 3 和 Flutter 3.35.5，产物位于 `app/build/zig-windows/dist/survey_pro/`。
+- **Android** 运行 `flutter build apk --release`。加入 `--split-per-abi` 可生成各架构 APK，产物位于 `app/build/app/outputs/flutter-apk/`。本地未配置发布密钥时使用调试签名。本地 APK 与官方 APK 的签名不同，因此需要使用独立的测试设备或测试环境安装。
+- **测量核心** 在 `packages/survey_core/` 运行 `dart pub get` 和 `dart run test/all_test.dart`。
+
+## 许可证
+
+项目自有源码采用 [MIT 许可证](LICENSE)。Flutter 平台模板保留 [Flutter BSD 许可证](docs/FLUTTER-LICENSE.txt)。随源码提供的字体分别保留 [Noto Sans SC](app/assets/fonts/survey/NotoSansSC-OFL.txt)、[JetBrains Mono](app/assets/fonts/survey/JetBrainsMono-OFL.txt) 和 [Geist](app/assets/fonts/Geist-OFL.txt) 的 SIL Open Font License。
 
 ## 版本与反馈
 

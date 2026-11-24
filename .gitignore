@@ -1,0 +1,33 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# 生成的平台壳里的本机配置
+app/android/local.properties
+app/android/.gradle/
+app/android/.kotlin/
+app/android/app/.cxx/
+app/windows/.vs/
+app/windows/flutter/ephemeral/
+
+# 编辑器
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# 本机构建脚本产物
+tools/stubs/**/pubspec.lock
+_sdk/
+
+# 本机签名、认证和环境配置
+key.properties
+*.jks
+*.keystore
+*.pfx
+*.pem
+.env
+.env.*

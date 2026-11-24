@@ -1,0 +1,35 @@
+name: survey_pro
+description: 工程测量工具箱 — 公式计算、坐标、导线、曲线、水准、面积土方、坐标转换
+publish_to: none
+version: 2.0.0+4009
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  shared_preferences: ^2.3.3
+  survey_core:
+    path: ../packages/survey_core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/fonts/survey/NotoSansSC-OFL.txt
+    - assets/fonts/survey/JetBrainsMono-OFL.txt
+  fonts:
+    - family: Noto Sans SC
+      fonts:
+        - asset: assets/fonts/survey/NotoSansSC.ttf
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/survey/JetBrainsMono.ttf

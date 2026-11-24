@@ -1,0 +1,16 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Flutter 3.47+ 把 package:flutter/material.dart 标记为 deprecated（迁移向 material_ui），
+    # 但 3.35 及更早版本没有 material_ui。此处降级为忽略，保证跨版本安静。
+    deprecated_member_use: ignore
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_single_quotes: true
+    always_declare_return_types: true
+    avoid_print: true
+    unawaited_futures: true
