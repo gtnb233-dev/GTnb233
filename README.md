@@ -1,127 +1,63 @@
 <div align="center">
-  <img src="docs/screenshots/app_icon_256.png" width="96" height="96" alt="工程测量工具箱图标" />
-  <h1>工程测量工具箱（遵义版）v1.2.0</h1>
-  <p>面向工程测量现场与教学算例的纯离线桌面 / 移动端计算工具箱 · 交互式坐标绘图 · 专项工程图表 · 一键导出</p>
+  <img src="docs/screenshots/app_icon_256.png" width="88" height="88" alt="工程测量工具箱图标" />
+  <h1>工程测量工具箱 · Survey Pro</h1>
+  <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-win"><strong>正式版下载 (v1.2.0-win · Windows)</strong></a>
-    ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.2"><strong>最新测试版下载 (v1.2.0-beta.2 · Windows + Android 双端同步)</strong></a>
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-windows-x64.zip"><strong>下载 Windows</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.0">查看 v2.0.0 发布说明</a>
   </p>
 </div>
 
----
+## 下载与安装
 
-## 下载通道（正式版 vs 测试版）
+当前正式版为 **v2.0.0**。
 
-| 通道 | 标签 | 适用平台与说明 | 下载直链 |
-| :--- | :--- | :--- | :--- |
-| **正式版 (Release)** | [`v1.2.0-win`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-win) | Windows x64 便携版（稳定版） | [survey_pro-1.2.0-windows-x64.zip](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-win/survey_pro-1.2.0-windows-x64.zip) |
-| **测试版 (Pre-release)** | [`v1.2.0-beta.2`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.2) | **Windows x64** 便携版（方案 C 全量升级：Geist 字体、右栏吸顶、专业表格、逐站卡片等） | [survey_pro-1.2.0-windows-x64.zip](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.2/survey_pro-1.2.0-windows-x64.zip) |
-| **测试版 (Pre-release)** | [`v1.2.0-beta.2`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.2) | **Android ARM64-v8a**（主流手机推荐，v1/v2/v3 正式签名） | [survey_pro-1.2.0-android-arm64-v8a.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.2/survey_pro-1.2.0-android-arm64-v8a.apk) |
-| **测试版 (Pre-release)** | [`v1.2.0-beta.2`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.2) | Android ARMv7（老旧 32 位机型） | [survey_pro-1.2.0-android-armeabi-v7a.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.2/survey_pro-1.2.0-android-armeabi-v7a.apk) |
-| **测试版 (Pre-release)** | [`v1.2.0-beta.2`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.2) | Android 通用全架构包（不确定机型选此项） | [survey_pro-1.2.0-android-universal.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.2/survey_pro-1.2.0-android-universal.apk) |
-| **测试版 (Pre-release)** | [`v1.2.0-beta.2`](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.2) | Android x86_64（模拟器适用） | [survey_pro-1.2.0-android-x86_64.apk](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.2.0-beta.2/survey_pro-1.2.0-android-x86_64.apk) |
+| 平台 | 适用设备 | 下载 |
+| --- | --- | --- |
+| **Windows x64** | Windows 10／11，便携版 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-x86_64.apk) |
 
-> **测试版 `v1.2.0-beta.2` 双端同步更新**：新增 `Geist / Geist Pixel` 排版与浅深双模式局部光晕、首页工作台直达切换量级/角度/小数位与星标自定义常用工具、宽屏右侧图形吸顶、四等水准手机端「逐站卡片」与表格数值右对齐/首列冻结/点击复制、批量行号标尺及带尖角 Popconfirm；全量通过 `flutter analyze` 0 问题、`survey_core` 83/83、`flutter test` 202/202 与 Android `apksigner` 验签。
+- **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
+- **Android**：需要 Android 7.0 或更高版本。从官方 beta.3 升级时，可直接安装对应的 2.0.0 APK。两版使用同一发布证书。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/SHA256SUMS.txt)
 
----
+## v2.0.0 界面预览
 
-## 核心功能与设计特点
+**Windows · 批量放样**  
+左侧录入测站、后视和目标点，右侧查看放样图、关键数值和成果表。
 
-### 1. 宽屏双栏工作区与高效交互（桌面端深度优化）
-- **自适应双栏工作台**：窗口宽度 `>= 980dp` 时自动切换为「左栏参数录入 + 右栏图形与精度检核 + 下方全宽成果表」，告别频繁上下翻找；窄屏 / 手机端自动回落流畅单栏（已通过 `320×640` / `1.3×` 放大字体无溢出回归测试）。
-- **`Ctrl+K` 全局命令面板**：随时按 `Ctrl+K`（macOS 为 `Cmd+K`）或点击侧边栏/页眉搜索按钮，模糊检索全部 **19 个测量工具**与内置**测量公式库**，键盘 `↑/↓/Enter` 一键直达。
-- **输入草稿防抖落盘**：所有计算页输入自动本地保存，切换页面或重开软件自动恢复，首页快捷卡片实时显示未清草稿小圆点；支持一键「清空」并同步重置持久化草稿。
-- **Windows 原生集成**：自动居中启动并限制最小窗口尺寸；支持读取 Windows DWM 强调色（莫奈取色），窗口标题栏实时跟随深浅色主题切换；无命令行黑窗、免安装 VC++ / .NET 运行库，解压即用。
+<img src="docs/screenshots/v2.0.0/windows-stakeout.png" width="980" alt="Windows 深色批量放样工作区，左侧录入，右侧显示坐标图和成果表" />
 
-### 2. 交互式实时坐标图（`LivePlot`）
-- **等比例工程平面绘图**：自动适配包围盒并保留安全边距，采用 `1 / 2 / 5 × 10^n` 规范比例尺、自适应网格步长与指北针。
-- **图上直拖改写坐标**：在坐标反算、正算、放样、交会、面积页面可直接拖动控制点实时更新坐标并联动重算。
-- **桌面端操作工具栏**：支持滚轮/按钮放大缩小、`复位全图`、鼠标悬停实时十字准星坐标 HUD，以及右上角一键**导出高清 PNG** 附图。
-- **丰富几何图元**：支持半透明闭合地块/交会三角形填充（`PlotPolygon`）、水平角/交会角扇形弧标注（`PlotArc`）、闭合差/残差放大矢量箭头（`PlotArrow`）以及曲线/平差前对比虚线路径（`PlotPath`）。
-
-### 3. 工程专项可视化图表与限差检核仪表
-- **`ToleranceGauge` 限差仪表条**：用颜色与刻度直观显示闭合差占限差百分比（余量进度或超限提示），交会角 `γ` 采用推荐区间模式直观标示 `30°–150°` 图形强度。
-- **`PipelineStrip` 检核流水条**：四等水准测量页按「手簿录入 → 视距检核 → K 常数检核 → 闭合差平差」分步亮灯提示，异常站点秒级定位。
-- **四大工程专项图表**：
-  - **方格网土方挖填热力图 + 零线图**（支持点击网格查看四角施工高程、跨零线三角形/梯形细分与挖填方量）；
-  - **平均断面面积沿线变化包络图**；
-  - **竖曲线纵断面图**（设计二次抛物线、前后坡切线延长线、外距 `E` 与任意查询桩号高程点）；
-  - **水准高程纵断面与逐站改正数双向柱状图**；
-  - 另有**四/七参数逐点残差矢量分布图**与**批量放样图/表点击双向联动高亮**。
-
-### 4. 完全离线计算与多格式无损导出
-- **真表格级导出**：支持 **Excel（`.xlsx`，纯手写 OOXML 无需第三方插件，保留前导零且 Excel 无修复弹窗）**、**CSV（UTF-8 BOM 防中文乱码）**、**TXT 文本对齐** 及 **PNG 图形保存**；Windows 导出后可直接点击「打开文件夹」定位。
-- **紧贴测量教材与规范**：
-  - 闭合导线右角按实测角和在 `(n-2)·180°` 与 `(n+2)·180°` 间自动就近判定（解决顺时针右角算成外角和的常见误判）；
-  - 测角前方交会逐格重现教材 9 行 18 格算表；
-  - 四等水准手簿支持 18 列双面尺输入、`K+黑−红`、`视距差`、`Σd` 自动标红检核及按距离/站数闭合差平差。
-
----
-
-## 界面效果图一览
+**Android · 工作台与导线平差**  
+首页可直接切换长度量级、角度录入方式和坐标小数位，也能搜索工具与公式。计算页支持表格粘贴、角度分格和教材算例。
 
 <table>
   <tr>
-    <td width="50%">
-      <img src="docs/screenshots/01_home_light.png" alt="工作台首页" />
-      <p align="center"><strong>工作台首页与快捷入口</strong>（<code>Ctrl+K</code> 快速跳转 · 矢量快捷卡）</p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/02_traverse_light.png" alt="导线平差" />
-      <p align="center"><strong>导线平差宽屏双栏</strong>（平差前后对比 + 放大闭合差箭头 + <code>fβ/K</code> 限差仪）</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/03_earthwork_grid_light.png" alt="土方方格网热力图" />
-      <p align="center"><strong>方格网土方热力与零线图</strong>（点击单格显示四角施工高与跨零线细分）</p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/04_vertical_curve_light.png" alt="竖曲线纵断面" />
-      <p align="center"><strong>竖曲线纵断面图</strong>（抛物线、前后坡切线、变坡点与桩号查询标记）</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/screenshots/05_leveling4_light.png" alt="四等水准测量" />
-      <p align="center"><strong>四等水准手簿与纵断面</strong>（4 步检核流 + <code>fh</code> 仪表 + 高程/改正数柱图）</p>
-    </td>
-    <td width="50%">
-      <img src="docs/screenshots/06_intersection_dark.png" alt="测角交会深色模式" />
-      <p align="center"><strong>测角交会（深色模式）</strong>（交会三角形填充 + <code>α/β/γ</code> 弧线 + 强度区间仪）</p>
-    </td>
+    <td align="center"><img src="docs/screenshots/v2.0.0/android-home-light.png" width="230" alt="Android 浅色首页" /><br />浅色工作台</td>
+    <td align="center"><img src="docs/screenshots/v2.0.0/android-home-dark.png" width="230" alt="Android 深色首页" /><br />深色工作台</td>
+    <td align="center"><img src="docs/screenshots/v2.0.0/android-traverse.png" width="230" alt="Android 导线平差录入页" /><br />导线平差</td>
   </tr>
 </table>
 
----
+## 内置工具
 
-## 内置 19 项工程测量工具
-
-| 分类 | 包含工具 | 核心功能亮点 |
-| --- | --- | --- |
-| **控制测量** | 导线平差、水准平差、四等水准测量、精度评定 | 左/右角与内外角自动判定、按边长/分量分配、18 列双面尺手簿、中误差与相对误差 |
-| **坐标与放样** | 坐标反算、坐标正算、放样要素、批量放样、交会定点、象限角换算 | 极坐标正反算、测角/距离交会（含 18 格教材表）、图上直拖改点、图/表双向联动高亮 |
-| **线路与曲线** | 圆曲线、缓和曲线、竖曲线、线路支距（施工放样坐标） | 曲线要素、`p/m/q` 缓和参数、纵断面高程曲线图、中桩/左右边桩坐标与线元可视化 |
-| **面积与土方** | 面积计算、土方计算（平均断面法 / 方格网法） | 鞋带公式多边形与形心、断面面积包络图、方格网挖填零线细分与热力点击交互 |
-| **坐标转换与换算** | 坐标转换（高斯正反算 / 大地↔空间直角 / 四参数 / 七参数）、单位换算、公式计算器 | CGCS2000/WGS84/Beijing54/Xian80、逐点残差表与平面残差矢量分布图、角度制表达式求值 |
-
----
-
-## 快速使用（Windows x64 便携版）
-
-1. 前往 [Releases 页面](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-win) 下载 **`survey_pro-1.2.0-windows-x64.zip`**。
-2. 解压到任意文件夹（**请保留完整的 `Windows/` 目录**，运行 `survey_pro.exe` 需同目录下的 `data/` 与 `flutter_windows.dll`）。
-3. 双击 `Windows/survey_pro.exe` 即可离线使用；若 Windows SmartScreen 首次拦截未知发布者，点击「更多信息 → 仍要运行」即可。
-
----
-
-## 构建质量与校验信息
-
-| 检查项 | 验证结果 |
+| 分类 | 包含工具 |
 | --- | --- |
-| **核心计算库 (`survey_core`)** | **83 / 83** 通过（含教材算例精确校核与数值边界回归） |
-| **静态代码检查 (`flutter analyze`)** | `No issues found!` |
-| **UI 与交互回归 (`flutter test`)** | **175 / 175** 全部通过（含 `320×640 / 1.3×` 窄屏与 `1280×800` 宽屏双栏验证） |
-| **Windows 可执行文件 (`survey_pro.exe`)** | `569,856 B` · PE Subsystem=2 (GUI) · SHA-256: `c92ce2c82c6ea43f998440b28913764f771902ebb8f141cb15b31d45e1afc94e` |
-| **Windows 发行压缩包 (`.zip`)** | `11,559,783 B` · SHA-256: `32b355b3621a9c12982ea36304794e7ff526f84d21412ed5440b1877928e5843` |
+| 坐标与放样 | 坐标反算、坐标正算／极坐标放样、放样数据计算、批量放样、交会计算 |
+| 控制测量 | 导线平差、水准路线平差、四等水准测量、精度估算 |
+| 线路与曲线 | 圆曲线、缓和曲线、竖曲线、路线中桩坐标 |
+| 面积与土方 | 面积计算、土方量计算（平均断面法／方格网法） |
+| 计算与换算 | 公式计算器、坐标转换、角度与坡度换算 |
+
+- **查找和录入**：Windows 使用 `Ctrl+K` 查找工具与公式。计算页本地保存草稿，支持逐格录入和批量粘贴。
+- **绘图和检核**：交互式坐标图支持缩放和图表联动。专项图表包括方格网挖填图、竖曲线纵断面及水准成果图。
+- **成果导出**：按工具支持 Excel、CSV、TXT 或 PNG，适合整理手簿、成果表和附图。
+
+## 版本与反馈
+
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.0)
+- [历史版本](https://github.com/gtnb233-dev/GTnb233/releases) · [v1.2.0-beta.3](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.3)
+- [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。
