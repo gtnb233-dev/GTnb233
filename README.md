@@ -3,27 +3,28 @@
   <h1>工程测量工具箱 · Survey Pro</h1>
   <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-windows-x64.zip"><strong>下载 Windows</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.0">查看 v2.0.0 发布说明</a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-windows-x64-setup.exe"><strong>下载 Windows</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.1">查看 v2.0.1 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
 ## 下载与安装
 
-当前正式版为 **v2.0.0**。
+当前正式版为 **v2.0.1**。
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
-| **Windows x64** | Windows 10／11，便携版 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-windows-x64.zip) |
-| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-arm64-v8a.apk) |
-| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-universal.apk) |
-| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-armeabi-v7a.apk) |
-| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/survey_pro-2.0.0-android-x86_64.apk) |
+| **Windows x64 安装版** | Windows 10／11，当前用户安装 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-windows-x64-setup.exe) |
+| Windows x64 便携版 | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/survey_pro-2.0.1-android-x86_64.apk) |
 
-- **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
-- **Android**：需要 Android 7.0 或更高版本。从官方 beta.3 升级时，可直接安装对应的 2.0.0 APK。两版使用同一发布证书。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.0/SHA256SUMS.txt)
+- **Windows** 可以运行 EXE 完成安装，或解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
+- **Android**：需要 Android 7.0 或更高版本。从官方 beta.3 升级时，可直接安装对应的 2.0.1 APK。两版使用同一发布证书。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.1/SHA256SUMS.txt)
 
 ## v2.0.0 界面预览
 
@@ -84,12 +85,18 @@ flutter test
 - **Android** 运行 `flutter build apk --release`。加入 `--split-per-abi` 可生成各架构 APK，产物位于 `app/build/app/outputs/flutter-apk/`。本地未配置发布密钥时使用调试签名。本地 APK 与官方 APK 的签名不同，因此需要使用独立的测试设备或测试环境安装。
 - **测量核心** 在 `packages/survey_core/` 运行 `dart pub get` 和 `dart run test/all_test.dart`。
 
+Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在仓库根目录运行以下命令。
+
+`powershell -File tools/build_windows_installer.ps1`
+
+精简的 Noto Sans SC 字体保留界面字符和常用汉字。需要更新字体子集时，使用 Python 3 和 fontTools，执行 `python tools/subset_ui_font.py <完整的静态 Noto Sans SC Regular 字体>`。
+
 ## 许可证
 
-项目自有源码采用 [MIT 许可证](LICENSE)。Flutter 平台模板保留 [Flutter BSD 许可证](docs/FLUTTER-LICENSE.txt)。随源码提供的字体分别保留 [Noto Sans SC](app/assets/fonts/survey/NotoSansSC-OFL.txt)、[JetBrains Mono](app/assets/fonts/survey/JetBrainsMono-OFL.txt) 和 [Geist](app/assets/fonts/Geist-OFL.txt) 的 SIL Open Font License。
+项目自有源码采用 [MIT 许可证](LICENSE)。Flutter 平台模板保留 [Flutter BSD 许可证](docs/FLUTTER-LICENSE.txt)。随源码提供的字体分别保留 [Noto Sans SC](app/assets/fonts/survey/NotoSansSC-OFL.txt)和 [JetBrains Mono](app/assets/fonts/survey/JetBrainsMono-OFL.txt) 的 SIL Open Font License。
 
 ## 版本与反馈
 
-- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.0)
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.1)
 - [历史版本](https://github.com/gtnb233-dev/GTnb233/releases) · [v1.2.0-beta.3](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.3)
 - [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。

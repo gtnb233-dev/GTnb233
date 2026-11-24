@@ -26,7 +26,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final recent = _recentTools(settings.lastTool);
+    final recent = toolById(settings.lastTool);
     return PageScaffold(
       title: '工程测量',
       caption: '离线测量工作台 · $kAppVersionLabel',
@@ -44,15 +44,12 @@ class HomePage extends StatelessWidget {
         digits: settings.coordDigits,
         onSearch: () => showCommandPalette(context),
         onSettings: onOpenSettings,
-        onFormula: () {
-          final def = kTools.firstWhere((t) => t.id == 'formula');
-          openTool(context, def);
-        },
+        onFormula: () => openTool(context, toolById('formula')!),
       ),
       children: [
-        if (recent.isNotEmpty) ...[
+        if (recent != null) ...[
           const SectionHeader(title: '继续上次'),
-          _ToolList(tools: recent, max: 1),
+          _RecentTool(tool: recent),
         ],
         SectionHeader(
           title: '常用工具',
@@ -71,16 +68,15 @@ class HomePage extends StatelessWidget {
                     : 1;
             final gap = columns == 4 ? Insets.l : Insets.s;
             final tileWidth = (available - (columns - 1) * gap) / columns;
-            final byId = <String, ToolDef>{for (final t in kTools) t.id: t};
-            final picked = <ToolDef>[
-              for (final id in settings.pinnedTools)
-                if (byId[id] != null) byId[id]!,
-            ];
-            if (picked.isEmpty) {
-              for (final id in AppSettings.kDefaultPinnedTools) {
-                if (byId[id] != null) picked.add(byId[id]!);
-              }
-            }
+            final pinned = settings.pinnedTools
+                .map(toolById)
+                .whereType<ToolDef>()
+                .toList();
+            final picked = pinned.isEmpty
+                ? AppSettings.kDefaultPinnedTools
+                    .map(toolById)
+                    .whereType<ToolDef>()
+                : pinned;
 
             return Wrap(
               spacing: gap,
@@ -176,12 +172,6 @@ class HomePage extends StatelessWidget {
         'quadrant' => '°′″',
         _ => null,
       };
-
-  List<ToolDef> _recentTools(String? id) {
-    if (id == null) return const [];
-    final found = kTools.where((t) => t.id == id).toList();
-    return found;
-  }
 }
 
 class _WorkbenchCard extends StatelessWidget {
@@ -491,30 +481,21 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
-class _ToolList extends StatelessWidget {
-  const _ToolList({required this.tools, this.max = 4});
+class _RecentTool extends StatelessWidget {
+  const _RecentTool({required this.tool});
 
-  final List<ToolDef> tools;
-  final int max;
+  final ToolDef tool;
 
   @override
   Widget build(BuildContext context) {
-    final picked = tools.take(max).toList(growable: false);
     return SurfaceCard(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Column(
-        children: [
-          for (var i = 0; i < picked.length; i++) ...[
-            if (i > 0) const Divider(height: 0.5, thickness: 0.5, indent: 56),
-            ChoiceTile(
-              title: picked[i].title,
-              subtitle: picked[i].subtitle,
-              icon: picked[i].icon,
-              onTap: () => openTool(context, picked[i]),
-              dense: true,
-            ),
-          ],
-        ],
+      child: ChoiceTile(
+        title: tool.title,
+        subtitle: tool.subtitle,
+        icon: tool.icon,
+        onTap: () => openTool(context, tool),
+        dense: true,
       ),
     );
   }

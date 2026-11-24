@@ -193,16 +193,22 @@ const List<ToolDef> kTools = [
 List<ToolDef> toolsOf(ToolGroup group) =>
     kTools.where((t) => t.group == group).toList(growable: false);
 
+final _toolsById = {for (final tool in kTools) tool.id: tool};
+
+ToolDef? toolById(String? id) => _toolsById[id];
+
+final _searchFields = {
+  for (final tool in kTools)
+    tool: [tool.title, tool.subtitle, ...tool.keywords]
+        .map((field) => field.toLowerCase())
+        .toList(growable: false),
+};
+
 /// 按关键词搜索工具（标题、副标题、关键词）。
 List<ToolDef> searchTools(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return kTools;
-  return kTools.where((t) {
-    if (t.title.toLowerCase().contains(q)) return true;
-    if (t.subtitle.toLowerCase().contains(q)) return true;
-    for (final k in t.keywords) {
-      if (k.toLowerCase().contains(q)) return true;
-    }
-    return false;
-  }).toList(growable: false);
+  return kTools
+      .where((tool) => _searchFields[tool]!.any((field) => field.contains(q)))
+      .toList(growable: false);
 }
