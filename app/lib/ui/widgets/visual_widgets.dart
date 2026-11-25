@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 
 /// 限差进度仪表条：直观展示当前计算值占限差的比例与余量，
@@ -58,9 +59,11 @@ class ToleranceGauge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    const green = Color(0xFF16A34A);
-    const amber = Color(0xFFD97706);
+    final b = scheme.brightness;
+    final isDark = b == Brightness.dark;
+    final green = IosColors.green(b);
+    final amber = IosColors.orange(b);
+    final red = IosColors.red(b);
 
     if (_isRange) {
       final span = (_max - _min).abs() < 1e-9 ? 1.0 : (_max - _min);
@@ -130,7 +133,7 @@ class ToleranceGauge extends StatelessWidget {
         : (absVal / absLimit);
     final passed = ok ?? (absLimit <= 1e-12 ? absVal <= 1e-12 : absVal <= absLimit);
     final statusColor = !passed
-        ? scheme.error
+        ? red
         : ratio >= 0.70
             ? amber
             : green;
@@ -149,17 +152,19 @@ class ToleranceGauge extends StatelessWidget {
         builder: (context, c) {
           final w = c.maxWidth;
           return SizedBox(
-            height: 14,
+            height: 16,
             child: Stack(
               alignment: Alignment.centerLeft,
               children: [
                 Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(
-                      alpha: isDark ? 0.55 : 0.85,
+                    color: isDark ? IosColors.darkTertiary : IosColors.lightFill,
+                    borderRadius: BorderRadius.circular(Radii.chip),
+                    border: Border.all(
+                      color: IosColors.separator(b),
+                      width: 1.0,
                     ),
-                    borderRadius: BorderRadius.circular(Radii.pill),
                   ),
                 ),
                 FractionallySizedBox(
@@ -168,7 +173,7 @@ class ToleranceGauge extends StatelessWidget {
                     height: 6,
                     decoration: BoxDecoration(
                       color: statusColor,
-                      borderRadius: BorderRadius.circular(Radii.pill),
+                      borderRadius: BorderRadius.circular(Radii.chip),
                     ),
                   ),
                 ),
@@ -177,10 +182,10 @@ class ToleranceGauge extends StatelessWidget {
                   left: (w * limitMark - 1).clamp(0.0, (w - 2).clamp(0.0, w)),
                   child: Container(
                     width: 2,
-                    height: 12,
+                    height: 14,
                     decoration: BoxDecoration(
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(1),
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(Radii.pill),
                     ),
                   ),
                 ),
@@ -222,7 +227,7 @@ class _GaugeFrame extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  label,
+                  context.tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -250,7 +255,7 @@ class _GaugeFrame extends StatelessWidget {
                   borderRadius: BorderRadius.circular(Radii.pill),
                 ),
                 child: Text(
-                  statusText,
+                  context.tr(statusText),
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -267,7 +272,7 @@ class _GaugeFrame extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: Text(
-              rightLabel,
+              context.tr(rightLabel),
               style: TextStyle(
                 fontSize: 10.5,
                 color: scheme.onSurfaceVariant,

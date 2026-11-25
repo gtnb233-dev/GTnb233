@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
+import '../../../l10n/survey_strings.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -131,8 +132,8 @@ class _QuadrantPageState extends State<QuadrantPage> {
                 child: SegmentedButton<int>(
                   showSelectedIcon: false,
                   segments: const [
-                    ButtonSegment(value: 0, label: Text('方位角 → 象限角')),
-                    ButtonSegment(value: 1, label: Text('象限角 → 方位角')),
+                    ButtonSegment(value: 0, label: LocalText('方位角 → 象限角')),
+                    ButtonSegment(value: 1, label: LocalText('象限角 → 方位角')),
                   ],
                   selected: {_mode},
                   onSelectionChanged: (v) => setState(() => _mode = v.first),
@@ -154,7 +155,7 @@ class _QuadrantPageState extends State<QuadrantPage> {
                   title: _mode == 0 ? '输入方位角' : '输入象限角',
                   trailing: TextButton(
                     onPressed: _loadTextbook,
-                    child: const Text('教材算例'),
+                    child: const LocalText('教材算例'),
                   ),
                   fields: [
                     if (_mode == 0)
@@ -284,7 +285,7 @@ class _QuadrantPageState extends State<QuadrantPage> {
                 const PlotLine(
                   from: PlotPoint(x: 0, y: 0, label: ''),
                   to: PlotPoint(x: 100, y: 0, label: ''),
-                  color: Color(0xFFD32F2F),
+                  color: Color(0xFFFF3B30),
                   label: '北 N',
                 ),
                 PlotLine(

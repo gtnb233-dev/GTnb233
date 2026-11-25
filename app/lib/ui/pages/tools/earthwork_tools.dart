@@ -4,6 +4,7 @@ import 'package:survey_core/survey_core.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../l10n/survey_strings.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -399,7 +400,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
           caption: '每行一个点：点名, X, Y（点名可省略）；无需重复首点闭合',
           trailing: TextButton(
             onPressed: _loadRectSample,
-            child: const Text('矩形示例'),
+            child: const LocalText('矩形示例'),
           ),
           fields: [
             TableInputSheet(
@@ -830,8 +831,8 @@ class _EarthworkPageState extends State<EarthworkPage>
             Expanded(
               child: SegmentedButton<int>(
                 segments: const [
-                  ButtonSegment(value: 0, label: Text('平均断面法')),
-                  ButtonSegment(value: 1, label: Text('方格网法')),
+                  ButtonSegment(value: 0, label: LocalText('平均断面法')),
+                  ButtonSegment(value: 1, label: LocalText('方格网法')),
                 ],
                 selected: {_mode},
                 onSelectionChanged: (v) => setState(() {

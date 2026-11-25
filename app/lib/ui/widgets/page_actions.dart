@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../export/export_service.dart';
+import '../../l10n/survey_strings.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 import 'overlays.dart';
 
 /// 计算页顶部工具条：草稿保存状态 + 量级选择 (m/cm/mm) + 角度格式切换 + 导出 + 清空草稿。
@@ -116,7 +118,7 @@ class _PageActionsState extends State<PageActions> {
         const SizedBox(width: 5),
         Flexible(
           child: Text(
-            _savedLabel(savedAt),
+            context.tr(_savedLabel(savedAt)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -164,35 +166,30 @@ class _PageActionsState extends State<PageActions> {
                 ),
               ),
           ],
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: settings.lengthUnit == LengthUnit.meter
-                  ? scheme.surfaceContainerHighest.withValues(alpha: 0.75)
-                  : scheme.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(Radii.pill),
-              border: Border.all(
-                color: settings.lengthUnit == LengthUnit.meter
-                    ? scheme.outlineVariant.withValues(alpha: 0.45)
-                    : scheme.primary.withValues(alpha: 0.45),
-              ),
-            ),
+          child: LiquidGlassSurface(
+            borderRadius: BorderRadius.circular(Radii.field),
+            elevated: false,
+            interactiveHighlight: settings.lengthUnit != LengthUnit.meter,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.straighten,
-                  size: 13,
+                  size: 14,
                   color: settings.lengthUnit == LengthUnit.meter
                       ? scheme.onSurfaceVariant
                       : scheme.primary,
                 ),
-                const SizedBox(width: 3),
+                const SizedBox(width: 4),
                 Text(
                   settings.lengthUnit.symbol,
                   style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: kSurveyMono,
+                    fontFamilyFallback: const ['Noto Sans SC'],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                     color: settings.lengthUnit == LengthUnit.meter
                         ? scheme.onSurface
                         : scheme.primary,
@@ -213,7 +210,7 @@ class _PageActionsState extends State<PageActions> {
         SurveyTooltip(
           message: '点击切换角度输入格式（度分秒 / 十进制度）',
           child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.pill),
+            borderRadius: BorderRadius.circular(Radii.field),
             onTap: () async {
               final next = settings.angleMode == AngleInputMode.dmsCompact
                   ? AngleInputMode.decimalDegrees
@@ -230,29 +227,24 @@ class _PageActionsState extends State<PageActions> {
                   : '十进制度';
               SurveyToast.info(context, '角度格式已切换为 $label');
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(Radii.pill),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.45),
-                ),
-              ),
+            child: LiquidGlassSurface(
+              borderRadius: BorderRadius.circular(Radii.field),
+              elevated: false,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.architecture,
-                    size: 12.5,
+                    size: 14,
                     color: scheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 4),
                   Text(
-                    settings.angleModeShortLabel,
+                    context.tr(settings.angleModeShortLabel),
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                       color: scheme.onSurface,
                     ),
                   ),
@@ -282,13 +274,16 @@ class _PageActionsState extends State<PageActions> {
                       size: 16,
                     ),
                     const SizedBox(width: 8),
-                    Text(f.label),
+                    Text(context.tr(f.label)),
                   ],
                 ),
               ),
           ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: LiquidGlassSurface(
+            borderRadius: BorderRadius.circular(Radii.field),
+            elevated: false,
+            interactiveHighlight: true,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -299,13 +294,13 @@ class _PageActionsState extends State<PageActions> {
                     child: CircularProgressIndicator(strokeWidth: 1.6),
                   )
                 else
-                  Icon(Icons.ios_share, size: 15, color: scheme.primary),
+                  Icon(Icons.ios_share, size: 14, color: scheme.primary),
                 const SizedBox(width: 4),
                 Text(
-                  '导出',
+                  context.tr('导出'),
                   style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: scheme.primary,
                   ),
                 ),
@@ -331,7 +326,7 @@ class _PageActionsState extends State<PageActions> {
                   child: TextButton.icon(
                     onPressed: open,
                     icon: const Icon(Icons.restart_alt, size: 15),
-                    label: const Text('清空'),
+                    label: Text(context.tr('清空')),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -349,7 +344,7 @@ class _PageActionsState extends State<PageActions> {
                     widget.onClear!.call();
                   },
                   icon: const Icon(Icons.restart_alt, size: 15),
-                  label: const Text('清空'),
+                  label: Text(context.tr('清空')),
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 6),

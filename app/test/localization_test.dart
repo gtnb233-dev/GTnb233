@@ -98,4 +98,44 @@ void main() {
     expect(AppLanguage.resolve(const [Locale('en', 'ZW')]), const Locale('en'));
     expect(AppLanguage.fromPreference('legacy_unknown'), AppLanguage.system);
   });
+
+  testWidgets('tool pages follow English language setting', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final settings = AppSettings();
+    await settings.load();
+    await settings.setLanguage(AppLanguage.english);
+
+    await tester.pumpWidget(
+      SurveyApp(settings: settings, drafts: DraftStore()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tools').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Traverse');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('toolbox-tool-traverse')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Traverse adjustment'), findsWidgets);
+    expect(find.text('Closed traverse'), findsOneWidget);
+    expect(find.text('Starting data'), findsOneWidget);
+    expect(find.text('Observed data'), findsOneWidget);
+    expect(find.text('Accuracy assessment'), findsOneWidget);
+    expect(find.text('Textbook example'), findsOneWidget);
+    expect(find.text('Export'), findsOneWidget);
+    expect(find.text('Clear'), findsWidgets);
+
+    expect(find.text('闭合导线'), findsNothing);
+    expect(find.text('起算数据'), findsNothing);
+    expect(find.text('观测数据'), findsNothing);
+    expect(find.text('精度评定'), findsNothing);
+    expect(find.text('教材算例'), findsNothing);
+    expect(find.text('导出'), findsNothing);
+    expect(find.text('清空'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

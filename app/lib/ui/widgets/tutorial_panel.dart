@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../content/tutorials.dart';
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'foundation.dart';
 import 'overlays.dart';
@@ -60,7 +61,7 @@ class _PageTutorialState extends State<PageTutorial> {
                   // 结果每页在 320dp / 1.3 倍字体下溢出 30~230px（23 条版式用例一起红）。
                   Expanded(
                     child: Text(
-                      '教程 · ${t.title}',
+                      context.tr('教程 · ${t.title}'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -100,7 +101,7 @@ class _PageTutorialState extends State<PageTutorial> {
                   ),
                   if (t.formulas.isNotEmpty) ...[
                     const SizedBox(height: Insets.m),
-                    _label(context, '公式'),
+                    _label(context, context.tr('公式')),
                     const SizedBox(height: 6),
                     for (final f in t.formulas)
                       Padding(
@@ -170,7 +171,7 @@ class _PageTutorialState extends State<PageTutorial> {
                   ],
                   if (t.example.isNotEmpty) ...[
                     const SizedBox(height: Insets.m),
-                    _label(context, '算例'),
+                    _label(context, context.tr('算例')),
                     const SizedBox(height: 4),
                     for (final e in t.example)
                       Padding(

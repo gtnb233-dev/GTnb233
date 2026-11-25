@@ -109,21 +109,11 @@ class HomePage extends StatelessWidget {
 
   Widget _metric(BuildContext context, ToolDef t) {
     final unit = SettingsScope.of(context).lengthUnit;
-    final b = Theme.of(context).brightness;
+    final scheme = Theme.of(context).colorScheme;
     final store =
         context.dependOnInheritedWidgetOfExactType<DraftScope>()?.notifier;
     final hasDraft = store != null && store.savedAt(t.id) != null;
-    final accent = switch (t.id) {
-      'traverse' => IosColors.orange(b),
-      'leveling4' || 'leveling' => IosColors.green(b),
-      'circular_curve' ||
-      'clothoid' ||
-      'vertical_curve' ||
-      'route_stake' =>
-        IosColors.purple(b),
-      'earthwork' => IosColors.indigo(b),
-      _ => IosColors.blue(b),
-    };
+    final accent = hasDraft ? scheme.primary : scheme.onSurfaceVariant;
     return MetricTile(
       label: t.title,
       value: context.tr(_shortValue(t.id)),
@@ -131,7 +121,6 @@ class HomePage extends StatelessWidget {
       caption: t.subtitle,
       hasDraft: hasDraft,
       accent: accent,
-      graphic: _MiniSurveyGraphic(toolId: t.id, accent: accent),
       onTap: () => openTool(context, t),
     );
   }
@@ -383,31 +372,31 @@ class _WorkbenchChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: highlighted
-            ? scheme.primary.withValues(alpha: isDark ? 0.2 : 0.12)
+            ? scheme.primary.withValues(alpha: isDark ? 0.16 : 0.08)
             : (isDark ? IosColors.darkTertiary : IosColors.lightFill),
-        borderRadius: BorderRadius.circular(Radii.chip),
+        borderRadius: BorderRadius.circular(Radii.field),
         border: Border.all(
           color: highlighted
               ? scheme.primary.withValues(alpha: 0.35)
-              : scheme.outlineVariant.withValues(alpha: 0.35),
-          width: 0.5,
+              : IosColors.separator(scheme.brightness),
+          width: 1.0,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12.5, color: fg),
-          const SizedBox(width: 4),
+          Icon(icon, size: 15, color: fg),
+          const SizedBox(width: 6),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(context.tr(label), style: TextStyle(fontSize: 10, color: fg)),
+                Text(context.tr(label), style: TextStyle(fontSize: 10.5, color: fg)),
                 Text(context.tr(value),
                     style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                       color: scheme.onSurface,
                     )),
               ],
@@ -499,119 +488,4 @@ class _RecentTool extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 常用工具卡片右上角微缩矢量简图。
-class _MiniSurveyGraphic extends StatelessWidget {
-  const _MiniSurveyGraphic({required this.toolId, required this.accent});
-
-  final String toolId;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 48,
-      height: 32,
-      child: CustomPaint(
-        painter: _MiniGraphicPainter(
-          toolId: toolId,
-          accent:
-              scheme.brightness == Brightness.dark ? accent : scheme.primary,
-          guide: scheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniGraphicPainter extends CustomPainter {
-  _MiniGraphicPainter(
-      {required this.toolId, required this.accent, required this.guide});
-
-  final String toolId;
-  final Color accent;
-  final Color guide;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = accent.withValues(alpha: 0.85)
-      ..strokeWidth = 1.6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = accent.withValues(alpha: 0.14)
-      ..style = PaintingStyle.fill;
-    final dot = Paint()..color = accent;
-    final sub = Paint()
-      ..color = guide.withValues(alpha: 0.4)
-      ..strokeWidth = 1.1
-      ..style = PaintingStyle.stroke;
-
-    switch (toolId) {
-      case 'inverse':
-        canvas.drawLine(const Offset(8, 30), const Offset(8, 8), sub);
-        canvas.drawLine(const Offset(8, 30), const Offset(42, 8), stroke);
-        canvas.drawArc(
-          Rect.fromCircle(center: const Offset(8, 30), radius: 13),
-          -1.57,
-          0.95,
-          false,
-          sub,
-        );
-        canvas.drawCircle(const Offset(8, 30), 2.5, dot);
-        canvas.drawCircle(const Offset(42, 8), 2.8, dot);
-      case 'traverse':
-        final path = Path()
-          ..moveTo(8, 28)
-          ..lineTo(18, 10)
-          ..lineTo(39, 13)
-          ..lineTo(43, 29)
-          ..lineTo(22, 31)
-          ..close();
-        canvas.drawPath(path, fill);
-        canvas.drawPath(path, stroke);
-        for (final pt in const [
-          Offset(8, 28),
-          Offset(18, 10),
-          Offset(39, 13),
-          Offset(43, 29),
-          Offset(22, 31),
-        ]) {
-          canvas.drawCircle(pt, 2.1, dot);
-        }
-      case 'circular_curve':
-        canvas.drawLine(const Offset(6, 28), const Offset(25, 6), sub);
-        canvas.drawLine(const Offset(25, 6), const Offset(44, 28), sub);
-        final arc = Path()
-          ..moveTo(10, 24)
-          ..quadraticBezierTo(25, 10, 40, 24);
-        canvas.drawPath(arc, stroke);
-        canvas.drawCircle(const Offset(25, 17), 2.2, dot);
-      case 'leveling4' || 'leveling':
-        canvas.drawLine(const Offset(10, 28), const Offset(10, 7), stroke);
-        canvas.drawLine(const Offset(40, 28), const Offset(40, 11), stroke);
-        canvas.drawLine(const Offset(10, 12), const Offset(40, 12), sub);
-        canvas.drawCircle(const Offset(10, 12), 2.1, dot);
-        canvas.drawCircle(const Offset(40, 12), 2.1, dot);
-      case 'area':
-      default:
-        final poly = Path()
-          ..moveTo(10, 27)
-          ..lineTo(14, 9)
-          ..lineTo(40, 12)
-          ..lineTo(35, 30)
-          ..close();
-        canvas.drawPath(poly, fill);
-        canvas.drawPath(poly, stroke);
-        canvas.drawCircle(const Offset(25, 19), 2.3, dot);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MiniGraphicPainter old) =>
-      old.toolId != toolId || old.accent != accent || old.guide != guide;
 }

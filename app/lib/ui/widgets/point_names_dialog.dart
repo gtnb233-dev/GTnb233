@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'overlays.dart';
 
@@ -297,7 +298,7 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
             children: [
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('取消'),
+                child: Text(context.tr('取消')),
               ),
               FilledButton(
                 onPressed: () {

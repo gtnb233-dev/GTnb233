@@ -496,10 +496,10 @@ class _NumberFieldState extends State<NumberField> {
       prefix = Padding(
         padding: const EdgeInsets.only(left: 10, right: 6),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-            color: scheme.primary.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(6),
+            color: scheme.primary.withValues(alpha: 0.11),
+            borderRadius: BorderRadius.circular(Radii.pill),
           ),
           child: Text(
             widget.prefixTag!,
@@ -507,6 +507,8 @@ class _NumberFieldState extends State<NumberField> {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: scheme.primary,
+              fontFamily: kSurveyMono,
+              fontFamilyFallback: const ['Noto Sans SC'],
             ),
           ),
         ),
@@ -532,6 +534,8 @@ class _NumberFieldState extends State<NumberField> {
       style: const TextStyle(
         fontSize: 15.5,
         fontWeight: FontWeight.w600,
+        fontFamily: kSurveyMono,
+        fontFamilyFallback: ['Noto Sans SC'],
         fontFeatures: [FontFeature.tabularFigures()],
       ),
       inputFormatters: [
@@ -586,7 +590,9 @@ class TextValueField extends StatelessWidget {
       maxLines: maxLines,
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       onChanged: onChanged,
-      decoration: InputDecoration(hintText: hint),
+      decoration: InputDecoration(
+        hintText: hint == null ? null : context.tr(hint!),
+      ),
     );
     if (label == null) return field;
     return FieldShell(label: label!, helper: helper, child: field);
@@ -1336,16 +1342,17 @@ class AngleFieldState extends State<AngleField> {
   String? _describe() {
     final v = _value;
     final parts = <String>[
-      if (widget.helper != null && widget.helper!.isNotEmpty) widget.helper!,
+      if (widget.helper != null && widget.helper!.isNotEmpty)
+        context.tr(widget.helper!),
       if (v != null)
         _decimal
             ? '= ${fmtAngle(v, secDigits: widget.secDigits)} (${fmtDmsCompact(v, secDigits: widget.secDigits)})'
             : '= ${fmtAngle(v, secDigits: widget.secDigits)}'
       else if (_decimal)
-        '按 整数.小数 填写，空格或小数点自动跳格'
+        context.tr('按 整数.小数 填写，空格或小数点自动跳格')
       else
-        '按 度/分/秒 填写，空格或小数点自动跳格',
-      if (v != null && _anyFocused) '空格或小数点跳格',
+        context.tr('按 度/分/秒 填写，空格或小数点自动跳格'),
+      if (v != null && _anyFocused) context.tr('空格或小数点跳格'),
     ];
     return parts.isEmpty ? null : parts.join(' · ');
   }
@@ -1361,10 +1368,25 @@ class AngleFieldState extends State<AngleField> {
     TextAlign textAlign = TextAlign.right,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
+    final cellFocused = focusNode.hasFocus;
     return Expanded(
       flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: AnimatedContainer(
+        duration: Motion.quick,
+        curve: Motion.spring,
+        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: cellFocused
+            ? BoxDecoration(
+                color: isDark ? IosColors.darkQuaternary : Colors.white,
+                borderRadius: BorderRadius.circular(Radii.chip),
+                border: Border.all(
+                  color: IosColors.separator(scheme.brightness),
+                  width: 1.0,
+                ),
+              )
+            : const BoxDecoration(),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -1390,7 +1412,7 @@ class AngleFieldState extends State<AngleField> {
                 ),
                 inputFormatters: inputFormatters,
                 decoration: InputDecoration(
-                  hintText: hint,
+                  hintText: context.tr(hint),
                   hintStyle: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
@@ -1406,7 +1428,7 @@ class AngleFieldState extends State<AngleField> {
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 2,
-                    vertical: 11,
+                    vertical: 9,
                   ),
                 ),
               ),
@@ -1417,7 +1439,7 @@ class AngleFieldState extends State<AngleField> {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,
-                color: scheme.onSurfaceVariant,
+                color: cellFocused ? scheme.primary : scheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -1431,25 +1453,27 @@ class AngleFieldState extends State<AngleField> {
     final isDark = scheme.brightness == Brightness.dark;
     final fillColor = Theme.of(context).inputDecorationTheme.fillColor ??
         (isDark ? IosColors.darkTertiary : IosColors.lightFill);
-    final borderColor = _formatError != null
-        ? scheme.error
-        : _anyFocused
-            ? scheme.primary
-            : scheme.outlineVariant;
-    final borderWidth = (_formatError != null || _anyFocused) ? 1.5 : 0.5;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: Motion.quick,
+          curve: Motion.ease,
           decoration: BoxDecoration(
             color:
                 widget.enabled ? fillColor : fillColor.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(Radii.field),
-            border: Border.all(color: borderColor, width: borderWidth),
+            border: Border.all(
+              color: _formatError != null
+                  ? scheme.error
+                  : _anyFocused
+                      ? scheme.primary
+                      : IosColors.separator(scheme.brightness),
+              width: (_formatError != null || _anyFocused) ? 1.5 : 1.0,
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(children: cells),
         ),
         if (_formatError != null) ...[
@@ -1470,6 +1494,12 @@ class AngleFieldState extends State<AngleField> {
     );
   }
 
+  Widget _buildFadeDivider(Color hairlineColor) => Container(
+        width: 1,
+        height: 20,
+        color: hairlineColor.withValues(alpha: 0.45),
+      );
+
   Widget _buildDmsGroupedInput(BuildContext context) {
     final hairlineColor = Theme.of(context).colorScheme.outlineVariant;
     return _buildGroupedContainer(context, [
@@ -1487,7 +1517,7 @@ class AngleFieldState extends State<AngleField> {
           ),
         ],
       ),
-      Container(width: 0.5, height: 22, color: hairlineColor),
+      _buildFadeDivider(hairlineColor),
       _buildSegmentCell(
         controller: _minCtrl,
         focusNode: _minFocus,
@@ -1502,7 +1532,7 @@ class AngleFieldState extends State<AngleField> {
           ),
         ],
       ),
-      Container(width: 0.5, height: 22, color: hairlineColor),
+      _buildFadeDivider(hairlineColor),
       _buildSegmentCell(
         controller: _secCtrl,
         focusNode: _secFocus,
@@ -1538,7 +1568,7 @@ class AngleFieldState extends State<AngleField> {
           ),
         ],
       ),
-      Container(width: 0.5, height: 22, color: hairlineColor),
+      _buildFadeDivider(hairlineColor),
       _buildSegmentCell(
         controller: _decFracCtrl,
         focusNode: _decFracFocus,
@@ -1684,7 +1714,7 @@ class InputCard extends StatelessWidget {
                     child: Text(
                       context.tr(title!),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                           ),
                     ),
                   ),

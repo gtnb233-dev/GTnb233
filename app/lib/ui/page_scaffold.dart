@@ -6,6 +6,7 @@ import '../l10n/survey_strings.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import 'widgets/glass_nav.dart';
+import 'widgets/liquid_glass.dart';
 
 /// 一级页面骨架：可滚动大标题 + 内容区。
 ///
@@ -193,136 +194,186 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         widget.sideVisual != null && MediaQuery.sizeOf(context).width >= 980;
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
     final resultsInRightPane = twoPane && widget.resultsBesideInputs;
+    final canPop = Navigator.canPop(context);
     final detail = Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            Text(
-              context.tr(widget.title),
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.25,
-              ),
-            ),
-            if (widget.subtitle != null)
-              Text(
-                context.tr(widget.subtitle!),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
-                  color: scheme.onSurfaceVariant,
+            // Unslop 克制顶栏：56px 平静顶条 + 底部 8% 细线，去除悬浮玻璃胶囊
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: IosColors.separator(scheme.brightness),
+                    width: 1.0,
+                  ),
                 ),
               ),
-          ],
-        ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(0.5),
-          child: Divider(height: 0.5, thickness: 0.5),
-        ),
-        actions: widget.actions,
-      ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: SingleChildScrollView(
-          controller: _scrollCtrl,
-          padding: EdgeInsets.fromLTRB(
-            Insets.l,
-            Insets.s,
-            Insets.l,
-            Insets.xxl + bottomReserve,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (widget.toolbar != null) ...[
-                    widget.toolbar!,
-                    const SizedBox(height: Insets.m),
-                  ],
-                  if (twoPane) ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: KeyedSubtree(
-                            key: _leftKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _stack(widget.children),
+              padding: const EdgeInsets.fromLTRB(Insets.l, 8, Insets.l, 8),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
+                  child: AnimatedBuilder(
+                    animation: _scrollCtrl,
+                    builder: (context, _) {
+                      final titleCol = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.tr(widget.title),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0,
+                              color: scheme.onSurface,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: Insets.l),
-                        Expanded(
-                          flex: 6,
-                          child: AnimatedBuilder(
-                            animation: _scrollCtrl,
-                            builder: (ctx, child) {
-                              var dy = 0.0;
-                              if (_scrollCtrl.hasClients) {
-                                final leftBox = _leftKey.currentContext
-                                    ?.findRenderObject() as RenderBox?;
-                                final rightBox = _rightKey.currentContext
-                                    ?.findRenderObject() as RenderBox?;
-                                if (leftBox != null &&
-                                    leftBox.hasSize &&
-                                    rightBox != null &&
-                                    rightBox.hasSize) {
-                                  final maxShift = math.max(
-                                    0.0,
-                                    leftBox.size.height - rightBox.size.height,
-                                  );
-                                  dy = _scrollCtrl.offset.clamp(0.0, maxShift);
-                                }
-                              }
-                              return Padding(
-                                padding: EdgeInsets.only(top: dy),
-                                child: KeyedSubtree(
-                                  key: _rightKey,
-                                  child: child!,
-                                ),
-                              );
-                            },
-                            child: resultsInRightPane
-                                ? Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: _stack([
-                                      widget.sideVisual!,
-                                      if (widget.bottomSection != null)
-                                        widget.bottomSection!,
-                                    ]),
-                                  )
-                                : widget.sideVisual!,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (!resultsInRightPane &&
-                        widget.bottomSection != null) ...[
-                      const SizedBox(height: Insets.l),
-                      widget.bottomSection!,
-                    ],
-                  ] else ...[
-                    ..._stack([
-                      ...widget.children,
-                      if (widget.sideVisual != null) widget.sideVisual!,
-                      if (widget.bottomSection != null) widget.bottomSection!,
-                    ]),
-                  ],
-                ],
+                          if (widget.subtitle != null)
+                            Text(
+                              context.tr(widget.subtitle!),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      );
+
+                      return Row(
+                        children: [
+                          if (canPop) ...[
+                            GlassIconOrb(
+                              icon: Icons.arrow_back_ios_new_rounded,
+                              tooltip: context.tr('返回'),
+                              onPressed: () => Navigator.maybePop(context),
+                            ),
+                            const SizedBox(width: Insets.s),
+                          ],
+                          Expanded(child: titleCol),
+                          if (widget.actions != null &&
+                              widget.actions!.isNotEmpty) ...[
+                            const SizedBox(width: Insets.s),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: widget.actions!,
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollCtrl,
+                padding: EdgeInsets.fromLTRB(
+                  Insets.l,
+                  Insets.s,
+                  Insets.l,
+                  Insets.xxl + bottomReserve,
+                ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.toolbar != null) ...[
+                        widget.toolbar!,
+                        const SizedBox(height: Insets.m),
+                      ],
+                      if (twoPane) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: KeyedSubtree(
+                                key: _leftKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: _stack(widget.children),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: Insets.l),
+                            Expanded(
+                              flex: 6,
+                              child: AnimatedBuilder(
+                                animation: _scrollCtrl,
+                                builder: (ctx, child) {
+                                  var dy = 0.0;
+                                  if (_scrollCtrl.hasClients) {
+                                    final leftBox = _leftKey.currentContext
+                                        ?.findRenderObject() as RenderBox?;
+                                    final rightBox = _rightKey.currentContext
+                                        ?.findRenderObject() as RenderBox?;
+                                    if (leftBox != null &&
+                                        leftBox.hasSize &&
+                                        rightBox != null &&
+                                        rightBox.hasSize) {
+                                      final maxShift = math.max(
+                                        0.0,
+                                        leftBox.size.height -
+                                            rightBox.size.height,
+                                      );
+                                      dy = _scrollCtrl.offset
+                                          .clamp(0.0, maxShift);
+                                    }
+                                  }
+                                  return Padding(
+                                    padding: EdgeInsets.only(top: dy),
+                                    child: KeyedSubtree(
+                                      key: _rightKey,
+                                      child: child!,
+                                    ),
+                                  );
+                                },
+                                child: resultsInRightPane
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: _stack([
+                                          widget.sideVisual!,
+                                          if (widget.bottomSection != null)
+                                            widget.bottomSection!,
+                                        ]),
+                                      )
+                                    : widget.sideVisual!,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!resultsInRightPane &&
+                            widget.bottomSection != null) ...[
+                          const SizedBox(height: Insets.l),
+                          widget.bottomSection!,
+                        ],
+                      ] else ...[
+                        ..._stack([
+                          ...widget.children,
+                          if (widget.sideVisual != null) widget.sideVisual!,
+                          if (widget.bottomSection != null)
+                            widget.bottomSection!,
+                        ]),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: widget.bottomBar == null
@@ -349,11 +400,28 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       return detail;
     }
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(width: 192, child: widget.desktopRail),
-          const VerticalDivider(width: 1, thickness: 1),
+          SafeArea(
+            right: false,
+            child: Container(
+              width: 192,
+              decoration: BoxDecoration(
+                color: scheme.brightness == Brightness.dark
+                    ? IosColors.darkSidebarBg
+                    : IosColors.lightFill,
+                border: Border(
+                  right: BorderSide(
+                    color: IosColors.separator(scheme.brightness),
+                    width: 1.0,
+                  ),
+                ),
+              ),
+              child: widget.desktopRail!,
+            ),
+          ),
           Expanded(child: detail),
         ],
       ),

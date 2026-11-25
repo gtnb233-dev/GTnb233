@@ -448,6 +448,32 @@ class SettingsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: Insets.m),
+              Row(
+                children: [
+                  Text(
+                    context.tr('计算核心引擎'),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: Insets.s),
+                  Expanded(
+                    child: Text(
+                      'SurveyCore · Rust FFI',
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Insets.m),
               Text(
                 context.tr(
                   '包含 {count} 条内置公式，覆盖坐标反算与放样、导线与水准平差、圆曲线与缓和曲线、竖曲线、面积与土方、精度评定与单位换算。所有计算在本地完成，不上传任何数据。计算结果用于辅助作业，正式成果请按规范复核。',

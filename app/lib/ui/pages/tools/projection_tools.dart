@@ -6,6 +6,7 @@ import 'package:survey_core/survey_core.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../l10n/survey_strings.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -942,8 +943,8 @@ class _ProjectionPageState extends State<ProjectionPage>
                 ),
               ),
               segments: const [
-                ButtonSegment(value: 0, label: Text('大地 → 空间直角')),
-                ButtonSegment(value: 1, label: Text('空间直角 → 大地')),
+                ButtonSegment(value: 0, label: LocalText('大地 → 空间直角')),
+                ButtonSegment(value: 1, label: LocalText('空间直角 → 大地')),
               ],
               selected: {_geodesyDir},
               onSelectionChanged: (v) => setState(() {
@@ -972,8 +973,8 @@ class _ProjectionPageState extends State<ProjectionPage>
           ),
         ),
         segments: const [
-          ButtonSegment(value: false, label: Text('十进制度')),
-          ButtonSegment(value: true, label: Text('度分秒分格')),
+          ButtonSegment(value: false, label: LocalText('十进制度')),
+          ButtonSegment(value: true, label: LocalText('度分秒分格')),
         ],
         selected: {_blDmsMode},
         onSelectionChanged: (v) {
@@ -1582,11 +1583,11 @@ class _ProjectionPageState extends State<ProjectionPage>
               ),
             ),
             segments: const [
-              ButtonSegment(value: 0, label: Text('高斯正算')),
-              ButtonSegment(value: 1, label: Text('高斯反算')),
-              ButtonSegment(value: 2, label: Text('四参数')),
-              ButtonSegment(value: 3, label: Text('大地↔空间直角')),
-              ButtonSegment(value: 4, label: Text('七参数')),
+              ButtonSegment(value: 0, label: LocalText('高斯正算')),
+              ButtonSegment(value: 1, label: LocalText('高斯反算')),
+              ButtonSegment(value: 2, label: LocalText('四参数')),
+              ButtonSegment(value: 3, label: LocalText('大地↔空间直角')),
+              ButtonSegment(value: 4, label: LocalText('七参数')),
             ],
             selected: {_mode},
             onSelectionChanged: (v) => setState(() {

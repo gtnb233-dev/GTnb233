@@ -6,6 +6,7 @@ import 'package:survey_core/survey_core.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../l10n/survey_strings.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -458,7 +459,7 @@ class _TraversePageState extends State<TraversePage>
       actions: [
         TextButton(
           onPressed: _loadTextbook,
-          child: const Text('教材算例'),
+          child: const LocalText('教材算例'),
         ),
       ],
       toolbar: PageActions(
@@ -472,7 +473,7 @@ class _TraversePageState extends State<TraversePage>
         extra: [
           ActionChip(
             avatar: const Icon(Icons.edit_note_rounded, size: 15),
-            label: const Text('自定义点名', style: TextStyle(fontSize: 12)),
+            label: const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
             onPressed: () => _openPointNamesDialog(
               pts.isNotEmpty ? pts.length : math.max(2, angles.length + 1),
@@ -525,7 +526,7 @@ class _TraversePageState extends State<TraversePage>
                           y: plotPts.first.y,
                           label: '',
                         ),
-                        color: const Color(0xFFD32F2F),
+                        color: const Color(0xFFFF3B30),
                         label: '北 N',
                       ),
                     for (var i = 0; i + 1 < plotPts.length; i++)
@@ -554,7 +555,7 @@ class _TraversePageState extends State<TraversePage>
                         startRad: 0,
                         sweepRad: (r.azimuthsDeg.first % 360) * math.pi / 180,
                         radiusPx: 26,
-                        color: const Color(0xFFD32F2F),
+                        color: const Color(0xFFFF3B30),
                         label: 'α₀',
                       ),
                   ],
@@ -714,8 +715,8 @@ class _TraversePageState extends State<TraversePage>
               child: SegmentedButton<bool>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: true, label: Text('闭合导线')),
-                  ButtonSegment(value: false, label: Text('附合导线')),
+                  ButtonSegment(value: true, label: LocalText('闭合导线')),
+                  ButtonSegment(value: false, label: LocalText('附合导线')),
                 ],
                 selected: {_closed},
                 onSelectionChanged: (v) => setState(() {
@@ -784,7 +785,10 @@ class _TraversePageState extends State<TraversePage>
                       (270, '270° 正西'),
                     ])
                       ChoiceChip(
-                        label: Text(lbl, style: const TextStyle(fontSize: 12)),
+                        label: Text(
+                          context.tr(lbl),
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         visualDensity: VisualDensity.compact,
                         selected: curAz != null && ((curAz - deg) % 360).abs() < 1e-4,
                         onSelected: (_) => _applyStartAzPreset(deg),
@@ -846,8 +850,8 @@ class _TraversePageState extends State<TraversePage>
                     child: SegmentedButton<bool>(
                       showSelectedIcon: false,
                       segments: const [
-                        ButtonSegment(value: true, label: Text('左角')),
-                        ButtonSegment(value: false, label: Text('右角')),
+                        ButtonSegment(value: true, label: LocalText('左角')),
+                        ButtonSegment(value: false, label: LocalText('右角')),
                       ],
                       selected: {_leftAngles},
                       onSelectionChanged: (v) => setState(() {
@@ -875,15 +879,15 @@ class _TraversePageState extends State<TraversePage>
                         segments: const [
                           ButtonSegment<AngleConvention?>(
                             value: null,
-                            label: Text('自动'),
+                            label: LocalText('自动'),
                           ),
                           ButtonSegment<AngleConvention?>(
                             value: AngleConvention.interiorSum,
-                            label: Text('内角和'),
+                            label: LocalText('内角和'),
                           ),
                           ButtonSegment<AngleConvention?>(
                             value: AngleConvention.exteriorSum,
-                            label: Text('外角和'),
+                            label: LocalText('外角和'),
                           ),
                         ],
                         selected: <AngleConvention?>{_forcedConvention},
@@ -909,7 +913,10 @@ class _TraversePageState extends State<TraversePage>
                     (60, '三级 ±60″√n'),
                   ])
                     ChoiceChip(
-                      label: Text(lbl, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        context.tr(lbl),
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       visualDensity: VisualDensity.compact,
                       selected: (_angleLimitCoef - coef).abs() < 0.1,
                       onSelected: (_) => setState(() {
@@ -933,11 +940,11 @@ class _TraversePageState extends State<TraversePage>
                       segments: const [
                         ButtonSegment(
                           value: MisclosureDistribution.byLength,
-                          label: Text('按边长'),
+                          label: LocalText('按边长'),
                         ),
                         ButtonSegment(
                           value: MisclosureDistribution.byCoordinateComponent,
-                          label: Text('按坐标分量'),
+                          label: LocalText('按坐标分量'),
                         ),
                       ],
                       selected: {_distribution},
@@ -1149,7 +1156,7 @@ class _StatChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          label,
+          context.tr(label),
           style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 1),
@@ -1437,8 +1444,8 @@ class _LevelingPageState extends State<LevelingPage>
       child: SegmentedButton<int>(
         showSelectedIcon: false,
         segments: const [
-          ButtonSegment(value: 0, label: Text('等级水准平差')),
-          ButtonSegment(value: 1, label: Text('四等双面尺记录')),
+          ButtonSegment(value: 0, label: LocalText('等级水准平差')),
+          ButtonSegment(value: 1, label: LocalText('四等双面尺记录')),
         ],
         selected: {_mode},
         onSelectionChanged: (v) => setState(() => _mode = v.first),
@@ -1508,7 +1515,7 @@ class _LevelingPageState extends State<LevelingPage>
         extra: [
           ActionChip(
             avatar: const Icon(Icons.edit_note_rounded, size: 15),
-            label: const Text('自定义点名', style: TextStyle(fontSize: 12)),
+            label: const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
             onPressed: () => _openPointNamesDialog(
               r?.adjustedDifferences.length ?? parseNumberList(_diffs.text).length,
@@ -1633,8 +1640,8 @@ class _LevelingPageState extends State<LevelingPage>
             Expanded(
               child: SegmentedButton<bool>(
                 segments: const [
-                  ButtonSegment(value: true, label: Text('闭合水准')),
-                  ButtonSegment(value: false, label: Text('附合水准')),
+                  ButtonSegment(value: true, label: LocalText('闭合水准')),
+                  ButtonSegment(value: false, label: LocalText('附合水准')),
                 ],
                 selected: {_closed},
                 onSelectionChanged: (v) => setState(() {

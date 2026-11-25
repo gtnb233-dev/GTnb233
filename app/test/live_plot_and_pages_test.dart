@@ -594,7 +594,7 @@ void main() {
       expect(plot.surveyNorthUp, isTrue);
       expect(
         plot.lines.any(
-          (l) => l.color == const Color(0xFFD32F2F) && l.label == '北 N',
+          (l) => l.color == const Color(0xFFFF3B30) && l.label == '北 N',
         ),
         isTrue,
       );
@@ -606,7 +606,7 @@ void main() {
       final plotNorth = tester.widget<LivePlot>(find.byType(LivePlot));
       expect(
         plotNorth.lines.any(
-          (l) => l.color == const Color(0xFFD32F2F) && l.label == '北 N',
+          (l) => l.color == const Color(0xFFFF3B30) && l.label == '北 N',
         ),
         isTrue,
       );
@@ -640,6 +640,18 @@ void main() {
       expect(find.text('自动'), findsOneWidget);
       expect(find.text('内角和'), findsOneWidget);
       expect(find.text('外角和'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('iOS 27 液态玻璃组件与空间画布挂件在 320x640 下正常渲染', (tester) async {
+      await _pump(
+        tester,
+        const TraversePage(),
+        size: const Size(320, 640),
+        textScale: 1.3,
+      );
+      expect(find.byType(LiquidGlassSurface), findsWidgets);
+      expect(find.byType(LivePlot), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'overlays.dart';
 
@@ -1796,7 +1797,7 @@ class _ModeTogglePill extends StatelessWidget {
                 : null,
           ),
           child: Text(
-            text,
+            context.tr(text),
             style: TextStyle(
               fontSize: 11,
               fontWeight: active ? FontWeight.w700 : FontWeight.w500,
@@ -1861,7 +1862,7 @@ class _ActionPillButton extends StatelessWidget {
             Icon(icon, size: 14, color: fg),
             const SizedBox(width: 3),
             Text(
-              label,
+              context.tr(label),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'messages.dart';
+import 'tool_messages_en.dart';
 
 enum AppLanguage {
   chinese('中文（简体）', Locale('zh', 'CN')),
@@ -74,12 +75,63 @@ class SurveyStrings {
         ? source
         : regionalMessages[languageCode]?[source] ??
             englishMessages[source] ??
-            source;
+            toolEnglishMessages[source] ??
+            _translateDynamic(source);
     if (arguments.isEmpty) return message;
     return message.replaceAllMapped(
       _argument,
       (match) => arguments[match[1]]?.toString() ?? match[0]!,
     );
+  }
+
+  String _translateDynamic(String source) {
+    if (source.startsWith('已保存 ')) {
+      return 'Saved ${source.substring(4)}';
+    }
+    if (source.startsWith('占用 ') && source.endsWith('%')) {
+      return '${source.substring(3)} used';
+    }
+    if (source.startsWith('超限 ') && source.endsWith('%')) {
+      return '${source.substring(3)} over';
+    }
+    if (source.startsWith('限差 ')) {
+      return 'Limit ${source.substring(3)}';
+    }
+    if (source.startsWith('限值 ')) {
+      return 'Limit ${source.substring(3)}';
+    }
+    if (source.startsWith('教程 · ')) {
+      final rest = source.substring(5);
+      return 'Guide · ${translate(rest)}';
+    }
+    if (source.startsWith('X(北) ') && source.contains(' · Y(东) ')) {
+      return source
+          .replaceFirst('X(北) ', 'X(N) ')
+          .replaceFirst(' · Y(东) ', ' · Y(E) ');
+    }
+    if (source.startsWith('判定：')) {
+      return source
+          .replaceFirst('判定：', 'Mode: ')
+          .replaceAll('内角和', 'Interior angles')
+          .replaceAll('外角和', 'Exterior angles')
+          .replaceAll('自动', 'Auto');
+    }
+    if (source.contains('推算，角度闭合差按角数平均改正，坐标闭合差')) {
+      final angle = source.startsWith('按左角') ? 'left angles' : 'right angles';
+      final dist = source.contains('按边长') ? 'by side length' : 'by ΔX/ΔY';
+      return 'Computed via $angle; angular misclosure distributed equally, coordinate misclosure $dist';
+    }
+    final limitDesc = RegExp(r'^按限差 (±\d+″√n) 判定测角精度等级$').firstMatch(source);
+    if (limitDesc != null) {
+      return 'Check angular misclosure against ${limitDesc.group(1)}';
+    }
+    if (source.startsWith('+ 新增')) {
+      return '+ Add ${translate(source.substring(2))}';
+    }
+    if (source.startsWith('新增')) {
+      return 'Add ${translate(source.substring(2))}';
+    }
+    return source;
   }
 
   static final _argument = RegExp(r'\{(\w+)\}');

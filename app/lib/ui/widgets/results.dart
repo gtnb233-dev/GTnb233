@@ -51,7 +51,10 @@ class _ResultTileState extends State<ResultTile> {
           ? () {
               unawaited(Clipboard.setData(ClipboardData(text: copyText)));
               unawaited(HapticFeedback.selectionClick());
-              SurveyToast.success(context, '已复制 ${widget.label}');
+              SurveyToast.success(
+                context,
+                '${context.tr('已复制')} ${context.tr(widget.label)}',
+              );
             }
           : null,
       child: AnimatedContainer(
@@ -90,7 +93,7 @@ class _ResultTileState extends State<ResultTile> {
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
                       child: Text(
-                        widget.note!,
+                        context.tr(widget.note!),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -163,7 +166,10 @@ class _ResultTileState extends State<ResultTile> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: widget.copyable
-          ? SurveyTooltip(message: '点击复制 ${widget.label}', child: ink)
+          ? SurveyTooltip(
+              message: '${context.tr('点击复制')} ${context.tr(widget.label)}',
+              child: ink,
+            )
           : ink,
     );
   }
@@ -279,7 +285,7 @@ class DataSheet extends StatelessWidget {
           ),
         ),
         Divider(
-          color: scheme.outlineVariant.withValues(alpha: 0.55),
+          color: scheme.outlineVariant.withValues(alpha: 0.22),
           height: 0.5,
           thickness: 0.5,
         ),

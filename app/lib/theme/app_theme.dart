@@ -55,12 +55,13 @@ ThemeData buildAppTheme(
       error: IosColors.red(brightness),
       surface: _darkScaffold,
       surfaceContainerLowest: _darkScaffold,
-      surfaceContainerLow: const Color(0xFF10141C),
+      surfaceContainerLow: IosColors.darkSidebarBg,
       surfaceContainer: IosColors.darkCard,
       surfaceContainerHigh: IosColors.darkTertiary,
       surfaceContainerHighest: IosColors.darkQuaternary,
-      onSurface: Colors.white,
+      onSurface: const Color(0xFFEDEDED),
       onSurfaceVariant: IosColors.darkSecondaryLabel,
+      outline: const Color(0x28EDEDED),
       outlineVariant: IosColors.darkSeparator,
     );
   } else {
@@ -114,14 +115,14 @@ ThemeData buildAppTheme(
   final text = base.textTheme;
   final titleStyle = (text.headlineSmall ?? const TextStyle()).copyWith(
     fontSize: 28,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.7,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -0.2,
     color: scheme.onSurface,
   );
-  final iosSwitchGreen = IosColors.teal(brightness);
+  final iosSwitchGreen = IosColors.green(brightness);
 
   final classic = base.copyWith(
-    // Apple HIG Inset Grouped 卡片：浅色纯白 (#FFFFFF)、深色 #1C1C1E，配 0.5px 发丝边。
+    // Unslop Graphite 阶梯哑光卡片：浅色纯白 #FFFFFF、深色 #19191B，12px 圆角 + 8% 细线描边。
     cardTheme: CardThemeData(
       color: isDark ? IosColors.darkCard : IosColors.lightCard,
       surfaceTintColor: Colors.transparent,
@@ -131,8 +132,8 @@ ThemeData buildAppTheme(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Radii.card),
         side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.45 : 0.55),
-          width: 0.5,
+          color: IosColors.separator(brightness),
+          width: 1.0,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -142,22 +143,23 @@ ThemeData buildAppTheme(
       headlineMedium: titleStyle,
       titleLarge: (text.titleLarge ?? const TextStyle()).copyWith(
         fontSize: 20,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.35,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
       ),
       titleMedium: (text.titleMedium ?? const TextStyle()).copyWith(
-        fontSize: 15.5,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.1,
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
       ),
       bodyMedium: (text.bodyMedium ?? const TextStyle()).copyWith(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         height: 1.45,
+        letterSpacing: 0,
       ),
       labelLarge: (text.labelLarge ?? const TextStyle()).copyWith(
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.1,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
       ),
     ),
     appBarTheme: AppBarTheme(
@@ -168,40 +170,40 @@ ThemeData buildAppTheme(
       centerTitle: false,
       titleTextStyle: titleStyle.copyWith(
         fontSize: 18,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
       ),
-      iconTheme: IconThemeData(color: scheme.primary, size: 22),
-      actionsIconTheme: IconThemeData(color: scheme.primary, size: 22),
+      iconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 20),
+      actionsIconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 20),
     ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
       fillColor: isDark ? IosColors.darkTertiary : IosColors.lightFill,
-      hoverColor: scheme.primary.withValues(alpha: 0.045),
+      hoverColor: scheme.primary.withValues(alpha: 0.05),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       hintStyle: TextStyle(
-        color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.58),
         fontSize: 14.5,
       ),
       labelStyle: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.field),
         borderSide: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.45),
+          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.32 : 0.42),
           width: 0.5,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.field),
         borderSide: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.45),
+          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.32 : 0.42),
           width: 0.5,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.field),
-        borderSide: BorderSide(color: scheme.primary, width: 1.6),
+        borderSide: BorderSide(color: scheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.field),
@@ -216,91 +218,92 @@ ThemeData buildAppTheme(
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 48),
+        minimumSize: const Size(0, 44),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.field),
         ),
         textStyle: text.labelLarge
-            ?.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600),
+            ?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w500),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 44),
-        foregroundColor: scheme.primary,
-        backgroundColor: isDark
-            ? IosColors.darkTertiary.withValues(alpha: 0.6)
-            : Colors.white,
+        minimumSize: const Size(0, 40),
+        foregroundColor: scheme.onSurface,
+        backgroundColor: isDark ? IosColors.darkTertiary : Colors.white,
         side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.5 : 0.65),
-          width: 0.5,
+          color: IosColors.separator(brightness),
+          width: 1.0,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.field),
         ),
         textStyle: text.labelLarge
-            ?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w600),
+            ?.copyWith(fontSize: 14, fontWeight: FontWeight.w500),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: scheme.primary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Radii.chip),
+          borderRadius: BorderRadius.circular(Radii.field),
         ),
         textStyle: text.labelLarge
-            ?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w600),
+            ?.copyWith(fontSize: 14, fontWeight: FontWeight.w500),
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
-        foregroundColor: scheme.primary,
+        foregroundColor: scheme.onSurfaceVariant,
       ),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return isDark ? const Color(0xFF29354A) : Colors.white;
+            return isDark ? IosColors.darkQuaternary : Colors.white;
           }
           return isDark ? IosColors.darkTertiary : IosColors.lightFill;
         }),
         foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return isDark ? Colors.white : scheme.primary;
+            return scheme.onSurface;
           }
           return scheme.onSurfaceVariant;
         }),
         side: WidgetStatePropertyAll(
           BorderSide(
-            color:
-                scheme.outlineVariant.withValues(alpha: isDark ? 0.45 : 0.55),
-            width: 0.5,
+            color: IosColors.separator(brightness),
+            width: 1.0,
           ),
         ),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Radii.field),
+          ),
         ),
         elevation: const WidgetStatePropertyAll(0),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
               fontFamily: 'Noto Sans SC',
               fontSize: 12.5,
-              fontWeight: FontWeight.w600),
+              fontWeight: FontWeight.w500),
         ),
       ),
     ),
     chipTheme: ChipThemeData(
       backgroundColor: isDark ? IosColors.darkTertiary : IosColors.lightFill,
-      selectedColor: scheme.primary.withValues(alpha: isDark ? 0.24 : 0.14),
+      selectedColor: scheme.primary.withValues(alpha: isDark ? 0.18 : 0.10),
       disabledColor: (isDark ? IosColors.darkTertiary : IosColors.lightFill)
           .withValues(alpha: 0.5),
       side: BorderSide(
-        color: scheme.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.45),
-        width: 0.5,
+        color: IosColors.separator(brightness),
+        width: 1.0,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.chip),
+      ),
       labelStyle: TextStyle(
         fontFamily: 'Noto Sans SC',
         fontSize: 12.5,
@@ -364,14 +367,15 @@ ThemeData buildAppTheme(
       color: scheme.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.65),
     ),
     popupMenuTheme: PopupMenuThemeData(
-      color: isDark ? IosColors.darkTertiary : Colors.white,
+      color: isDark ? IosColors.darkCard : Colors.white,
       surfaceTintColor: Colors.transparent,
-      elevation: 8,
+      elevation: isDark ? 0 : 4,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.0 : 0.08),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.field),
+        borderRadius: BorderRadius.circular(Radii.card),
         side: BorderSide(
-          color: scheme.outlineVariant.withValues(alpha: isDark ? 0.45 : 0.55),
-          width: 0.5,
+          color: IosColors.separator(brightness),
+          width: 1.0,
         ),
       ),
     ),

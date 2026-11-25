@@ -8,6 +8,7 @@ import '../../../export/export_service.dart';
 import '../../../export/leveling_handbook_xlsx.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../l10n/survey_strings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
 import '../../widgets/draft_mixin.dart';
@@ -916,8 +917,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               SegmentedButton<bool>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: false, label: Text('手簿表')),
-                  ButtonSegment(value: true, label: Text('逐站卡片')),
+                  ButtonSegment(value: false, label: LocalText('手簿表')),
+                  ButtonSegment(value: true, label: LocalText('逐站卡片')),
                 ],
                 selected: {_cardMode},
                 onSelectionChanged: (v) => setState(() {

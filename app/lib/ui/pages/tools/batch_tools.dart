@@ -8,6 +8,7 @@ import '../../../export/export_service.dart';
 import '../../../nav/tools.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../l10n/survey_strings.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -620,7 +621,7 @@ class _StakeoutRail extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => showCommandPalette(context),
               icon: const Icon(Icons.search, size: 16),
-              label: const Text('查找工具'),
+              label: const LocalText('查找工具'),
             ),
             const SizedBox(height: Insets.m),
             for (final tool in tools)

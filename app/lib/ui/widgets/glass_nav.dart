@@ -34,13 +34,13 @@ class GlassNavBar extends StatelessWidget {
   });
 
   /// 毛玻璃模糊半径（sigma）。
-  static const double defaultBlurSigma = 26;
+  static const double defaultBlurSigma = 28;
 
   /// 浅色主题下的玻璃填充不透明度。
-  static const double lightFillAlpha = 0.62;
+  static const double lightFillAlpha = 0.66;
 
   /// 深色主题下的玻璃填充不透明度。
-  static const double darkFillAlpha = 0.48;
+  static const double darkFillAlpha = 0.58;
 
   /// 底部为导航浮动条预留的高度（shell 用它给 body 让位）。
   static const double bottomReserve = 96;
@@ -58,8 +58,9 @@ class GlassNavBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final shape = BorderRadius.circular(radius);
-    final tint = scheme.surface.withValues(alpha: isDark ? 0.46 : 0.58);
-    final highlight = Colors.white.withValues(alpha: isDark ? 0.12 : 0.43);
+    final tint = isDark
+        ? IosColors.darkCard.withValues(alpha: 0.94)
+        : Colors.white.withValues(alpha: 0.94);
     return Padding(
       padding: margin,
       // 条子自己吃掉区域内的点击（空白处不穿透到下面的卡片）；
@@ -70,14 +71,15 @@ class GlassNavBar extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: shape,
-            boxShadow: [
-              BoxShadow(
-                color: scheme.shadow.withValues(alpha: isDark ? 0.42 : 0.16),
-                blurRadius: 24,
-                spreadRadius: -4,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            boxShadow: isDark
+                ? null
+                : const [
+                    BoxShadow(
+                      color: Color(0x0F000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
           ),
           child: ClipRRect(
             borderRadius: shape,
@@ -86,69 +88,30 @@ class GlassNavBar extends StatelessWidget {
               child: Container(
                 height: height,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color.alphaBlend(highlight, tint),
-                      tint,
-                      Color.alphaBlend(
-                        scheme.primary.withValues(alpha: isDark ? 0.12 : 0.07),
-                        tint,
-                      ),
-                    ],
-                    stops: const [0, 0.48, 1],
-                  ),
+                  color: tint,
                   borderRadius: shape,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.60),
+                    color: IosColors.separator(scheme.brightness),
                     width: 1,
                   ),
                 ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    IgnorePointer(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: Container(
-                            height: 1,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white.withValues(
-                                    alpha: isDark ? 0.38 : 0.86,
-                                  ),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
+                child: SlidingBottomNav(
+                  selectedIndex: index,
+                  itemCount: items.length,
+                  onSelect: onSelect,
+                  indicatorColor: scheme.secondaryContainer,
+                  liquidGlass: true,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        _Item(
+                          item: items[i],
+                          selected: i == index,
+                          onTap: () => onSelect(i),
                         ),
-                      ),
-                    ),
-                    SlidingBottomNav(
-                      selectedIndex: index,
-                      itemCount: items.length,
-                      onSelect: onSelect,
-                      indicatorColor: scheme.secondaryContainer,
-                      liquidGlass: true,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (var i = 0; i < items.length; i++)
-                            _Item(
-                              item: items[i],
-                              selected: i == index,
-                              onTap: () => onSelect(i),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

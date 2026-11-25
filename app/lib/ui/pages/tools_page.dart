@@ -174,16 +174,15 @@ class _GroupCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
+                  SizedBox(
+                    width: 24,
+                    child: Icon(
+                      group.icon,
+                      size: 18,
+                      color: scheme.onSurfaceVariant,
                     ),
-                    child: Icon(group.icon, size: 19, color: scheme.primary),
                   ),
-                  const SizedBox(width: Insets.m),
+                  const SizedBox(width: Insets.s),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,7 +191,7 @@ class _GroupCard extends StatelessWidget {
                           context.tr(group.label),
                           style: const TextStyle(
                             fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -201,7 +200,7 @@ class _GroupCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -209,8 +208,16 @@ class _GroupCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: Insets.s),
-                  Pill(label: '${tools.length}', tone: PillTone.neutral),
-                  const SizedBox(width: 2),
+                  Text(
+                    '${tools.length}',
+                    style: TextStyle(
+                      fontFamily: kSurveyMono,
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(width: Insets.xs),
                   // 展开时箭头转 90°。
                   AnimatedRotation(
                     turns: expanded ? 0.25 : 0,

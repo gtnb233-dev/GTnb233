@@ -216,7 +216,6 @@ class _WorkspaceSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final glass = settings.glassNav;
     final dark = scheme.brightness == Brightness.dark;
     final menuButton = IconButton(
       tooltip: context.tr(collapsed ? '展开侧栏' : '收起侧栏'),
@@ -226,26 +225,21 @@ class _WorkspaceSidebar extends StatelessWidget {
     );
 
     final contents = Material(
-      color: glass
-          ? scheme.surface.withValues(
-              alpha:
-                  dark ? GlassNavBar.darkFillAlpha : GlassNavBar.lightFillAlpha,
-            )
-          : (dark ? const Color(0xFF141416) : IosColors.lightGroupedBg),
-      child: SafeArea(
-        right: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ListView(
-                primary: false,
-                padding: const EdgeInsets.fromLTRB(10, 16, 10, 8),
-                children: [
-                  if (collapsed)
-                    Center(child: menuButton)
-                  else
-                    Padding(
+      color: dark ? IosColors.darkSidebarBg : IosColors.lightFill,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ListView(
+              primary: false,
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (collapsed || constraints.maxWidth < 130) {
+                      return Center(child: menuButton);
+                    }
+                    return Padding(
                       padding: const EdgeInsets.only(left: 4),
                       child: Row(
                         children: [
@@ -279,82 +273,83 @@ class _WorkspaceSidebar extends StatelessWidget {
                           menuButton,
                         ],
                       ),
-                    ),
-                  const SizedBox(height: Insets.l),
+                    );
+                  },
+                ),
+                const SizedBox(height: Insets.l),
+                _SidebarAction(
+                  collapsed: collapsed,
+                  label: '快速跳转',
+                  icon: Icons.search,
+                  shortcut: 'Ctrl+K',
+                  onPressed: () => showCommandPalette(context),
+                ),
+                const SizedBox(height: Insets.m),
+                for (var i = 0; i < kNavItems.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 2),
                   _SidebarAction(
                     collapsed: collapsed,
-                    label: '快速跳转',
-                    icon: Icons.search,
-                    shortcut: 'Ctrl+K',
-                    onPressed: () => showCommandPalette(context),
+                    label: kNavItems[i].label,
+                    icon: i == index
+                        ? kNavItems[i].activeIcon
+                        : kNavItems[i].icon,
+                    selected: i == index,
+                    onPressed: () => onSelect(i),
                   ),
-                  const Divider(height: 20, thickness: 0.5),
-                  for (var i = 0; i < kNavItems.length; i++)
-                    _SidebarAction(
-                      collapsed: collapsed,
-                      label: kNavItems[i].label,
-                      icon: i == index
-                          ? kNavItems[i].activeIcon
-                          : kNavItems[i].icon,
-                      selected: i == index,
-                      onPressed: () => onSelect(i),
+                ],
+              ],
+            ),
+          ),
+          if (!collapsed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ThemeSwitcher(settings: settings),
+                  const SizedBox(height: Insets.s),
+                  Text(
+                    '$kAppVersionLabel · ${context.tr(kAppPlatforms)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
+                  ),
                 ],
               ),
             ),
-            if (!collapsed)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _ThemeSwitcher(settings: settings),
-                    const SizedBox(height: Insets.s),
-                    Text(
-                      '$kAppVersionLabel · ${context.tr(kAppPlatforms)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
 
-    return SizedBox(
-      width: collapsed ? 64 : 232,
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          border: Border(
-            right: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.55),
-              width: 0.5,
-            ),
+    final sidebar = DecoratedBox(
+      decoration: BoxDecoration(
+        color: dark ? IosColors.darkSidebarBg : IosColors.lightFill,
+        border: Border(
+          right: BorderSide(
+            color: IosColors.separator(scheme.brightness),
+            width: 1.0,
           ),
         ),
-        child: glass
+      ),
+      child: contents,
+    );
+
+    return SafeArea(
+      right: false,
+      child: AnimatedContainer(
+        duration: Motion.quick,
+        curve: Motion.ease,
+        width: collapsed ? 64 : 240,
+        child: settings.glassNav
             ? ClipRect(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ColoredBox(color: scheme.surfaceContainerLow),
-                    BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: GlassNavBar.defaultBlurSigma,
-                        sigmaY: GlassNavBar.defaultBlurSigma,
-                      ),
-                      child: contents,
-                    ),
-                  ],
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                  child: sidebar,
                 ),
               )
-            : contents,
+            : sidebar,
       ),
     );
   }
@@ -383,18 +378,21 @@ class _SidebarAction extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final active = selected ?? false;
-    final activeBg = scheme.primary.withValues(alpha: isDark ? 0.22 : 0.12);
-    final color = active ? scheme.primary : scheme.onSurfaceVariant;
+    final activeBg = isDark ? IosColors.darkTertiary : Colors.white;
+    final color = active ? scheme.onSurface : scheme.onSurfaceVariant;
     if (collapsed) {
       return Center(
         child: IconButton(
           tooltip: context.tr(label),
           onPressed: onPressed,
-          icon: OutlineSymbol(icon, size: 20),
+          icon: OutlineSymbol(icon, size: 18),
           isSelected: selected,
           style: IconButton.styleFrom(
             foregroundColor: color,
             backgroundColor: active ? activeBg : null,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.field),
+            ),
           ),
         ),
       );
@@ -405,31 +403,70 @@ class _SidebarAction extends StatelessWidget {
       child: TextButton(
         style: TextButton.styleFrom(
           alignment: Alignment.centerLeft,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           foregroundColor: color,
           backgroundColor: active ? activeBg : null,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: shortcut == null
-                ? BorderSide.none
-                : BorderSide(
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
-                    width: 0.5,
-                  ),
+            borderRadius: BorderRadius.circular(Radii.field),
+            side: active || shortcut != null
+                ? BorderSide(
+                    color: IosColors.separator(scheme.brightness),
+                    width: 1.0,
+                  )
+                : BorderSide.none,
           ),
         ),
         onPressed: onPressed,
-        child: Row(
-          children: [
-            OutlineSymbol(icon, size: 18),
-            const SizedBox(width: Insets.s),
-            Expanded(
-              child: Text(context.tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            if (shortcut != null)
-              Text(shortcut!, style: theme.textTheme.labelSmall),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 72) {
+              return Center(child: OutlineSymbol(icon, size: 16));
+            }
+            return Row(
+              children: [
+                OutlineSymbol(icon, size: 16),
+                const SizedBox(width: Insets.s),
+                Expanded(
+                  child: Text(
+                    context.tr(label),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+                if (shortcut != null && constraints.maxWidth >= 110)
+                  Flexible(
+                    flex: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isDark ? IosColors.darkTertiary : Colors.white,
+                        borderRadius: BorderRadius.circular(Radii.chip),
+                        border: Border.all(
+                          color: IosColors.separator(scheme.brightness),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Text(
+                        shortcut!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: kSurveyMono,
+                          fontSize: 10.5,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -445,29 +482,17 @@ class _ThemeSwitcher extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isDark ? IosColors.darkTertiary : const Color(0xFFE9E9EE),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.45),
-          width: 0.5,
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          for (final mode in ThemeMode.values)
-            IconButton(
-              tooltip: context.tr(switch (mode) {
-                ThemeMode.system => '跟随系统',
-                ThemeMode.light => '浅色',
-                ThemeMode.dark => '深色',
-              }),
-              isSelected: mode == settings.themeMode,
-              onPressed: () => settings.setThemeMode(mode),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 116) {
+          final next = ThemeMode
+              .values[(settings.themeMode.index + 1) % ThemeMode.values.length];
+          return Center(
+            child: IconButton(
+              tooltip: context.tr('切换外观'),
+              onPressed: () => settings.setThemeMode(next),
               icon: Icon(
-                switch (mode) {
+                switch (settings.themeMode) {
                   ThemeMode.system => Icons.brightness_auto_outlined,
                   ThemeMode.light => Icons.light_mode_outlined,
                   ThemeMode.dark => Icons.dark_mode_outlined,
@@ -475,20 +500,58 @@ class _ThemeSwitcher extends StatelessWidget {
                 size: 16,
               ),
               style: IconButton.styleFrom(
-                minimumSize: const Size(34, 34),
-                backgroundColor: mode == settings.themeMode
-                    ? (isDark ? const Color(0xFF48484A) : Colors.white)
-                    : null,
-                foregroundColor: mode == settings.themeMode
-                    ? scheme.primary
-                    : scheme.onSurfaceVariant,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                minimumSize: const Size(32, 32),
+                padding: EdgeInsets.zero,
               ),
             ),
-        ],
-      ),
+          );
+        }
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark ? IosColors.darkTertiary : const Color(0xFFE9E9EE),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.45),
+              width: 0.5,
+            ),
+            borderRadius: BorderRadius.circular(Radii.pill),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              for (final mode in ThemeMode.values)
+                IconButton(
+                  tooltip: context.tr(switch (mode) {
+                    ThemeMode.system => '跟随系统',
+                    ThemeMode.light => '浅色',
+                    ThemeMode.dark => '深色',
+                  }),
+                  isSelected: mode == settings.themeMode,
+                  onPressed: () => settings.setThemeMode(mode),
+                  icon: Icon(
+                    switch (mode) {
+                      ThemeMode.system => Icons.brightness_auto_outlined,
+                      ThemeMode.light => Icons.light_mode_outlined,
+                      ThemeMode.dark => Icons.dark_mode_outlined,
+                    },
+                    size: 16,
+                  ),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(34, 34),
+                    backgroundColor: mode == settings.themeMode
+                        ? (isDark ? const Color(0xFF48484A) : Colors.white)
+                        : null,
+                    foregroundColor: mode == settings.themeMode
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

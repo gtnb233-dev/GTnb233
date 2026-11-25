@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/tokens.dart';
 import 'overlays.dart';
 
 /// 宽表：列数多时横向滚动，绝不撑破页面（320dp 也没问题）；
@@ -107,16 +108,16 @@ class _WideTableState extends State<WideTable> {
 
   Color? _rowBackground(ColorScheme scheme, int r) {
     if (widget.errorRows.contains(r)) {
-      return scheme.error.withValues(alpha: 0.09);
+      return IosColors.red(scheme.brightness).withValues(alpha: 0.10);
     }
     if (widget.highlightRows.contains(r)) {
-      return scheme.primary.withValues(alpha: 0.07);
+      return scheme.primary.withValues(alpha: 0.08);
     }
     if (_hoveredRow == r) {
-      return scheme.surfaceContainerHighest.withValues(alpha: 0.32);
+      return scheme.surfaceContainerHighest.withValues(alpha: 0.34);
     }
     if (r.isOdd) {
-      return scheme.surfaceContainerHighest.withValues(alpha: 0.16);
+      return scheme.surfaceContainerHighest.withValues(alpha: 0.14);
     }
     return null;
   }
@@ -157,6 +158,8 @@ class _WideTableState extends State<WideTable> {
                 ? FontWeight.w700
                 : FontWeight.w500,
             color: color,
+            fontFamily: kSurveyMono,
+            fontFamilyFallback: const ['Noto Sans SC'],
             fontFeatures: const [FontFeature.tabularFigures()],
             height: 1.25,
           ),
@@ -205,7 +208,7 @@ class _WideTableState extends State<WideTable> {
           final scrollW = total - frozenW;
           final headerBg =
               scheme.surfaceContainerHighest.withValues(alpha: 0.45);
-          final divColor = scheme.outlineVariant.withValues(alpha: 0.35);
+          final divColor = scheme.outlineVariant.withValues(alpha: 0.22);
 
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,8 +418,8 @@ class _WideTableState extends State<WideTable> {
                   ),
                 Divider(
                   height: 1,
-                  thickness: 1,
-                  color: scheme.outlineVariant.withValues(alpha: 0.35),
+                  thickness: 0.5,
+                  color: scheme.outlineVariant.withValues(alpha: 0.22),
                 ),
               ],
             ],

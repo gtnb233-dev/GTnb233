@@ -2,6 +2,7 @@ export 'export_csv.dart';
 export 'foundation.dart';
 export 'glass_nav.dart';
 export 'inputs.dart';
+export 'liquid_glass.dart';
 export 'live_plot.dart';
 export 'overlays.dart';
 export 'results.dart';

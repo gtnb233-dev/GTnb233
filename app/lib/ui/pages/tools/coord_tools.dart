@@ -1713,7 +1713,7 @@ class _IntersectionPageState extends State<IntersectionPage>
               : '基线长 AB = ${fmt(abLenDisp, digits)} ${u.symbol} · 量级：${u.label} (${u.symbol})',
           trailing: TextButton(
             onPressed: _loadTextbook,
-            child: const Text('教材算例'),
+            child: const LocalText('教材算例'),
           ),
           fields: [
             Row(

@@ -8,7 +8,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../export/export_service.dart';
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 import 'overlays.dart';
 
 /// 数据点：坐标用**数据单位**（米或十进制度都行），由 [LivePlot] 统一映射到像素。
@@ -644,12 +646,24 @@ class _LivePlotState extends State<LivePlot>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return Container(
       height: widget.height,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        color: isDark ? IosColors.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(Radii.card),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: _empty
@@ -666,7 +680,7 @@ class _LivePlotState extends State<LivePlot>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      widget.emptyHint,
+                      context.tr(widget.emptyHint),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12.5,
@@ -835,9 +849,21 @@ class _LivePlotState extends State<LivePlot>
                                   size: size,
                                   painter: _PlotPainter(
                                     range: _currentRange(),
-                                    points: widget.points,
-                                    lines: widget.lines,
-                                    polygons: widget.polygons,
+                                      points: widget.points,
+                                      lines: [
+                                        for (final l in widget.lines)
+                                          if (l.label != null)
+                                            PlotLine(
+                                              from: l.from,
+                                              to: l.to,
+                                              color: l.color,
+                                              dashed: l.dashed,
+                                              label: context.tr(l.label!),
+                                            )
+                                          else
+                                            l,
+                                      ],
+                                      polygons: widget.polygons,
                                     arcs: widget.arcs,
                                     arrows: widget.arrows,
                                     paths: widget.paths,
@@ -846,6 +872,7 @@ class _LivePlotState extends State<LivePlot>
                                     showGrid: widget.showGrid,
                                     showNorth: widget.showNorth,
                                     showScaleBar: widget.showScaleBar,
+                                    showCanvasOverlays: _exportingPng,
                                     surveyNorthUp: widget.surveyNorthUp,
                                     unit: widget.unit,
                                     fontFamily: DefaultTextStyle.of(context)
@@ -868,29 +895,30 @@ class _LivePlotState extends State<LivePlot>
                           ),
                         ),
                       ),
-                      if (hudText != null)
+                      // 1. 左上角：实时坐标读数（Unslop 安静仪器铭牌）
+                      if (hudText != null || widget.points.isNotEmpty)
                         Positioned(
-                          left: 10,
-                          top: 10,
+                          left: 8,
+                          top: 8,
                           child: IgnorePointer(
-                            child: Container(
+                            child: LiquidGlassSurface(
+                              borderRadius: BorderRadius.circular(Radii.chip),
+                              elevated: false,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: scheme.surface.withValues(alpha: 0.86),
-                                borderRadius: BorderRadius.circular(Radii.pill),
-                                border: Border.all(
-                                  color: scheme.outlineVariant
-                                      .withValues(alpha: 0.55),
-                                ),
+                                vertical: 4,
                               ),
                               child: Text(
-                                hudText,
+                                context.tr(
+                                  hudText ??
+                                      (widget.surveyNorthUp
+                                          ? 'X(北) ${widget.points.first.x.toStringAsFixed(3)} · Y(东) ${widget.points.first.y.toStringAsFixed(3)}'
+                                          : 'X ${widget.points.first.x.toStringAsFixed(3)} · Y ${widget.points.first.y.toStringAsFixed(3)}'),
+                                ),
                                 style: TextStyle(
+                                  fontFamily: kSurveyMono,
                                   fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                   color: scheme.onSurface,
                                   fontFeatures: const [
                                     FontFeature.tabularFigures(),
@@ -900,43 +928,128 @@ class _LivePlotState extends State<LivePlot>
                             ),
                           ),
                         ),
-                      if (widget.showToolbar && widget.interactiveViewport)
+                      // 2. 右上角：指北标
+                      if (widget.showNorth)
                         Positioned(
-                          right: 40,
+                          right: 8,
                           top: 8,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: scheme.surface.withValues(alpha: 0.84),
-                              borderRadius: BorderRadius.circular(Radii.pill),
-                              border: Border.all(
-                                color: scheme.outlineVariant
-                                    .withValues(alpha: 0.5),
+                          child: IgnorePointer(
+                            child: LiquidGlassSurface(
+                              width: 32,
+                              height: 32,
+                              borderRadius: BorderRadius.circular(Radii.field),
+                              elevated: false,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.navigation_rounded,
+                                    size: 12,
+                                    color: IosColors.red(scheme.brightness),
+                                  ),
+                                  Text(
+                                    'N',
+                                    style: TextStyle(
+                                      fontSize: 8.5,
+                                      height: 1.0,
+                                      fontWeight: FontWeight.w600,
+                                      color: scheme.onSurface,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: Row(
+                          ),
+                        ),
+                      // 3. 左下角：自适应整尺比例尺
+                      if (widget.showScaleBar)
+                        Positioned(
+                          left: 8,
+                          bottom: 8,
+                          child: IgnorePointer(
+                            child: Builder(
+                              builder: (context) {
+                                final scale =
+                                    math.min(size.width, size.height) /
+                                    curRange.span;
+                                final step = niceScaleLength(scale);
+                                final barW = (step * scale).clamp(24.0, 96.0);
+                                final label = step >= 1
+                                    ? '${step.toStringAsFixed(0)}${widget.unit}'
+                                    : '${step.toStringAsFixed(2)}${widget.unit}';
+                                return LiquidGlassSurface(
+                                  borderRadius:
+                                      BorderRadius.circular(Radii.chip),
+                                  elevated: false,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: barW,
+                                        height: 2.5,
+                                        decoration: BoxDecoration(
+                                          color: scheme.onSurface
+                                              .withValues(alpha: 0.78),
+                                          borderRadius:
+                                              BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        label,
+                                        style: TextStyle(
+                                          fontFamily: kSurveyMono,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: scheme.onSurface,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      // 4. 右下角：纵向缩放控制条
+                      if (widget.showToolbar && widget.interactiveViewport)
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: LiquidGlassSurface(
+                            borderRadius: BorderRadius.circular(Radii.field),
+                            elevated: false,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 4,
+                            ),
+                            child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 _PlotToolIcon(
-                                  tooltip: '放大 (Ctrl+滚轮)',
+                                  tooltip: context.tr('放大 (Ctrl+滚轮)'),
                                   icon: Icons.add,
                                   onPressed: () => _zoomBy(0.75),
                                 ),
                                 _PlotToolIcon(
-                                  tooltip: '缩小 (Ctrl+滚轮)',
+                                  tooltip: context.tr('缩小 (Ctrl+滚轮)'),
                                   icon: Icons.remove,
                                   onPressed: () => _zoomBy(1.33),
                                 ),
                                 if (_manualRange != null)
                                   _PlotToolIcon(
-                                    tooltip: '复位全图',
+                                    tooltip: context.tr('复位全图'),
                                     icon: Icons.center_focus_strong_outlined,
                                     color: scheme.primary,
                                     onPressed: _resetViewport,
                                   ),
                                 if (widget.exportTitle != null)
                                   _PlotToolIcon(
-                                    tooltip: '保存图形为 PNG',
+                                    tooltip: context.tr('保存图形为 PNG'),
                                     icon: _exportingPng
                                         ? Icons.hourglass_top_rounded
                                         : Icons.image_outlined,
@@ -1150,6 +1263,7 @@ class _PlotPainter extends CustomPainter {
     required this.showGrid,
     required this.showNorth,
     required this.showScaleBar,
+    this.showCanvasOverlays = false,
     this.surveyNorthUp = false,
     required this.unit,
     this.fontFamily,
@@ -1184,6 +1298,7 @@ class _PlotPainter extends CustomPainter {
   final bool showGrid;
   final bool showNorth;
   final bool showScaleBar;
+  final bool showCanvasOverlays;
   final bool surveyNorthUp;
   final String unit;
   final String? fontFamily;
@@ -1223,8 +1338,10 @@ class _PlotPainter extends CustomPainter {
       _paintFreeLabel(canvas, size, scale, l);
     }
     _paintPoints(canvas, size, scale);
-    if (showScaleBar) _paintScaleBar(canvas, size, scale, step);
-    if (showNorth) _paintNorth(canvas, size);
+    if (showCanvasOverlays && showScaleBar) {
+      _paintScaleBar(canvas, size, scale, step);
+    }
+    if (showCanvasOverlays && showNorth) _paintNorth(canvas, size);
     canvas.restore();
   }
 
@@ -1384,9 +1501,13 @@ class _PlotPainter extends CustomPainter {
 
   void _paintLines(Canvas canvas, Size size, double scale) {
     for (final line in lines) {
+      final lineColor = line.color ?? scheme.primary.withValues(alpha: 0.75);
+      final isNorthRay =
+          line.color?.toARGB32() == 0xFFFF3B30 ||
+          line.color?.toARGB32() == 0xFFD32F2F;
       final paint = Paint()
-        ..color = line.color ?? scheme.primary.withValues(alpha: 0.75)
-        ..strokeWidth = 1.5
+        ..color = lineColor
+        ..strokeWidth = isNorthRay ? 2.2 : 1.5
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
       final a = Offset(
@@ -1577,6 +1698,16 @@ class _PlotPainter extends CustomPainter {
         radius + 2.5,
         Paint()..color = scheme.surface.withValues(alpha: 0.85),
       );
+      if (p.draggable) {
+        canvas.drawCircle(
+          center,
+          radius + 3.2,
+          Paint()
+            ..color = color.withValues(alpha: 0.42)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
+      }
       canvas.drawCircle(center, radius, Paint()..color = color);
       if (p.emphasis || selected) {
         canvas.drawCircle(
@@ -1729,6 +1860,7 @@ class _PlotPainter extends CustomPainter {
       old.showGrid != showGrid ||
       old.showNorth != showNorth ||
       old.showScaleBar != showScaleBar ||
+      old.showCanvasOverlays != showCanvasOverlays ||
       old.surveyNorthUp != surveyNorthUp ||
       old.unit != unit ||
       old.fontFamily != fontFamily ||

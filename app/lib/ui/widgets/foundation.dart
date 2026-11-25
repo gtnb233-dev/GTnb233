@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 
 /// 卡片基调。
 enum CardTone {
@@ -59,39 +60,21 @@ class SurfaceCard extends StatelessWidget {
           : scheme.primaryContainer.withValues(alpha: 0.22),
     };
     final border = BorderSide(
-      color: scheme.outlineVariant.withValues(alpha: isLight ? 0.5 : 0.42),
-      width: 0.5,
+      color: IosColors.separator(scheme.brightness),
+      width: 1.0,
     );
     final decoration = BoxDecoration(
       color: bg,
-      gradient: innerGlow == null
-          ? null
-          : RadialGradient(
-              center: glowCenter,
-              radius: 0.72,
-              colors: [
-                Color.alphaBlend(
-                  innerGlow!.withValues(
-                    alpha: isLight
-                        ? (glowOpacity * 0.08).clamp(0.0, 0.045)
-                        : (glowOpacity * 0.14).clamp(0.0, 0.08),
-                  ),
-                  bg,
-                ),
-                bg,
-              ],
-            ),
       borderRadius: BorderRadius.circular(radius),
       border: Border.fromBorderSide(border),
-      boxShadow: isLight && tone == CardTone.raised
-          ? [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.045),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-            ]
-          : null,
+      boxShadow: [
+        if (isLight)
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: tone == CardTone.raised ? 8 : 2,
+            offset: Offset(0, tone == CardTone.raised ? 2 : 1),
+          ),
+      ],
     );
     final content = Padding(padding: padding, child: child);
     return Container(
@@ -147,8 +130,8 @@ class SectionHeader extends StatelessWidget {
                   context.tr(title),
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: scheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
                   ),
                 ),
                 if (caption != null)
@@ -214,21 +197,25 @@ class Pill extends StatelessWidget {
     };
     final fg = isDark ? base.withValues(alpha: 0.95) : base;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: base.withValues(alpha: isDark ? 0.18 : 0.12),
-        borderRadius: BorderRadius.circular(Radii.pill),
+        color: base.withValues(alpha: isDark ? 0.14 : 0.09),
+        borderRadius: BorderRadius.circular(Radii.chip),
+        border: Border.all(
+          color: base.withValues(alpha: isDark ? 0.24 : 0.18),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12.5, color: fg),
+            Icon(icon, size: 12, color: fg),
             const SizedBox(width: 4),
           ] else
             Container(
-              width: 5.5,
-              height: 5.5,
+              width: 5,
+              height: 5,
               margin: const EdgeInsets.only(right: 5),
               decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
             ),
@@ -241,9 +228,9 @@ class Pill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: fg,
-                letterSpacing: 0.1,
+                letterSpacing: 0,
               ),
             ),
           ),
@@ -290,15 +277,18 @@ class PrimaryAction extends StatelessWidget {
               Text(context.tr(label)),
             ],
           );
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: busy ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: tone ?? scheme.primary,
-          foregroundColor: scheme.onPrimary,
+    return SpringPress(
+      enabled: !busy && onPressed != null,
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: busy ? null : onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: tone ?? scheme.primary,
+            foregroundColor: scheme.onPrimary,
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }
