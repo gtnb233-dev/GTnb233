@@ -22,6 +22,16 @@ double? _num(TextEditingController c) => double.tryParse(c.text.trim());
 
 TextEditingController _ctrl(String t) => TextEditingController(text: t);
 
+double? _tryParseAngle(String text, AngleInputMode mode) {
+  final t = text.trim();
+  if (t.isEmpty) return null;
+  try {
+    return parseAngle(t, mode: mode);
+  } catch (_) {
+    return null;
+  }
+}
+
 List<double> _parseAngles(String text, AngleInputMode mode) {
   final out = <double>[];
   for (final line in text.split(RegExp(r'[\n,，;；]+'))) {
@@ -129,6 +139,7 @@ class _TraversePageState extends State<TraversePage>
                 closed: _closed,
                 leftAngles: _leftAngles,
                 distribution: _distribution,
+                angleConventionLabel: _forcedConvention?.label,
                 coordDigits: s.coordDigits,
                 secDigits: s.angleSecDigits,
               ),
@@ -154,6 +165,12 @@ class _TraversePageState extends State<TraversePage>
 
   /// 转折角按左角还是右角推算（默认左角，与 README 的默认口径一致）。
   bool _leftAngles = true;
+
+  /// 闭合导线角度条件口径：null = 自动在 (n−2)·180° 与 (n+2)·180° 间择近判定。
+  AngleConvention? _forcedConvention;
+
+  /// 角度闭合差限差系数（秒）：常见 ±24″√n（二级）、±40″√n（图根，默认）、±60″√n（三级）。
+  double _angleLimitCoef = 40;
 
   /// 坐标闭合差分配口径（默认按边长，与 1.0.1 及以前的数值完全一致）。
   MisclosureDistribution _distribution = MisclosureDistribution.byLength;
@@ -246,7 +263,9 @@ class _TraversePageState extends State<TraversePage>
     final s = SettingsScope.read(context);
     final u = s.lengthUnit;
     final sx = _num(_sx), sy = _num(_sy);
-    final azStart = _startAzKey.currentState?.value ?? 90;
+    final azStart = _startAzKey.currentState?.value ??
+        _tryParseAngle(_startAzCtrl.text, s.angleMode) ??
+        90;
     final angles = _parseAngles(_angles.text, s.angleMode);
     final dists = parseNumberList(_distances.text);
     if (sx == null || sy == null) {
@@ -291,11 +310,17 @@ class _TraversePageState extends State<TraversePage>
       start: Point2(u.toMeters(sx), u.toMeters(sy)),
       end: _closed ? null : Point2(u.toMeters(ex!), u.toMeters(ey!)),
       startAzimuthDeg: azStart,
-      endAzimuthDeg: _closed ? null : (_endAzKey.currentState?.value ?? 90),
+      endAzimuthDeg: _closed
+          ? null
+          : (_endAzKey.currentState?.value ??
+              _tryParseAngle(_endAzCtrl.text, s.angleMode) ??
+              90),
       anglesDeg: angles,
       distances: [for (final d in dists) u.toMeters(d)],
       leftAngles: _leftAngles,
       closed: _closed,
+      angleLimitCoefficient: _angleLimitCoef,
+      forcedConvention: _closed ? _forcedConvention : null,
       distribution: _distribution,
     );
     setState(() {
@@ -338,8 +363,23 @@ class _TraversePageState extends State<TraversePage>
     setState(() {
       _closed = true;
       _leftAngles = false;
+      _forcedConvention = null;
+      _angleLimitCoef = 40;
       _distribution = MisclosureDistribution.byLength;
     });
+    _calc();
+  }
+
+  void _applyStartAzPreset(double deg) {
+    if (_startAzKey.currentState != null) {
+      _startAzKey.currentState!.setDegrees(deg);
+    } else {
+      final mode = SettingsScope.read(context).angleMode;
+      _startAzCtrl.text = mode == AngleInputMode.dmsCompact
+          ? fmtDmsCompact(deg, secDigits: 1)
+          : deg.toStringAsFixed(4);
+    }
+    setState(() {});
     _calc();
   }
 
@@ -382,8 +422,8 @@ class _TraversePageState extends State<TraversePage>
     final plotPts = [
       for (final pt in pts) Point2(u.fromMeters(pt.x), u.fromMeters(pt.y)),
     ];
-    final List<PlotArrow> misclosureArrows = <PlotArrow>[];
-    if (r != null && plotPts.isNotEmpty && r.linearMisclosure > 1e-6) {
+    var plotSpan = 1.0;
+    if (plotPts.isNotEmpty) {
       double minX = plotPts.first.x, maxX = plotPts.first.x;
       double minY = plotPts.first.y, maxY = plotPts.first.y;
       for (final pt in plotPts) {
@@ -392,8 +432,12 @@ class _TraversePageState extends State<TraversePage>
         if (pt.y < minY) minY = pt.y;
         if (pt.y > maxY) maxY = pt.y;
       }
-      final span = math.max(1.0, math.max(maxX - minX, maxY - minY));
-      final arrowScale = (span * 0.14) / r.linearMisclosure;
+      plotSpan = math.max(1.0, math.max(maxX - minX, maxY - minY));
+    }
+    final northLen = plotSpan * 0.24;
+    final List<PlotArrow> misclosureArrows = <PlotArrow>[];
+    if (r != null && plotPts.isNotEmpty && r.linearMisclosure > 1e-6) {
+      final arrowScale = (plotSpan * 0.14) / r.linearMisclosure;
       final endPt = plotPts.last;
       misclosureArrows.add(
         PlotArrow(
@@ -403,7 +447,8 @@ class _TraversePageState extends State<TraversePage>
             y: endPt.y + r.fy * arrowScale,
             label: '',
           ),
-          color: scheme.error,
+          color: const Color(0xFFD97706),
+          dashed: true,
           label: 'f=${fmt(r.linearMisclosure * 1000, 1)}mm',
         ),
       );
@@ -423,6 +468,7 @@ class _TraversePageState extends State<TraversePage>
         showUnitSelector: true,
         showAngleSelector: true,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         extra: [
           ActionChip(
             avatar: const Icon(Icons.edit_note_rounded, size: 15),
@@ -435,6 +481,10 @@ class _TraversePageState extends State<TraversePage>
         ],
         onClear: () {
           clearDraft();
+          setState(() {
+            _forcedConvention = null;
+            _angleLimitCoef = 40;
+          });
           _calc();
         },
       ),
@@ -448,10 +498,11 @@ class _TraversePageState extends State<TraversePage>
               children: [
                 const SectionHeader(
                   title: '导线图形',
-                  caption: '实线为平差后导线，虚线为未改正轨迹，红箭为放大后闭合差',
+                  caption: '上北右东；起点红线指正北 N，红弧为起始方位角 α₀，实线为平差后导线，橙虚为闭合差',
                 ),
                 const SizedBox(height: Insets.s),
                 LivePlot(
+                  surveyNorthUp: true,
                   points: [
                     for (var i = 0; i < plotPts.length; i++)
                       PlotPoint(
@@ -462,6 +513,21 @@ class _TraversePageState extends State<TraversePage>
                       ),
                   ],
                   lines: [
+                    if (plotPts.isNotEmpty)
+                      PlotLine(
+                        from: PlotPoint(
+                          x: plotPts.first.x,
+                          y: plotPts.first.y,
+                          label: '',
+                        ),
+                        to: PlotPoint(
+                          x: plotPts.first.x + northLen,
+                          y: plotPts.first.y,
+                          label: '',
+                        ),
+                        color: const Color(0xFFD32F2F),
+                        label: '北 N',
+                      ),
                     for (var i = 0; i + 1 < plotPts.length; i++)
                       PlotLine(
                         from: PlotPoint(
@@ -476,6 +542,20 @@ class _TraversePageState extends State<TraversePage>
                         ),
                         label:
                             'D=${fmt(u.fromMeters(r.distances[i]), u.displayDigits(1))}',
+                      ),
+                  ],
+                  arcs: [
+                    if (plotPts.isNotEmpty &&
+                        r.azimuthsDeg.isNotEmpty &&
+                        (r.azimuthsDeg.first % 360).abs() > 1e-3)
+                      PlotArc(
+                        centerX: plotPts.first.x,
+                        centerY: plotPts.first.y,
+                        startRad: 0,
+                        sweepRad: (r.azimuthsDeg.first % 360) * math.pi / 180,
+                        radiusPx: 26,
+                        color: const Color(0xFFD32F2F),
+                        label: 'α₀',
                       ),
                   ],
                   paths: [
@@ -687,6 +767,32 @@ class _TraversePageState extends State<TraversePage>
               initialDegrees: 90,
               onChanged: (_) => _calc(),
             ),
+            () {
+              final curAz = _startAzKey.currentState?.value ??
+                  _tryParseAngle(_startAzCtrl.text, s.angleMode);
+              return FieldShell(
+                label: '起始方位角快捷选择（可选角 · 起点红线朝正北 0°）',
+                child: Wrap(
+                  spacing: Insets.xs,
+                  runSpacing: Insets.xs,
+                  children: [
+                    for (final (deg, lbl) in const <(double, String)>[
+                      (0, '0° 正北'),
+                      (45, '45° 东北'),
+                      (90, '90° 正东'),
+                      (180, '180° 正南'),
+                      (270, '270° 正西'),
+                    ])
+                      ChoiceChip(
+                        label: Text(lbl, style: const TextStyle(fontSize: 12)),
+                        visualDensity: VisualDensity.compact,
+                        selected: curAz != null && ((curAz - deg) % 360).abs() < 1e-4,
+                        onSelected: (_) => _applyStartAzPreset(deg),
+                      ),
+                  ],
+                ),
+              );
+            }(),
             if (!_closed) ...[
               Row(
                 children: [
@@ -750,6 +856,67 @@ class _TraversePageState extends State<TraversePage>
                       }),
                     ),
                   ),
+                ],
+              ),
+            ),
+            if (_closed)
+              FieldShell(
+                label: '闭合角条件（可选角）',
+                helper: switch (_forcedConvention) {
+                  null => '自动：在多边形内角和与外角和理论值之间择近判定',
+                  AngleConvention.interiorSum => '强制按多边形内角和理论值 Σβ理 = (n − 2)·180° 检核',
+                  AngleConvention.exteriorSum => '强制按多边形外角和理论值 Σβ理 = (n + 2)·180° 检核',
+                },
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SegmentedButton<AngleConvention?>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment<AngleConvention?>(
+                            value: null,
+                            label: Text('自动'),
+                          ),
+                          ButtonSegment<AngleConvention?>(
+                            value: AngleConvention.interiorSum,
+                            label: Text('内角和'),
+                          ),
+                          ButtonSegment<AngleConvention?>(
+                            value: AngleConvention.exteriorSum,
+                            label: Text('外角和'),
+                          ),
+                        ],
+                        selected: <AngleConvention?>{_forcedConvention},
+                        onSelectionChanged: (v) => setState(() {
+                          _forcedConvention = v.first;
+                          _calc();
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            FieldShell(
+              label: '角度闭合差限差',
+              helper: '按限差 ±${_angleLimitCoef.toStringAsFixed(0)}″√n 判定测角精度等级',
+              child: Wrap(
+                spacing: Insets.xs,
+                runSpacing: Insets.xs,
+                children: [
+                  for (final (coef, lbl) in const <(double, String)>[
+                    (24, '二级 ±24″√n'),
+                    (40, '图根 ±40″√n'),
+                    (60, '三级 ±60″√n'),
+                  ])
+                    ChoiceChip(
+                      label: Text(lbl, style: const TextStyle(fontSize: 12)),
+                      visualDensity: VisualDensity.compact,
+                      selected: (_angleLimitCoef - coef).abs() < 0.1,
+                      onSelected: (_) => setState(() {
+                        _angleLimitCoef = coef;
+                        _calc();
+                      }),
+                    ),
                 ],
               ),
             ),
@@ -918,7 +1085,6 @@ class _TraverseJudgement extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        const PageTutorial(id: 'precision'),
           Row(
             children: [
               Icon(
@@ -1796,6 +1962,7 @@ class _PrecisionPageState extends State<PrecisionPage>
         },
       ),
       children: [
+        const PageTutorial(id: 'precision'),
         InputCard(
           step: 1,
           icon: Icons.analytics_outlined,

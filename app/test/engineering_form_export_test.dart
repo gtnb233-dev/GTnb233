@@ -12,7 +12,9 @@ import 'package:survey_pro/export/survey_forms.dart';
 import 'package:survey_pro/export/xlsx_writer.dart';
 import 'package:survey_pro/state/settings.dart';
 import 'package:survey_pro/theme/app_theme.dart';
+import 'package:survey_pro/ui/pages/tools/coord_tools.dart';
 import 'package:survey_pro/ui/pages/tools/four_order_leveling.dart';
+import 'package:survey_pro/ui/pages/tools/projection_tools.dart';
 import 'package:survey_pro/ui/widgets/page_actions.dart';
 
 import 'support/app_scope.dart';
@@ -513,6 +515,109 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('手簿图片'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('导出修复与多表/单位一致性回归检查', () {
+    test('XlsxWriter 过滤 XML 控制字符、输出 cellStyles 并去重合并单元格', () {
+      final bytes = XlsxWriter.buildWorkbook(<XlsxSheetData>[
+        const XlsxSheetData(
+          sheetName: '控制字符',
+          colWidths: <int, double>{0: 18, 1: 18},
+          cells: <XlsxCell>[
+            XlsxCell(row: 1, col: 0, value: '含\x00非法\x0B字符'),
+            XlsxCell(row: 1, col: 1, value: '正常'),
+          ],
+          merges: <XlsxMerge>[
+            XlsxMerge(1, 0, 1, 1),
+            XlsxMerge(1, 0, 1, 1),
+          ],
+        ),
+      ]);
+      final entries = _unzipUtf8(bytes);
+      final sheetXml = entries['xl/worksheets/sheet1.xml']!;
+      final stylesXml = entries['xl/styles.xml']!;
+
+      expect(sheetXml.contains('\x00'), isFalse);
+      expect(sheetXml.contains('\x0B'), isFalse);
+      expect(sheetXml.contains('含非法字符'), isTrue);
+      expect(RegExp(r'<mergeCell\s+ref="A1:B1"').allMatches(sheetXml).length, 1);
+      expect(stylesXml.contains('<cellStyles count="1">'), isTrue);
+    });
+
+    test('SurveyForms.fromSheetTable 不会误把普通含空列数据行整行合并', () {
+      final sheet = SurveyForms.fromSheetTable(
+        const SheetTable(
+          title: '坐标反算',
+          rows: <List<String>>[
+            <String>['量', '值', '单位'],
+            <String>['距离 D', '100.000', 'm'],
+            <String>['方位角 α', '90°00′00″', ''],
+          ],
+        ),
+      );
+      final bytes = XlsxWriter.buildWorkbook(<XlsxSheetData>[sheet]);
+      final sheetXml = _unzipUtf8(bytes)['xl/worksheets/sheet1.xml']!;
+      // 数据行位于第 6 行（0-based row=5），仅允许标题/备注跨列合并，不能把数据行 A6:C6 合并。
+      expect(sheetXml.contains('ref="A6:C6"'), isFalse);
+    });
+
+    testWidgets('StakeoutPage 在 cm 单位下导出值与单位同为 cm', (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final settings = AppSettings();
+      await settings.setLengthUnit(LengthUnit.centimeter);
+
+      await tester.pumpWidget(
+        AppScope(
+          settings: settings,
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.light),
+            home: const StakeoutPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final actions = tester.widget<PageActions>(find.byType(PageActions));
+      final table = actions.buildTable!();
+      final distRow = table.rows.firstWhere((r) => r.first == '平距 D');
+      expect(distRow[2], 'cm');
+      expect(distRow[1], isNotEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ProjectionPage 四参数模式导出等宽 CSV 行与双工作表 Excel/PNG', (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      await tester.pumpWidget(
+        AppScope(
+          settings: AppSettings(),
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.light),
+            home: const ProjectionPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('四参数'));
+      await tester.pumpAndSettle();
+
+      final actions = tester.widget<PageActions>(find.byType(PageActions));
+      final table = actions.buildTable!();
+      expect(table.rows.every((r) => r.length == table.rows.first.length), isTrue);
+      final sheets = table.formSheetsBuilder!();
+      expect(sheets.length, 2);
+      expect(sheets[1].sheetName, '四参数逐点残差');
+
+      final xlsx = XlsxWriter.buildWorkbook(sheets);
+      final entries = _unzipUtf8(xlsx);
+      expect(entries.containsKey('xl/worksheets/sheet2.xml'), isTrue);
+
+      final png = await tester.runAsync(
+        () => SurveyFormImageRenderer.renderWorkbook(sheets),
+      );
+      _expectValidPng(png!);
       expect(tester.takeException(), isNull);
     });
   });

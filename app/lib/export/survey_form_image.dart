@@ -15,6 +15,7 @@ class SurveyFormImageRenderer {
 
   static const List<String> _kFontFallback = <String>[
     'Microsoft YaHei UI',
+    'Noto Sans SC',
     'PingFang SC',
     'Noto Sans CJK SC',
     'sans-serif',
@@ -50,9 +51,13 @@ class SurveyFormImageRenderer {
         ) +
         (layouts.length - 1) * _kSheetGap;
 
-    final double scale = rawHeight > _kMaxBitmapHeight
-        ? (_kMaxBitmapHeight / rawHeight).clamp(0.35, 1.0)
+    final double scaleH = rawHeight > _kMaxBitmapHeight
+        ? (_kMaxBitmapHeight / rawHeight)
         : 1.0;
+    final double scaleW = maxPageWidth > 4096.0
+        ? (4096.0 / maxPageWidth)
+        : 1.0;
+    final double scale = math.min(scaleH, scaleW).clamp(0.35, 1.0);
 
     final outW = (maxPageWidth * scale).ceil().clamp(64, 4096);
     final outH = (rawHeight * scale).ceil().clamp(64, 8192);
@@ -608,42 +613,45 @@ class SurveyFormImageRenderer {
     Rect rect,
     GeometryPlotSketch sketch,
   ) {
-    final allX = <double>[
-      for (final p in sketch.points) p.x,
-      for (final c in sketch.curvePath) c.x,
-    ];
-    final allY = <double>[
-      for (final p in sketch.points) p.y,
-      for (final c in sketch.curvePath) c.y,
-    ];
-    if (allX.isEmpty || allY.isEmpty) return;
+    double horizVal(double x, double y) => sketch.surveyNorthUp ? y : x;
+    double vertVal(double x, double y) => sketch.surveyNorthUp ? x : y;
 
-    var minX = allX.reduce(math.min);
-    var maxX = allX.reduce(math.max);
-    var minY = allY.reduce(math.min);
-    var maxY = allY.reduce(math.max);
-    final spanX = math.max(1e-6, maxX - minX);
-    final spanY = math.max(1e-6, maxY - minY);
+    final allH = <double>[
+      for (final p in sketch.points) horizVal(p.x, p.y),
+      for (final c in sketch.curvePath) horizVal(c.x, c.y),
+    ];
+    final allV = <double>[
+      for (final p in sketch.points) vertVal(p.x, p.y),
+      for (final c in sketch.curvePath) vertVal(c.x, c.y),
+    ];
+    if (allH.isEmpty || allV.isEmpty) return;
+
+    final minH = allH.reduce(math.min);
+    final maxH = allH.reduce(math.max);
+    final minV = allV.reduce(math.min);
+    final maxV = allV.reduce(math.max);
+    final spanH = math.max(1e-6, maxH - minH);
+    final spanV = math.max(1e-6, maxV - minV);
     final availW = rect.width * 0.80;
-    final availH = rect.height * 0.76;
-    final scaleX = availW / spanX;
-    final scaleY = availH / spanY;
+    final availH = rect.height * 0.74;
+    final scaleH = availW / spanH;
+    final scaleV = availH / spanV;
     final double sx;
     final double sy;
     if (sketch.uniformScale) {
-      final s = math.min(scaleX, scaleY);
+      final s = math.min(scaleH, scaleV);
       sx = s;
       sy = s;
     } else {
-      sx = scaleX;
-      sy = scaleY;
+      sx = scaleH;
+      sy = scaleV;
     }
-    final cx = (minX + maxX) / 2;
-    final cy = (minY + maxY) / 2;
+    final ch = (minH + maxH) / 2;
+    final cv = (minV + maxV) / 2;
 
     Offset toCanvas(double x, double y) => Offset(
-          rect.center.dx + (x - cx) * sx,
-          rect.center.dy - (y - cy) * sy,
+          rect.center.dx + (horizVal(x, y) - ch) * sx,
+          rect.center.dy - (vertVal(x, y) - cv) * sy,
         );
 
     final mappedPts = <Offset>[
@@ -725,6 +733,31 @@ class SurveyFormImageRenderer {
           bold: pt.emphasis,
         );
       }
+    }
+
+    if (sketch.startNorthRay && mappedPts.isNotEmpty) {
+      final startPos = mappedPts.first;
+      final rayLen = math.max(26.0, math.min(54.0, startPos.dy - (rect.top + 10.0)));
+      final rayTip = Offset(startPos.dx, startPos.dy - rayLen);
+      final northPaint = Paint()
+        ..color = const Color(0xFFD32F2F)
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(startPos, rayTip, northPaint);
+      final head = Path()
+        ..moveTo(rayTip.dx, rayTip.dy - 4.0)
+        ..lineTo(rayTip.dx - 4.0, rayTip.dy + 4.0)
+        ..lineTo(rayTip.dx + 4.0, rayTip.dy + 4.0)
+        ..close();
+      canvas.drawPath(head, Paint()..color = const Color(0xFFD32F2F));
+      _paintSmallLabel(
+        canvas,
+        '北 N',
+        Offset(rayTip.dx + 14.0, rayTip.dy + 2.0),
+        color: const Color(0xFFD32F2F),
+        bold: true,
+      );
     }
 
     if (sketch.showNorthArrow) {

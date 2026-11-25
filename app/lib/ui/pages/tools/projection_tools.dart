@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
+import '../../../export/survey_forms.dart';
+import '../../../export/xlsx_writer.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -434,23 +436,7 @@ class _ProjectionPageState extends State<ProjectionPage>
         <String>['换算方向', _helmertFromGeodetic ? '大地 → 空间直角' : '空间直角 → 大地', ''],
       ]);
     }
-    // 残差：四参数模式附四参数残差，七参数模式附七参数残差。
-    if (_mode == 2) {
-      final residual = _residualRows();
-      if (residual.isNotEmpty) {
-        rows.add(const <String>['', '', '']);
-        rows.add(const <String>['四参数逐点残差', '', '']);
-        rows.addAll(residual);
-      }
-    }
-    if (_mode == 4) {
-      final residual = _helmertResidualRows();
-      if (residual.isNotEmpty) {
-        rows.add(const <String>['', '', '']);
-        rows.add(const <String>['七参数逐点残差', '', '']);
-        rows.addAll(residual);
-      }
-    }
+    // 残差：四参数与七参数模式在 CSV/TXT 中补齐列宽，在 Excel/PNG 工程表拆为双页。
     const titles = <String>[
       '坐标转换 · 高斯正算',
       '坐标转换 · 高斯反算',
@@ -458,15 +444,84 @@ class _ProjectionPageState extends State<ProjectionPage>
       '坐标转换 · 大地↔空间直角',
       '坐标转换 · 七参数',
     ];
+    final title = titles[_mode.clamp(0, 4)];
+    final notes = <String>[
+      '高斯投影：x 含假北偏，y 含带号与假东偏；3° 带中央子午线 = 3n，6° 带 = 6n − 3。',
+      '四参数：X′ = dx + k·(X·cosθ − Y·sinθ)（平面相似变换，k 与 θ 为尺度与旋转）。',
+      '七参数：布尔莎模型，平移 m + 旋转 ″ + 尺度 ppm；残差为参数回代值与已知值之差。',
+      '坐标小数位 = ${s.coordDigits}，角度秒位 = ${s.angleSecDigits}。',
+    ];
+
+    List<List<String>> padRows(List<List<String>> src, int width) => <List<String>>[
+          for (final row in src)
+            if (row.length >= width)
+              row
+            else
+              <String>[...row, for (var k = row.length; k < width; k++) ''],
+        ];
+
+    if (_mode == 2) {
+      final residual = _residualRows();
+      if (residual.isNotEmpty) {
+        final flatRows = <List<String>>[
+          ...padRows(rows, _residualColumns.length),
+          const <String>['', '', '', ''],
+          const <String>['四参数逐点残差', '', '', ''],
+          _residualColumns,
+          ...residual,
+        ];
+        return SheetTable(
+          title: title,
+          rows: flatRows,
+          notes: notes,
+          formSheetsBuilder: () => <XlsxSheetData>[
+            SurveyForms.fromSheetTable(
+              SheetTable(title: title, rows: rows, notes: notes),
+            ),
+            SurveyForms.fromSheetTable(
+              SheetTable(
+                title: '四参数逐点残差',
+                rows: <List<String>>[_residualColumns, ...residual],
+                notes: const ['ΔX / ΔY = 参数回代值 − 已知值；残差列为平面点位残差。'],
+              ),
+            ),
+          ],
+        );
+      }
+    }
+    if (_mode == 4) {
+      final residual = _helmertResidualRows();
+      if (residual.isNotEmpty) {
+        final flatRows = <List<String>>[
+          ...padRows(rows, _helmertResidualColumns.length),
+          const <String>['', '', '', '', ''],
+          const <String>['七参数逐点残差', '', '', '', ''],
+          _helmertResidualColumns,
+          ...residual,
+        ];
+        return SheetTable(
+          title: title,
+          rows: flatRows,
+          notes: notes,
+          formSheetsBuilder: () => <XlsxSheetData>[
+            SurveyForms.fromSheetTable(
+              SheetTable(title: title, rows: rows, notes: notes),
+            ),
+            SurveyForms.fromSheetTable(
+              SheetTable(
+                title: '七参数逐点残差',
+                rows: <List<String>>[_helmertResidualColumns, ...residual],
+                notes: const ['ΔX / ΔY / ΔZ = 参数回代值 − 已知值；残差列为三维点位残差。'],
+              ),
+            ),
+          ],
+        );
+      }
+    }
     return SheetTable(
-      title: titles[_mode.clamp(0, 4)],
+      title: title,
       rows: rows,
-      notes: <String>[
-        '高斯投影：x 含假北偏，y 含带号与假东偏；3° 带中央子午线 = 3n，6° 带 = 6n − 3。',
-        '四参数：X′ = dx + k·(X·cosθ − Y·sinθ)（平面相似变换，k 与 θ 为尺度与旋转）。',
-        '七参数：布尔莎模型，平移 m + 旋转 ″ + 尺度 ppm；残差为参数回代值与已知值之差。',
-        '坐标小数位 = ${s.coordDigits}，角度秒位 = ${s.angleSecDigits}。',
-      ],
+      notes: notes,
     );
   }
 
@@ -1132,6 +1187,7 @@ class _ProjectionPageState extends State<ProjectionPage>
     required String title,
     required String exportTitle,
     required List<({String label, double x, double y, double dx, double dy, double residual})> samples,
+    bool surveyNorthUp = false,
   }) {
     if (samples.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
@@ -1193,6 +1249,7 @@ class _ProjectionPageState extends State<ProjectionPage>
           ],
           height: 230,
           exportTitle: exportTitle,
+          surveyNorthUp: surveyNorthUp,
         ),
       ],
     );
@@ -1989,6 +2046,7 @@ class _ProjectionPageState extends State<ProjectionPage>
           context: context,
           title: '残差矢量分布图',
           exportTitle: '四参数残差矢量图',
+          surveyNorthUp: true,
           samples: [
             for (var i = 0; i < _fitPoints.length; i++)
               () {

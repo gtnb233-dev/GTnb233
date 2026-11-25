@@ -90,6 +90,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
             ],
             closedPolygon: true,
             showNorthArrow: true,
+            surveyNorthUp: true,
           ),
           sketchTitle: '闭合多边形略图：',
         ),
@@ -136,6 +137,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
       );
     }
     _points.text = lines.join('\n');
+    _calc();
   }
 
   void _loadRectSample() {
@@ -236,6 +238,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LivePlot(
+          surveyNorthUp: true,
           points: plotPoints,
           polygons: [
             if (_pts.length >= 3)

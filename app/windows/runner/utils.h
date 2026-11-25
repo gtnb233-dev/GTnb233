@@ -16,4 +16,8 @@ std::string Utf8FromUtf16(const wchar_t* utf16_string);
 // encoded in UTF-8. Returns an empty std::vector<std::string> on failure.
 std::vector<std::string> GetCommandLineArguments();
 
+// Ensures a Desktop shortcut (.lnk) pointing to the current executable with its
+// embedded application icon exists (unless --no-desktop-shortcut is passed).
+void EnsureDesktopShortcut(const std::vector<std::string>& args);
+
 #endif  // RUNNER_UTILS_H_

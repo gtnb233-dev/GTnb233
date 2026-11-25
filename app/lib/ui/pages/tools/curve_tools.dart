@@ -56,6 +56,8 @@ class _CircularCurvePageState extends State<CircularCurvePage>
 
   /// 导出：曲线要素 + 主点里程。
   SheetTable _exportTable() {
+    final u = SettingsScope.read(context).lengthUnit;
+    final d = u.displayDigits(3);
     final c = _res;
     return SheetTable(
       title: '圆曲线要素',
@@ -64,17 +66,17 @@ class _CircularCurvePageState extends State<CircularCurvePage>
         <String>['转角 α', _alphaKey.currentState?.value == null
             ? ''
             : fmtAngle(_alphaKey.currentState!.value!, secDigits: 1), ''],
-        <String>['半径 R', _r.text.trim(), 'm'],
-        <String>['交点里程', _jd.text.trim(), 'm'],
-        <String>['切线长 T', c == null ? '' : fmt(c.tangent, 3), 'm'],
-        <String>['曲线长 L', c == null ? '' : fmt(c.curveLength, 3), 'm'],
-        <String>['外距 E', c == null ? '' : fmt(c.external, 3), 'm'],
-        <String>['切曲差 q', c == null ? '' : fmt(c.tangentDefect, 3), 'm'],
-        <String>['弦长 C', c == null ? '' : fmt(c.chordLength, 3), 'm'],
-        <String>['中央纵距 M', c == null ? '' : fmt(c.midOrdinate, 3), 'm'],
-        <String>['ZY 直圆点', c == null ? '' : fmt(c.zyStation, 3), 'm'],
-        <String>['QZ 曲中点', c == null ? '' : fmt(c.qzStation, 3), 'm'],
-        <String>['YZ 圆直点', c == null ? '' : fmt(c.yzStation, 3), 'm'],
+        <String>['半径 R', _r.text.trim(), u.symbol],
+        <String>['交点里程', _jd.text.trim(), u.symbol],
+        <String>['切线长 T', c == null ? '' : fmt(u.fromMeters(c.tangent), d), u.symbol],
+        <String>['曲线长 L', c == null ? '' : fmt(u.fromMeters(c.curveLength), d), u.symbol],
+        <String>['外距 E', c == null ? '' : fmt(u.fromMeters(c.external), d), u.symbol],
+        <String>['切曲差 q', c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d), u.symbol],
+        <String>['弦长 C', c == null ? '' : fmt(u.fromMeters(c.chordLength), d), u.symbol],
+        <String>['中央纵距 M', c == null ? '' : fmt(u.fromMeters(c.midOrdinate), d), u.symbol],
+        <String>['ZY 直圆点', c == null ? '' : fmt(u.fromMeters(c.zyStation), d), u.symbol],
+        <String>['QZ 曲中点', c == null ? '' : fmt(u.fromMeters(c.qzStation), d), u.symbol],
+        <String>['YZ 圆直点', c == null ? '' : fmt(u.fromMeters(c.yzStation), d), u.symbol],
       ],
       formSheetsBuilder: c != null
           ? () {
@@ -401,6 +403,7 @@ class _CircularCurvePageState extends State<CircularCurvePage>
         showUnitSelector: true,
         showAngleSelector: true,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         onClear: () {
           clearDraft();
           _calc();
@@ -528,30 +531,33 @@ class _ClothoidPageState extends State<ClothoidPage>
 
   /// 导出：缓和曲线要素 + 五个主点里程。
   SheetTable _exportTable() {
+    final u = SettingsScope.read(context).lengthUnit;
+    final d = u.displayDigits(3);
+    final dp = u.displayDigits(4);
     final c = _res;
     return SheetTable(
       title: '缓和曲线要素',
       rows: <List<String>>[
         <String>['量', '值', '单位'],
-        <String>['半径 R', _r.text.trim(), 'm'],
-        <String>['缓和曲线长 ls', _ls.text.trim(), 'm'],
-        <String>['交点里程', _jd.text.trim(), 'm'],
-        <String>['切线长 T', c == null ? '' : fmt(c.tangent, 3), 'm'],
-        <String>['曲线长 L', c == null ? '' : fmt(c.curveLength, 3), 'm'],
-        <String>['圆曲线长 Ly', c == null ? '' : fmt(c.circularLength, 3), 'm'],
-        <String>['外距 E', c == null ? '' : fmt(c.external, 3), 'm'],
-        <String>['切曲差 q', c == null ? '' : fmt(c.tangentDefect, 3), 'm'],
-        <String>['内移值 p', c == null ? '' : fmt(c.shiftP, 4), 'm'],
-        <String>['切垂距 m', c == null ? '' : fmt(c.tangentOffsetM, 4), 'm'],
+        <String>['半径 R', _r.text.trim(), u.symbol],
+        <String>['缓和曲线长 ls', _ls.text.trim(), u.symbol],
+        <String>['交点里程', _jd.text.trim(), u.symbol],
+        <String>['切线长 T', c == null ? '' : fmt(u.fromMeters(c.tangent), d), u.symbol],
+        <String>['曲线长 L', c == null ? '' : fmt(u.fromMeters(c.curveLength), d), u.symbol],
+        <String>['圆曲线长 Ly', c == null ? '' : fmt(u.fromMeters(c.circularLength), d), u.symbol],
+        <String>['外距 E', c == null ? '' : fmt(u.fromMeters(c.external), d), u.symbol],
+        <String>['切曲差 q', c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d), u.symbol],
+        <String>['内移值 p', c == null ? '' : fmt(u.fromMeters(c.shiftP), dp), u.symbol],
+        <String>['切垂距 m', c == null ? '' : fmt(u.fromMeters(c.tangentOffsetM), dp), u.symbol],
         <String>['缓和曲线角 β₀', c == null
             ? ''
             : fmtAngle(c.transitionAngleDeg, secDigits: 1), ''],
-        <String>['参数 A', c == null ? '' : fmt(c.parameter, 3), ''],
-        <String>['ZH 直缓点', c == null ? '' : fmt(c.zhStation, 3), 'm'],
-        <String>['HY 缓圆点', c == null ? '' : fmt(c.hyStation, 3), 'm'],
-        <String>['QZ 曲中点', c == null ? '' : fmt(c.qzStation, 3), 'm'],
-        <String>['YH 圆缓点', c == null ? '' : fmt(c.yhStation, 3), 'm'],
-        <String>['HZ 缓直点', c == null ? '' : fmt(c.hzStation, 3), 'm'],
+        <String>['参数 A', c == null ? '' : fmt(u.fromMeters(c.parameter), d), u.symbol],
+        <String>['ZH 直缓点', c == null ? '' : fmt(u.fromMeters(c.zhStation), d), u.symbol],
+        <String>['HY 缓圆点', c == null ? '' : fmt(u.fromMeters(c.hyStation), d), u.symbol],
+        <String>['QZ 曲中点', c == null ? '' : fmt(u.fromMeters(c.qzStation), d), u.symbol],
+        <String>['YH 圆缓点', c == null ? '' : fmt(u.fromMeters(c.yhStation), d), u.symbol],
+        <String>['HZ 缓直点', c == null ? '' : fmt(u.fromMeters(c.hzStation), d), u.symbol],
       ],
       formSheetsBuilder: c != null
           ? () {
@@ -963,6 +969,7 @@ class _ClothoidPageState extends State<ClothoidPage>
         showUnitSelector: true,
         showAngleSelector: true,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         onClear: () {
           clearDraft();
           _calc();
@@ -1074,6 +1081,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
   /// 导出：竖曲线要素 + BVC/EVC + 指定桩号设计高程。
   SheetTable _exportTable() {
     final u = SettingsScope.read(context).lengthUnit;
+    final d = u.displayDigits(3);
     final c = _res;
     final staRaw = _num(_sta);
     final staM = staRaw == null ? null : u.toMeters(staRaw);
@@ -1086,20 +1094,20 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
         <String>['量', '值', '单位'],
         <String>['前坡 i₁', _i1.text.trim(), '%'],
         <String>['后坡 i₂', _i2.text.trim(), '%'],
-        <String>['竖曲线半径 R', _r.text.trim(), 'm'],
-        <String>['变坡点里程', _vpiSta.text.trim(), 'm'],
-        <String>['变坡点高程', _vpiEle.text.trim(), 'm'],
+        <String>['竖曲线半径 R', _r.text.trim(), u.symbol],
+        <String>['变坡点里程', _vpiSta.text.trim(), u.symbol],
+        <String>['变坡点高程', _vpiEle.text.trim(), u.symbol],
         <String>['线形', c == null ? '' : (c.isCrest ? '凸形竖曲线' : '凹形竖曲线'), ''],
-        <String>['切线长 T', c == null ? '' : fmt(c.tangent, 3), 'm'],
-        <String>['曲线长 L', c == null ? '' : fmt(c.curveLength, 3), 'm'],
-        <String>['外距 E', c == null ? '' : fmt(c.external, 3), 'm'],
+        <String>['切线长 T', c == null ? '' : fmt(u.fromMeters(c.tangent), d), u.symbol],
+        <String>['曲线长 L', c == null ? '' : fmt(u.fromMeters(c.curveLength), d), u.symbol],
+        <String>['外距 E', c == null ? '' : fmt(u.fromMeters(c.external), d), u.symbol],
         <String>['坡度差 ω', c == null ? '' : fmt(c.gradeChange * 100, 3), '%'],
-        <String>['BVC 里程', c == null ? '' : fmt(c.bvcStation, 3), 'm'],
-        <String>['BVC 高程', c == null ? '' : fmt(c.bvcElevation, 3), 'm'],
-        <String>['EVC 里程', c == null ? '' : fmt(c.evcStation, 3), 'm'],
-        <String>['EVC 高程', c == null ? '' : fmt(c.evcElevation, 3), 'm'],
-        <String>['桩号', _sta.text.trim(), 'm'],
-        <String>['设计高程', queryEle == null ? '' : fmt(queryEle, 3), 'm'],
+        <String>['BVC 里程', c == null ? '' : fmt(u.fromMeters(c.bvcStation), d), u.symbol],
+        <String>['BVC 高程', c == null ? '' : fmt(u.fromMeters(c.bvcElevation), d), u.symbol],
+        <String>['EVC 里程', c == null ? '' : fmt(u.fromMeters(c.evcStation), d), u.symbol],
+        <String>['EVC 高程', c == null ? '' : fmt(u.fromMeters(c.evcElevation), d), u.symbol],
+        <String>['桩号', _sta.text.trim(), u.symbol],
+        <String>['设计高程', queryEle == null ? '' : fmt(u.fromMeters(queryEle), d), u.symbol],
       ],
       formSheetsBuilder: c != null
           ? () {

@@ -1808,6 +1808,41 @@ void main() {
       expectClose(dmsToDeg(0, -30, 0), -0.5, tol: 1e-12);
       expectClose(dmsToDeg(0, 0, -36), -0.01, tol: 1e-12);
     });
+
+    test('闭合导线支持 forcedConvention（内角和 / 外角和）与自定义限差系数', () {
+      // 4 站正方闭合导线：内角 90°×4=360°，外角 270°×4=1080°
+      final forceExtWithLeft = traverseAdjust(
+        start: const Point2(1000, 2000),
+        startAzimuthDeg: 90,
+        anglesDeg: const [270, 270, 270, 270],
+        distances: const [100, 100, 100, 100],
+        leftAngles: true,
+        closed: true,
+        forcedConvention: AngleConvention.exteriorSum,
+        angleLimitCoefficient: 24,
+      );
+      expectTrue(forceExtWithLeft != null);
+      expectEqual(forceExtWithLeft!.angleConvention, AngleConvention.exteriorSum);
+      expectClose(forceExtWithLeft.expectedAngleSum, 1080, tol: 1e-9);
+      expectClose(forceExtWithLeft.angleMisclosureSec, 0, tol: 1e-9);
+      expectClose(forceExtWithLeft.angleLimitSec, 48, tol: 1e-9); // 24*sqrt(4)
+
+      final forceIntWithRight = traverseAdjust(
+        start: const Point2(1000, 2000),
+        startAzimuthDeg: 0,
+        anglesDeg: const [90, 90, 90, 90],
+        distances: const [100, 100, 100, 100],
+        leftAngles: false,
+        closed: true,
+        forcedConvention: AngleConvention.interiorSum,
+        angleLimitCoefficient: 60,
+      );
+      expectTrue(forceIntWithRight != null);
+      expectEqual(forceIntWithRight!.angleConvention, AngleConvention.interiorSum);
+      expectClose(forceIntWithRight.expectedAngleSum, 360, tol: 1e-9);
+      expectClose(forceIntWithRight.angleMisclosureSec, 0, tol: 1e-9);
+      expectClose(forceIntWithRight.angleLimitSec, 120, tol: 1e-9); // 60*sqrt(4)
+    });
   });
 
   exit(finish());

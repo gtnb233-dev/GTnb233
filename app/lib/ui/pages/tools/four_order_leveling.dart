@@ -519,13 +519,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       '已导出标准水准$kindLabel：${res.path}',
       duration: const Duration(seconds: 4),
       actionLabel: Platform.isWindows && res.path != null ? '打开文件夹' : null,
-      onAction: () {
-        Process.start(
-          'explorer',
-          ['/select,', res.path!],
-          mode: ProcessStartMode.detached,
-        );
-      },
+      onAction: () => ExportService.openFolder(res.path!),
     );
   }
 

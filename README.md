@@ -3,28 +3,35 @@
   <h1>工程测量工具箱 · Survey Pro</h1>
   <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-windows-x64-setup.exe"><strong>下载 Windows</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.6">查看 v2.0.6 发布说明</a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-windows-x64-setup.exe"><strong>下载 Windows</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.8">查看 v2.0.8 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
 ## 下载与安装
 
-当前正式版为 **v2.0.6**。
+当前正式版为 **v2.0.8**。
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
-| **Windows x64 安装版** | Windows 10／11，当前用户安装 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-windows-x64-setup.exe) |
-| Windows x64 便携版 | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-windows-x64.zip) |
-| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-arm64-v8a.apk) |
-| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-universal.apk) |
-| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-armeabi-v7a.apk) |
-| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-x86_64.apk) |
+| **Windows x64 安装版** | Windows 10／11，当前用户安装 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-windows-x64-setup.exe) |
+| Windows x64 便携版 | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-x86_64.apk) |
 
 - **Windows** 可以运行 EXE 完成安装，或解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
-- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.0.6 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/SHA256SUMS.txt)
+- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.0.8 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/SHA256SUMS.txt)
+
+## v2.0.8 更新摘要
+
+- **实时计算与上北右东坐标图**：极坐标正算首帧即算、拖点实时联动重算、距离交会同步绘制 `P1/P2` 双解，测量平面图统一按上北（`+X`）右东（`+Y`）定向。
+- **计算与图形导出修复**：修复 `LivePlot` 导出 PNG 帧时序与透明背景问题、Windows 导出目录跳转兼容性、Excel `<cellStyles>`/控制字符与合并单元格去重，以及 `cm`/`mm` 单位下放样/曲线表格与四参数/七参数双工作表对齐。
+- **导线平差可选角与起点正北红线**：支持闭合导线手动切换 `自动 / 内角和 / 外角和`、起始方位角快捷预设及二级/图根/三级限差可选，导线图与导出略图在起点绘制朝正北红色参考线（`北 N`）。
+- **Windows 自动桌面快捷方式**：`survey_pro.exe` 启动与安装版自动创建/维护带应用图标的桌面快捷方式（可用 `--no-desktop-shortcut` 跳过）。
 
 ## 界面语言
 
@@ -109,6 +116,6 @@ Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在
 
 ## 版本与反馈
 
-- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.6)
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.8)
 - [历史版本](https://github.com/gtnb233-dev/GTnb233/releases) · [v1.2.0-beta.3](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.3)
 - [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。

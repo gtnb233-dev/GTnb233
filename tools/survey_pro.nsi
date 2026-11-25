@@ -48,6 +48,7 @@ Section "安装"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   CreateShortcut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\survey_pro.exe"
+  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\survey_pro.exe" "" "$INSTDIR\survey_pro.exe" 0
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${PRODUCT_KEY}" "Publisher" "Survey Pro contributors"
@@ -65,5 +66,6 @@ Section "Uninstall"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\${APP_NAME}.lnk"
+  Delete "$DESKTOP\${APP_NAME}.lnk"
   DeleteRegKey HKCU "${PRODUCT_KEY}"
 SectionEnd

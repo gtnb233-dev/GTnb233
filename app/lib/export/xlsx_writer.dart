@@ -50,6 +50,8 @@ class GeometryPlotSketch extends SurveyFormSketch {
     this.lines = const <({int from, int to, bool dashed, String? label})>[],
     this.closedPolygon = false,
     this.showNorthArrow = true,
+    this.surveyNorthUp = false,
+    this.startNorthRay = false,
     this.curvePath = const <({double x, double y})>[],
     this.uniformScale = true,
   });
@@ -58,6 +60,13 @@ class GeometryPlotSketch extends SurveyFormSketch {
   final List<({int from, int to, bool dashed, String? label})> lines;
   final bool closedPolygon;
   final bool showNorthArrow;
+
+  /// 是否按中国测量坐标方向（+X 向上为北，+Y 向右为东）绘制略图。
+  final bool surveyNorthUp;
+
+  /// 是否从起点绘制红色朝北指向箭头线（供导线略图明确标示正北方向）。
+  final bool startNorthRay;
+
   final List<({double x, double y})> curvePath;
   final bool uniformScale;
 }
@@ -217,10 +226,12 @@ class XlsxWriter {
   }
 
   static String _esc(String s) => s
+      .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '')
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&apos;');
 
   static bool _isNumber(String s) {
     final t = s.trim();
@@ -344,8 +355,16 @@ class XlsxWriter {
     }
     sb.write('</sheetData>');
     if (sheetData.merges.isNotEmpty) {
-      sb.write('<mergeCells count="${sheetData.merges.length}">');
+      final seenRefs = <String>{};
+      final uniqueMerges = <XlsxMerge>[];
       for (final m in sheetData.merges) {
+        final ref = '${_colName(m.c1)}${m.r1}:${_colName(m.c2)}${m.r2}';
+        if (seenRefs.add(ref)) {
+          uniqueMerges.add(m);
+        }
+      }
+      sb.write('<mergeCells count="${uniqueMerges.length}">');
+      for (final m in uniqueMerges) {
         sb.write(
           '<mergeCell ref="${_colName(m.c1)}${m.r1}:${_colName(m.c2)}${m.r2}"/>',
         );
@@ -539,6 +558,7 @@ class XlsxWriter {
       '<xf numFmtId="0" fontId="12" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
       '<xf numFmtId="0" fontId="13" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
       '</cellXfs>'
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
       '</styleSheet>';
 
   // ---------------- ZIP（STORED，无压缩） ----------------

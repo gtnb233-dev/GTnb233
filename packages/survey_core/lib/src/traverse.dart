@@ -153,10 +153,17 @@ AngleSumDecision decideAngleSum({
   double startAz = 0,
   double endAz = 0,
   double? measuredSum,
+  AngleConvention? forcedConvention,
 }) {
   if (closed) {
     final interior = (n - 2) * 180.0;
     final exterior = (n + 2) * 180.0;
+    if (forcedConvention == AngleConvention.interiorSum) {
+      return AngleSumDecision(interior, AngleConvention.interiorSum);
+    }
+    if (forcedConvention == AngleConvention.exteriorSum) {
+      return AngleSumDecision(exterior, AngleConvention.exteriorSum);
+    }
     if (leftAngles) {
       return AngleSumDecision(interior, AngleConvention.interiorSum);
     }
@@ -191,6 +198,7 @@ double expectedAngleSum({
   double startAz = 0,
   double endAz = 0,
   double? measuredSum,
+  AngleConvention? forcedConvention,
 }) =>
     decideAngleSum(
       closed: closed,
@@ -199,6 +207,7 @@ double expectedAngleSum({
       startAz: startAz,
       endAz: endAz,
       measuredSum: measuredSum,
+      forcedConvention: forcedConvention,
     ).expectedSumDeg;
 
 /// 导线平差。
@@ -213,7 +222,7 @@ double expectedAngleSum({
 /// - [leftAngles] 为 false 时按右角检核与推算：方位角递推
 ///   α前 = α后 − β右 + 180°（与左角解等价）；闭合导线的理论角和按实测角和
 ///   在 (n−2)·180° 与 (n+2)·180° 之间就近判定（顺时针导线右角即内角），
-///   判定结果见 [TraverseResult.angleConvention]。
+///   判定结果见 [TraverseResult.angleConvention]；传入 [forcedConvention] 可强制指定内角和或外角和。
 ///
 /// 角度闭合差限差采用 `angleLimitCoefficient × √n`（秒），默认 40″（图根级）。
 TraverseResult? traverseAdjust({
@@ -225,6 +234,7 @@ TraverseResult? traverseAdjust({
   required List<double> distances,
   bool leftAngles = true,
   bool closed = false,
+  AngleConvention? forcedConvention,
   double angleLimitCoefficient = 40,
   double relativeLimitDenominator = 4000,
   MisclosureDistribution distribution = MisclosureDistribution.byLength,
@@ -248,6 +258,7 @@ TraverseResult? traverseAdjust({
     startAz: startAzimuthDeg,
     endAz: actualEndAz,
     measuredSum: angleSum,
+    forcedConvention: forcedConvention,
   );
   final expected = decision.expectedSumDeg;
   // 归算到实际测量值附近，避免整圈 360° 的多解。

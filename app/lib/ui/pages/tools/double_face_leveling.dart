@@ -262,30 +262,29 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
         frontRodLabel: _frontRodLabel,
       ),
     );
-    final out = await ExportService.export(
-      table,
-      format: format,
-      fileNameHint: '三四等水准测量观测手簿',
-    );
-    if (!mounted) return;
-    if (!out.ok) {
-      SurveyToast.error(context, '导出失败：${out.error ?? ''}');
-      return;
+    try {
+      final out = await ExportService.export(
+        table,
+        format: format,
+        fileNameHint: '三四等水准测量观测手簿',
+      );
+      if (!mounted) return;
+      if (!out.ok) {
+        SurveyToast.error(context, '导出失败：${out.error ?? ''}');
+        return;
+      }
+      final kindLabel = format == ExportFormat.png ? '手簿工程图' : '手簿 Excel';
+      SurveyToast.success(
+        context,
+        '已导出标准水准$kindLabel：${out.path}',
+        duration: const Duration(seconds: 4),
+        actionLabel: Platform.isWindows && out.path != null ? '打开文件夹' : null,
+        onAction: () => ExportService.openFolder(out.path!),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      SurveyToast.error(context, '导出异常：$e');
     }
-    final kindLabel = format == ExportFormat.png ? '手簿工程图' : '手簿 Excel';
-    SurveyToast.success(
-      context,
-      '已导出标准水准$kindLabel：${out.path}',
-      duration: const Duration(seconds: 4),
-      actionLabel: Platform.isWindows && out.path != null ? '打开文件夹' : null,
-      onAction: () {
-        Process.start(
-          'explorer',
-          ['/select,', out.path!],
-          mode: ProcessStartMode.detached,
-        );
-      },
-    );
   }
 
   /// 一行的文本：原始读数取观测值，计算值取 core 的成果。

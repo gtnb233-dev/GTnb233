@@ -554,4 +554,93 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('实时计算与测量坐标系（上北右东 + 导线可选角/正北红线）', () {
+    testWidgets('PolarPage 首帧自动计算且 LivePlot 启用上北右东', (tester) async {
+      await _pump(tester, const PolarPage(), size: const Size(1280, 900));
+      expect(find.text('推算点位'), findsOneWidget);
+      final plot = tester.widget<LivePlot>(find.byType(LivePlot));
+      expect(plot.surveyNorthUp, isTrue);
+      expect(plot.points.any((p) => p.label == 'P'), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('IntersectionPage 距离交会模式显示 P1/P2 点位与上北右东', (tester) async {
+      await _pump(
+        tester,
+        const IntersectionPage(),
+        size: const Size(1280, 900),
+      );
+      await tester.tap(find.text('距离交会'));
+      await tester.pumpAndSettle();
+
+      // AB ≈ 391 m，默认 AP=100、BP=120 相离无解；填入可交会的 300 / 320 m。
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(4), '300');
+      await tester.enterText(fields.at(5), '320');
+      await tester.pumpAndSettle();
+
+      final plot = tester.widget<LivePlot>(find.byType(LivePlot));
+      expect(plot.surveyNorthUp, isTrue);
+      expect(plot.points.any((p) => p.label == 'P1'), isTrue);
+      expect(plot.points.any((p) => p.label == 'P2'), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('TraversePage 起点红线朝正北且支持可选角条件与方位角预设', (tester) async {
+      await _pump(tester, const TraversePage(), size: const Size(1280, 900));
+
+      final plot = tester.widget<LivePlot>(find.byType(LivePlot));
+      expect(plot.surveyNorthUp, isTrue);
+      expect(
+        plot.lines.any(
+          (l) => l.color == const Color(0xFFD32F2F) && l.label == '北 N',
+        ),
+        isTrue,
+      );
+
+      // 切换起始方位角预设 0° 正北后，仍保留正北红线且能正常重算。
+      await tester.ensureVisible(find.text('0° 正北'));
+      await tester.tap(find.text('0° 正北'));
+      await tester.pumpAndSettle();
+      final plotNorth = tester.widget<LivePlot>(find.byType(LivePlot));
+      expect(
+        plotNorth.lines.any(
+          (l) => l.color == const Color(0xFFD32F2F) && l.label == '北 N',
+        ),
+        isTrue,
+      );
+
+      // 闭合角条件：外角和 / 内角和切换。
+      await tester.ensureVisible(find.text('外角和'));
+      await tester.tap(find.text('外角和'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('判定：外角和'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('内角和'));
+      await tester.tap(find.text('内角和'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('判定：内角和'), findsOneWidget);
+
+      // 可选限差等级切换：二级 ±24″√n（4 站时 ±48.0″）。
+      await tester.ensureVisible(find.text('二级 ±24″√n'));
+      await tester.tap(find.text('二级 ±24″√n'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('±48.0″'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('TraversePage 在 320x640 与 1.3x 字号下无溢出', (tester) async {
+      await _pump(
+        tester,
+        const TraversePage(),
+        size: const Size(320, 640),
+        textScale: 1.3,
+      );
+      expect(find.text('自动'), findsOneWidget);
+      expect(find.text('内角和'), findsOneWidget);
+      expect(find.text('外角和'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

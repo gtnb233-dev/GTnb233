@@ -270,6 +270,7 @@ class _QuadrantPageState extends State<QuadrantPage> {
               ],
             );
             final plot = LivePlot(
+              surveyNorthUp: true,
               points: [
                 const PlotPoint(x: 0, y: 0, label: 'O'),
                 PlotPoint(
@@ -280,6 +281,12 @@ class _QuadrantPageState extends State<QuadrantPage> {
                 ),
               ],
               lines: [
+                const PlotLine(
+                  from: PlotPoint(x: 0, y: 0, label: ''),
+                  to: PlotPoint(x: 100, y: 0, label: ''),
+                  color: Color(0xFFD32F2F),
+                  label: '北 N',
+                ),
                 PlotLine(
                   from: const PlotPoint(x: 0, y: 0, label: 'O'),
                   to: PlotPoint(x: endX, y: endY, label: '方向'),

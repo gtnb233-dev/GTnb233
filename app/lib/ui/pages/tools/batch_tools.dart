@@ -239,6 +239,7 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                 ),
             ],
             showNorthArrow: true,
+            surveyNorthUp: true,
           ),
           sketchTitle: '批量放样点位略图：',
         ),
@@ -314,6 +315,7 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
         showUnitSelector: true,
         showAngleSelector: true,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         buildTable: _exportTable,
         onClear: () {
           clearDraft();
@@ -332,6 +334,7 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                 ),
                 const SizedBox(height: Insets.s),
                 LivePlot(
+                  surveyNorthUp: true,
                   points: [
                     PlotPoint(x: sx, y: sy, label: '测站', emphasis: true),
                     PlotPoint(x: bx, y: by, label: '后视'),

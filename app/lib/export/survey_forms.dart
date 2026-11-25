@@ -377,6 +377,7 @@ class SurveyForms {
     required bool closed,
     required bool leftAngles,
     required MisclosureDistribution distribution,
+    String? angleConventionLabel,
     int coordDigits = 3,
     int secDigits = 1,
     DateTime? date,
@@ -417,10 +418,13 @@ class SurveyForms {
     merge(1, 0, 1, 13);
 
     rowHeights[2] = 20;
+    final convSuffix = angleConventionLabel != null && angleConventionLabel.isNotEmpty
+        ? '（$angleConventionLabel）'
+        : '';
     add(
       2,
       0,
-      '测量类型：$kindStr · ${leftAngles ? '观测左角' : '观测右角'}    配赋方式：$distStr    日期：$dateStr',
+      '测量类型：$kindStr · ${leftAngles ? '观测左角' : '观测右角'}$convSuffix    配赋方式：$distStr    日期：$dateStr',
       style: XlsxCellStyle.metaLine,
       forceString: true,
     );
@@ -678,7 +682,7 @@ class SurveyForms {
     add(rCalcStart, 0, calcText, style: XlsxCellStyle.cellLeftTop, forceString: true);
     merge(rCalcStart, 0, rCalcEnd, 8);
 
-    const sketchHeader = '导线略图（点击导出图片可查看矢量路线图）';
+    const sketchHeader = '导线略图（起点红线朝正北 N）';
     add(rCalcStart, 9, sketchHeader, style: XlsxCellStyle.cellLeftTop, forceString: true);
     merge(rCalcStart, 9, rCalcEnd, 13);
 
@@ -752,6 +756,8 @@ class SurveyForms {
               lines: sketchLines,
               closedPolygon: closed,
               showNorthArrow: true,
+              surveyNorthUp: true,
+              startNorthRay: true,
             ),
           ),
       ],
@@ -968,6 +974,7 @@ class SurveyForms {
             points: sketchPts,
             lines: sketchLines,
             showNorthArrow: true,
+            surveyNorthUp: true,
           ),
         ),
       ],
@@ -1220,7 +1227,12 @@ class SurveyForms {
         rowHeights[cursor] = 21;
         final nonEmpty = row.where((e) => e.trim().isNotEmpty).length;
         final first = row.isNotEmpty ? row.first.trim() : '';
-        final isSectionBanner = nonEmpty == 1 && first.isNotEmpty;
+        final isSectionBanner = (row.length == 1 && first.isNotEmpty) ||
+            (nonEmpty == 1 &&
+                first.isNotEmpty &&
+                (RegExp(r'^[一二三四五六七八九十]+、').hasMatch(first) ||
+                    first.contains('逐点残差') ||
+                    first.contains('交会解')));
         final isSummary = first.startsWith('合计') ||
             first.startsWith('Σ') ||
             first == '终点' ||

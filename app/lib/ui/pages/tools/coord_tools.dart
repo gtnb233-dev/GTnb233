@@ -22,6 +22,16 @@ double? _num(TextEditingController c) {
   return double.tryParse(t);
 }
 
+double? _tryParseAngle(String text, AngleInputMode mode) {
+  final t = text.trim();
+  if (t.isEmpty) return null;
+  try {
+    return parseAngle(t, mode: mode);
+  } catch (_) {
+    return null;
+  }
+}
+
 TextEditingController _ctrl(String text) => TextEditingController(text: text);
 
 /// 坐标反算：两点坐标 → 距离与方位角。
@@ -110,6 +120,7 @@ class _InversePageState extends State<InversePage>
               ),
             ],
             showNorthArrow: true,
+            surveyNorthUp: true,
           ),
           sketchTitle: '两点坐标反算略图：',
         ),
@@ -136,12 +147,13 @@ class _InversePageState extends State<InversePage>
     super.dispose();
   }
 
-  /// 拖点回写：只改控制器文本（不重算），数值由 TextField 自己刷新。
+  /// 拖点回写：实时更新控制器文本并重算。
   void _onDrag(int index, double x, double y) {
     final xs = index == 0 ? _ax : _bx;
     final ys = index == 0 ? _ay : _by;
     xs.text = x.toStringAsFixed(3);
     ys.text = y.toStringAsFixed(3);
+    _calc();
   }
 
   void _swapPoints() {
@@ -200,6 +212,7 @@ class _InversePageState extends State<InversePage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LivePlot(
+            surveyNorthUp: true,
             points: [
               PlotPoint(
                 x: _num(_ax) ?? 0,
@@ -429,11 +442,18 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
               ),
             ],
             showNorthArrow: true,
+            surveyNorthUp: true,
           ),
           sketchTitle: '极坐标放样略图：',
         ),
       ],
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _calc());
   }
 
   @override
@@ -449,6 +469,7 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
     if (index == 0) {
       _x.text = x.toStringAsFixed(3);
       _y.text = y.toStringAsFixed(3);
+      _calc();
       return;
     }
     final sx = _num(_x) ?? 0;
@@ -460,17 +481,21 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
     _dist.text = d.toStringAsFixed(3);
     _az = az;
     _azKey.currentState?.setDegrees(az);
+    _calc();
   }
 
   void _calc({bool notify = false}) {
     if (!mounted) return;
-    final u = SettingsScope.read(context).lengthUnit;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
     final x = _num(_x), y = _num(_y), d = _num(_dist);
-    final az = _azKey.currentState?.value;
+    final az = _azKey.currentState?.value ??
+        _tryParseAngle(_azCtrl.text, s.angleMode);
     if (x == null || y == null || d == null || az == null) {
       setState(() => _p = null);
       return;
     }
+    _az = az;
     setState(
       () => _p = polarDeg(
         Point2(u.toMeters(x), u.toMeters(y)),
@@ -507,6 +532,7 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         showUnitSelector: true,
         showAngleSelector: true,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         buildTable: _exportTable,
         onClear: () {
           clearDraft();
@@ -517,6 +543,7 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LivePlot(
+            surveyNorthUp: true,
             points: [
               station,
               if (p != null) PlotPoint(x: pxDisp!, y: pyDisp!, label: 'P', emphasis: true),
@@ -686,7 +713,8 @@ class _StakeoutPageState extends State<StakeoutPage>
   /// 导出：测站/后视/目标 + 放样要素。
   SheetTable _exportTable() {
     final s = SettingsScope.read(context);
-    final d = s.coordDigits;
+    final u = s.lengthUnit;
+    final d = u.displayDigits(s.coordDigits);
     final sd = s.angleSecDigits;
     final r = _r;
     final sx = _num(_sx);
@@ -699,17 +727,17 @@ class _StakeoutPageState extends State<StakeoutPage>
       title: '放样数据计算',
       rows: [
         ['量', '值', '单位'],
-        ['测站 X', _sx.text.trim(), 'm'],
-        ['测站 Y', _sy.text.trim(), 'm'],
-        ['后视 X', _bx.text.trim(), 'm'],
-        ['后视 Y', _by.text.trim(), 'm'],
-        ['目标 X', _tx.text.trim(), 'm'],
-        ['目标 Y', _ty.text.trim(), 'm'],
+        ['测站 X', _sx.text.trim(), u.symbol],
+        ['测站 Y', _sy.text.trim(), u.symbol],
+        ['后视 X', _bx.text.trim(), u.symbol],
+        ['后视 Y', _by.text.trim(), u.symbol],
+        ['目标 X', _tx.text.trim(), u.symbol],
+        ['目标 Y', _ty.text.trim(), u.symbol],
         ['水平角 β', r == null ? '' : fmtAngle(r.horizontalAngleDeg, secDigits: sd), ''],
-        ['平距 D', r == null ? '' : r.distance.toStringAsFixed(d), 'm'],
+        ['平距 D', r == null ? '' : u.fromMeters(r.distance).toStringAsFixed(d), u.symbol],
         ['方位角 α', r == null ? '' : fmtAzimuth(r.azimuthDeg, secDigits: sd), ''],
-        ['ΔX', r == null ? '' : r.dx.toStringAsFixed(d), 'm'],
-        ['ΔY', r == null ? '' : r.dy.toStringAsFixed(d), 'm'],
+        ['ΔX', r == null ? '' : u.fromMeters(r.dx).toStringAsFixed(d), u.symbol],
+        ['ΔY', r == null ? '' : u.fromMeters(r.dy).toStringAsFixed(d), u.symbol],
       ],
       notes: const [
         'β 为自后视方向顺时针转到前视方向的水平角，范围 [0, 360)。',
@@ -734,9 +762,9 @@ class _StakeoutPageState extends State<StakeoutPage>
           base,
           sketch: GeometryPlotSketch(
             points: <({double x, double y, String label, bool emphasis})>[
-              (x: sx, y: sy, label: '测站', emphasis: false),
-              (x: bx, y: by, label: '后视', emphasis: false),
-              (x: tx, y: ty, label: '目标', emphasis: true),
+              (x: u.toMeters(sx), y: u.toMeters(sy), label: '测站', emphasis: false),
+              (x: u.toMeters(bx), y: u.toMeters(by), label: '后视', emphasis: false),
+              (x: u.toMeters(tx), y: u.toMeters(ty), label: '目标', emphasis: true),
             ],
             lines: <({int from, int to, bool dashed, String? label})>[
               (from: 0, to: 1, dashed: true, label: '后视定向'),
@@ -744,10 +772,11 @@ class _StakeoutPageState extends State<StakeoutPage>
                 from: 0,
                 to: 2,
                 dashed: false,
-                label: 'D=${r.distance.toStringAsFixed(d)}m',
+                label: 'D=${u.fromMeters(r.distance).toStringAsFixed(d)}${u.symbol}',
               ),
             ],
             showNorthArrow: true,
+            surveyNorthUp: true,
           ),
           sketchTitle: '极坐标放样几何略图：',
         ),
@@ -775,6 +804,7 @@ class _StakeoutPageState extends State<StakeoutPage>
     final ys = switch (index) { 0 => _sy, 1 => _by, _ => _ty };
     xs.text = x.toStringAsFixed(3);
     ys.text = y.toStringAsFixed(3);
+    _calc();
   }
 
   void _calc({bool notify = false}) {
@@ -833,6 +863,7 @@ class _StakeoutPageState extends State<StakeoutPage>
         showUnitSelector: true,
         showAngleSelector: true,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         buildTable: _exportTable,
         onClear: () {
           clearDraft();
@@ -843,6 +874,7 @@ class _StakeoutPageState extends State<StakeoutPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LivePlot(
+            surveyNorthUp: true,
             points: [
               PlotPoint(x: sx, y: sy, label: '测站'),
               PlotPoint(x: bx, y: by, label: '后视'),
@@ -1246,9 +1278,10 @@ class _IntersectionPageState extends State<IntersectionPage>
     }
   }
 
-  /// 图上的点：A、B 与待定点 P（P 是计算结果，只读，随量级缩放与 A/B 同图）。
+  /// 图上的点：A、B 与待定点（测角 P 或距离 P1/P2，只读，随量级缩放与 A/B 同图）。
   List<PlotPoint> _plotPoints(ForwardIntersectionTable? t, LengthUnit u) {
     final a = _a, b = _b;
+    final distRes = _dist;
     return <PlotPoint>[
       if (a != null) PlotPoint(x: a.x, y: a.y, label: 'A'),
       if (b != null) PlotPoint(x: b.x, y: b.y, label: 'B'),
@@ -1260,44 +1293,94 @@ class _IntersectionPageState extends State<IntersectionPage>
           emphasis: true,
           draggable: false,
         ),
+      if (_mode == 1 && distRes != null && distRes.ok)
+        for (var i = 0; i < distRes.solutions.length; i++)
+          PlotPoint(
+            x: u.fromMeters(distRes.solutions[i].x),
+            y: u.fromMeters(distRes.solutions[i].y),
+            label: 'P${i + 1}',
+            emphasis: _distPick == 'P${i + 1}' || (_distPick == null && i == 0),
+            draggable: false,
+          ),
     ];
   }
 
-  /// 拖点回写：只允许 A（0）、B（1）。
+  /// 拖点回写：只允许 A（0）、B（1），拖动即重算。
   void _onDrag(int index, double x, double y) {
     final xs = index == 0 ? _ax : _bx;
     final ys = index == 0 ? _ay : _by;
     xs.text = x.toStringAsFixed(3);
     ys.text = y.toStringAsFixed(3);
+    _calc();
   }
 
-  /// 图上的连线：AB 基线（虚线）、AP/BP 两条视线并标边长。
+  /// 图上的连线：AB 基线（虚线）、AP/BP 两条视线（或距离交会 APᵢ/BPᵢ）并标边长。
   List<PlotLine> _plotLines(ForwardIntersectionTable? t, LengthUnit u) {
     final a = _a, b = _b;
     if (a == null || b == null) return const <PlotLine>[];
     final pa = PlotPoint(x: a.x, y: a.y, label: 'A');
     final pb = PlotPoint(x: b.x, y: b.y, label: 'B');
     final ab = PlotLine(from: pa, to: pb, dashed: true, label: 'AB');
-    if (t == null) return <PlotLine>[ab];
-    final pp = PlotPoint(
-      x: u.fromMeters(t.xp),
-      y: u.fromMeters(t.yp),
-      label: 'P',
-      emphasis: true,
-    );
-    return <PlotLine>[
-      ab,
-      PlotLine(
-        from: pa,
-        to: pp,
-        label: 'AP ${fmt(u.fromMeters(t.distanceAp), 1)} ${u.symbol}',
-      ),
-      PlotLine(
-        from: pb,
-        to: pp,
-        label: 'BP ${fmt(u.fromMeters(t.distanceBp), 1)} ${u.symbol}',
-      ),
-    ];
+    if (t != null) {
+      final pp = PlotPoint(
+        x: u.fromMeters(t.xp),
+        y: u.fromMeters(t.yp),
+        label: 'P',
+        emphasis: true,
+      );
+      return <PlotLine>[
+        ab,
+        PlotLine(
+          from: pa,
+          to: pp,
+          label: 'AP ${fmt(u.fromMeters(t.distanceAp), 1)} ${u.symbol}',
+        ),
+        PlotLine(
+          from: pb,
+          to: pp,
+          label: 'BP ${fmt(u.fromMeters(t.distanceBp), 1)} ${u.symbol}',
+        ),
+      ];
+    }
+    final distRes = _dist;
+    if (_mode == 1 && distRes != null && distRes.ok) {
+      final apVal = _num(_ap);
+      final bpVal = _num(_bp);
+      final lines = <PlotLine>[ab];
+      for (var i = 0; i < distRes.solutions.length; i++) {
+        final sol = distRes.solutions[i];
+        final name = 'P${i + 1}';
+        final picked = _distPick == name || (_distPick == null && i == 0);
+        final pp = PlotPoint(
+          x: u.fromMeters(sol.x),
+          y: u.fromMeters(sol.y),
+          label: name,
+          emphasis: picked,
+        );
+        lines.add(
+          PlotLine(
+            from: pa,
+            to: pp,
+            dashed: !picked,
+            label: picked && apVal != null
+                ? 'A$name ${fmt(apVal, 1)} ${u.symbol}'
+                : null,
+          ),
+        );
+        lines.add(
+          PlotLine(
+            from: pb,
+            to: pp,
+            dashed: !picked,
+            label: picked && bpVal != null
+                ? 'B$name ${fmt(bpVal, 1)} ${u.symbol}'
+                : null,
+          ),
+        );
+      }
+      return lines;
+    }
+    return <PlotLine>[ab];
   }
 
   /// 观测角标注：放在 A→P、B→P 视线的 22% 处。
@@ -1428,6 +1511,7 @@ class _IntersectionPageState extends State<IntersectionPage>
         showUnitSelector: true,
         showAngleSelector: _mode == 0,
         onUnitChanged: _calc,
+        onAngleModeChanged: _calc,
         buildTable: _exportTable,
         onClear: () {
           clearDraft();
@@ -1438,6 +1522,7 @@ class _IntersectionPageState extends State<IntersectionPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LivePlot(
+            surveyNorthUp: true,
             points: _plotPoints(t, u),
             lines: _plotLines(t, u),
             labels: _plotLabels(t, s, u),

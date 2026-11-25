@@ -395,6 +395,7 @@ class LivePlot extends StatefulWidget {
     this.showScaleBar = true,
     this.showToolbar = true,
     this.interactiveViewport = true,
+    this.surveyNorthUp = false,
     this.fixedSpan,
     this.selectedIndex,
     this.exportTitle,
@@ -419,6 +420,12 @@ class LivePlot extends StatefulWidget {
   final bool showScaleBar;
   final bool showToolbar;
   final bool interactiveViewport;
+
+  /// 是否按中国工程测量坐标系绘制（+X 朝正北向上，+Y 朝正东向右）。
+  ///
+  /// 默认 false 保持数学笛卡尔平面（横 X 纵 Y）以兼容函数/曲线剖面图；
+  /// 平面控制测量与坐标放样图设为 true，使图幅与全站仪/国标教材一致。
+  final bool surveyNorthUp;
 
   /// 锁定视图边长（数据单位）；null 表示自动适配。
   final double? fixedSpan;
@@ -556,8 +563,15 @@ class _LivePlotState extends State<LivePlot>
     final focal = focalLocal ?? Offset(size.width / 2, size.height / 2);
     final anchorData = _toData(focal, size, cur);
     final nextScale = math.min(size.width, size.height) / nextSpan;
-    final nextCenterX = anchorData.dx - (focal.dx - size.width / 2) / nextScale;
-    final nextCenterY = anchorData.dy - (size.height / 2 - focal.dy) / nextScale;
+    final double nextCenterX;
+    final double nextCenterY;
+    if (widget.surveyNorthUp) {
+      nextCenterX = anchorData.dx - (size.height / 2 - focal.dy) / nextScale;
+      nextCenterY = anchorData.dy - (focal.dx - size.width / 2) / nextScale;
+    } else {
+      nextCenterX = anchorData.dx - (focal.dx - size.width / 2) / nextScale;
+      nextCenterY = anchorData.dy - (size.height / 2 - focal.dy) / nextScale;
+    }
     setState(() {
       _manualRange = PlotRange(
         minX: nextCenterX - nextSpan / 2,
@@ -585,10 +599,19 @@ class _LivePlotState extends State<LivePlot>
     if (boundary == null) return;
     setState(() => _exportingPng = true);
     try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      if (boundary.debugNeedsPaint) {
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+      }
       final image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
-      if (byteData == null) return;
+      if (byteData == null) {
+        if (mounted) SurveyToast.error(context, '图形导出失败：无法编码 PNG 图像');
+        return;
+      }
       final res = await ExportService.savePng(
         byteData.buffer.asUint8List(),
         title,
@@ -606,14 +629,12 @@ class _LivePlotState extends State<LivePlot>
         '已保存图形 PNG：${res.path}',
         duration: const Duration(seconds: 4),
         actionLabel: Platform.isWindows ? '打开文件夹' : null,
-        onAction: () {
-          Process.start(
-            'explorer',
-            ['/select,', res.path!],
-            mode: ProcessStartMode.detached,
-          );
-        },
+        onAction: () => ExportService.openFolder(res.path!),
       );
+    } catch (e) {
+      if (mounted) {
+        SurveyToast.error(context, '图形导出失败：$e');
+      }
     } finally {
       if (mounted) setState(() => _exportingPng = false);
     }
@@ -752,11 +773,17 @@ class _LivePlotState extends State<LivePlot>
                                             cur.span;
                                         if (scale > 0) {
                                           setState(() {
-                                            _manualRange = PlotRange(
-                                              minX: cur.minX - delta.dx / scale,
-                                              minY: cur.minY + delta.dy / scale,
-                                              span: cur.span,
-                                            );
+                                            _manualRange = widget.surveyNorthUp
+                                                ? PlotRange(
+                                                    minX: cur.minX + delta.dy / scale,
+                                                    minY: cur.minY - delta.dx / scale,
+                                                    span: cur.span,
+                                                  )
+                                                : PlotRange(
+                                                    minX: cur.minX - delta.dx / scale,
+                                                    minY: cur.minY + delta.dy / scale,
+                                                    span: cur.span,
+                                                  );
                                           });
                                         }
                                       }
@@ -819,6 +846,7 @@ class _LivePlotState extends State<LivePlot>
                                     showGrid: widget.showGrid,
                                     showNorth: widget.showNorth,
                                     showScaleBar: widget.showScaleBar,
+                                    surveyNorthUp: widget.surveyNorthUp,
                                     unit: widget.unit,
                                     fontFamily: DefaultTextStyle.of(context)
                                         .style
@@ -935,10 +963,14 @@ class _LivePlotState extends State<LivePlot>
       final x = (_dragIndex == _hoverIndex && _dragX != null) ? _dragX! : p.x;
       final y = (_dragIndex == _hoverIndex && _dragY != null) ? _dragY! : p.y;
       final tag = p.label.isEmpty ? '点' : p.label;
-      return '$tag · X=${x.toStringAsFixed(2)}  Y=${y.toStringAsFixed(2)}';
+      return widget.surveyNorthUp
+          ? '$tag · X(北)=${x.toStringAsFixed(2)}  Y(东)=${y.toStringAsFixed(2)}'
+          : '$tag · X=${x.toStringAsFixed(2)}  Y=${y.toStringAsFixed(2)}';
     }
     final data = _toData(hover, size, range);
-    return 'X=${data.dx.toStringAsFixed(2)}  Y=${data.dy.toStringAsFixed(2)}';
+    return widget.surveyNorthUp
+        ? 'X(北)=${data.dx.toStringAsFixed(2)}  Y(东)=${data.dy.toStringAsFixed(2)}'
+        : 'X=${data.dx.toStringAsFixed(2)}  Y=${data.dy.toStringAsFixed(2)}';
   }
 
   /// 悬停：更新实时十字坐标，命中可拖点时切换移动光标。
@@ -971,8 +1003,15 @@ class _LivePlotState extends State<LivePlot>
       // 拖拽中的点已经不在原位置，命中判定用覆盖坐标。
       final dx = (i == _dragIndex && _dragX != null) ? _dragX! : p.x;
       final dy = (i == _dragIndex && _dragY != null) ? _dragY! : p.y;
-      final px = cx + (dx - range.centerX) * scale;
-      final py = cy - (dy - range.centerY) * scale;
+      final double px;
+      final double py;
+      if (widget.surveyNorthUp) {
+        px = cx + (dy - range.centerY) * scale;
+        py = cy - (dx - range.centerX) * scale;
+      } else {
+        px = cx + (dx - range.centerX) * scale;
+        py = cy - (dy - range.centerY) * scale;
+      }
       final d = (Offset(px, py) - local).distance;
       if (d <= bestDistance) {
         bestDistance = d;
@@ -993,6 +1032,11 @@ class _LivePlotState extends State<LivePlot>
   /// 像素坐标 → 数据坐标（与绘制用同一套映射）。
   Offset _toData(Offset local, Size size, PlotRange range) {
     final scale = math.min(size.width, size.height) / range.span;
+    if (widget.surveyNorthUp) {
+      final dx = (size.height / 2 - local.dy) / scale + range.centerX;
+      final dy = (local.dx - size.width / 2) / scale + range.centerY;
+      return Offset(dx, dy);
+    }
     final dx = (local.dx - size.width / 2) / scale + range.centerX;
     final dy = (size.height / 2 - local.dy) / scale + range.centerY;
     return Offset(dx, dy);
@@ -1106,6 +1150,7 @@ class _PlotPainter extends CustomPainter {
     required this.showGrid,
     required this.showNorth,
     required this.showScaleBar,
+    this.surveyNorthUp = false,
     required this.unit,
     this.fontFamily,
     this.fontFamilyFallback,
@@ -1139,15 +1184,18 @@ class _PlotPainter extends CustomPainter {
   final bool showGrid;
   final bool showNorth;
   final bool showScaleBar;
+  final bool surveyNorthUp;
   final String unit;
   final String? fontFamily;
   final List<String>? fontFamilyFallback;
 
-  double _sx(double x, Size size, double scale) =>
-      size.width / 2 + (x - range.centerX) * scale;
+  double _sx(double x, double y, Size size, double scale) => surveyNorthUp
+      ? size.width / 2 + (y - range.centerY) * scale
+      : size.width / 2 + (x - range.centerX) * scale;
 
-  double _sy(double y, Size size, double scale) =>
-      size.height / 2 - (y - range.centerY) * scale;
+  double _sy(double x, double y, Size size, double scale) => surveyNorthUp
+      ? size.height / 2 - (x - range.centerX) * scale
+      : size.height / 2 - (y - range.centerY) * scale;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1155,6 +1203,12 @@ class _PlotPainter extends CustomPainter {
     final scale = math.min(size.width, size.height) / range.span;
     canvas.save();
     canvas.clipRect(Offset.zero & size);
+
+    final bgColor = Color.alphaBlend(
+      scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      scheme.surface,
+    );
+    canvas.drawRect(Offset.zero & size, Paint()..color = bgColor);
 
     final step = niceScaleLength(scale);
     if (showGrid) _paintGrid(canvas, size, scale, step);
@@ -1178,9 +1232,28 @@ class _PlotPainter extends CustomPainter {
     final paint = Paint()
       ..color = scheme.outlineVariant.withValues(alpha: 0.35)
       ..strokeWidth = 1;
+    if (surveyNorthUp) {
+      var y = (range.minY / step).floor() * step;
+      while (y <= range.maxY) {
+        final px = _sx(0, y, size, scale);
+        if (px >= 0 && px <= size.width) {
+          canvas.drawLine(Offset(px, 0), Offset(px, size.height), paint);
+        }
+        y += step;
+      }
+      var x = (range.minX / step).floor() * step;
+      while (x <= range.maxX) {
+        final py = _sy(x, 0, size, scale);
+        if (py >= 0 && py <= size.height) {
+          canvas.drawLine(Offset(0, py), Offset(size.width, py), paint);
+        }
+        x += step;
+      }
+      return;
+    }
     var x = (range.minX / step).floor() * step;
     while (x <= range.maxX) {
-      final px = _sx(x, size, scale);
+      final px = _sx(x, 0, size, scale);
       if (px >= 0 && px <= size.width) {
         canvas.drawLine(Offset(px, 0), Offset(px, size.height), paint);
       }
@@ -1188,7 +1261,7 @@ class _PlotPainter extends CustomPainter {
     }
     var y = (range.minY / step).floor() * step;
     while (y <= range.maxY) {
-      final py = _sy(y, size, scale);
+      final py = _sy(0, y, size, scale);
       if (py >= 0 && py <= size.height) {
         canvas.drawLine(Offset(0, py), Offset(size.width, py), paint);
       }
@@ -1200,12 +1273,23 @@ class _PlotPainter extends CustomPainter {
     final paint = Paint()
       ..color = scheme.onSurfaceVariant.withValues(alpha: 0.35)
       ..strokeWidth = 1.2;
+    if (surveyNorthUp) {
+      if (range.minX <= 0 && range.maxX >= 0) {
+        final py = _sy(0, 0, size, scale);
+        canvas.drawLine(Offset(0, py), Offset(size.width, py), paint);
+      }
+      if (range.minY <= 0 && range.maxY >= 0) {
+        final px = _sx(0, 0, size, scale);
+        canvas.drawLine(Offset(px, 0), Offset(px, size.height), paint);
+      }
+      return;
+    }
     if (range.minY <= 0 && range.maxY >= 0) {
-      final py = _sy(0, size, scale);
+      final py = _sy(0, 0, size, scale);
       canvas.drawLine(Offset(0, py), Offset(size.width, py), paint);
     }
     if (range.minX <= 0 && range.maxX >= 0) {
-      final px = _sx(0, size, scale);
+      final px = _sx(0, 0, size, scale);
       canvas.drawLine(Offset(px, 0), Offset(px, size.height), paint);
     }
   }
@@ -1216,8 +1300,8 @@ class _PlotPainter extends CustomPainter {
       final path = Path();
       for (var i = 0; i < pg.points.length; i++) {
         final o = Offset(
-          _sx(pg.points[i].x, size, scale),
-          _sy(pg.points[i].y, size, scale),
+          _sx(pg.points[i].x, pg.points[i].y, size, scale),
+          _sy(pg.points[i].x, pg.points[i].y, size, scale),
         );
         if (i == 0) {
           path.moveTo(o.dx, o.dy);
@@ -1257,8 +1341,14 @@ class _PlotPainter extends CustomPainter {
         for (var i = 0; i + 1 < p.points.length; i++) {
           _drawDashed(
             canvas,
-            Offset(_sx(p.points[i].x, size, scale), _sy(p.points[i].y, size, scale)),
-            Offset(_sx(p.points[i + 1].x, size, scale), _sy(p.points[i + 1].y, size, scale)),
+            Offset(
+              _sx(p.points[i].x, p.points[i].y, size, scale),
+              _sy(p.points[i].x, p.points[i].y, size, scale),
+            ),
+            Offset(
+              _sx(p.points[i + 1].x, p.points[i + 1].y, size, scale),
+              _sy(p.points[i + 1].x, p.points[i + 1].y, size, scale),
+            ),
             paint,
           );
         }
@@ -1266,8 +1356,8 @@ class _PlotPainter extends CustomPainter {
         final path = Path();
         for (var i = 0; i < p.points.length; i++) {
           final o = Offset(
-            _sx(p.points[i].x, size, scale),
-            _sy(p.points[i].y, size, scale),
+            _sx(p.points[i].x, p.points[i].y, size, scale),
+            _sy(p.points[i].x, p.points[i].y, size, scale),
           );
           if (i == 0) {
             path.moveTo(o.dx, o.dy);
@@ -1283,7 +1373,7 @@ class _PlotPainter extends CustomPainter {
         _drawText(
           canvas,
           label,
-          Offset(_sx(mid.x, size, scale), _sy(mid.y, size, scale) - 10),
+          Offset(_sx(mid.x, mid.y, size, scale), _sy(mid.x, mid.y, size, scale) - 10),
           p.color ?? scheme.primary,
           fontSize: 10.5,
           anchor: _TextAnchor.center,
@@ -1300,12 +1390,12 @@ class _PlotPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
       final a = Offset(
-        _sx(line.from.x, size, scale),
-        _sy(line.from.y, size, scale),
+        _sx(line.from.x, line.from.y, size, scale),
+        _sy(line.from.x, line.from.y, size, scale),
       );
       final b = Offset(
-        _sx(line.to.x, size, scale),
-        _sy(line.to.y, size, scale),
+        _sx(line.to.x, line.to.y, size, scale),
+        _sy(line.to.x, line.to.y, size, scale),
       );
       if (line.dashed) {
         _drawDashed(canvas, a, b, paint);
@@ -1333,12 +1423,14 @@ class _PlotPainter extends CustomPainter {
 
   void _paintArcs(Canvas canvas, Size size, double scale) {
     for (final arc in arcs) {
-      final center = Offset(_sx(arc.centerX, size, scale), _sy(arc.centerY, size, scale));
+      final center = Offset(
+        _sx(arc.centerX, arc.centerY, size, scale),
+        _sy(arc.centerX, arc.centerY, size, scale),
+      );
       final rect = Rect.fromCircle(center: center, radius: arc.radiusPx);
       final color = arc.color ?? scheme.tertiary;
-      // 数据坐标系 Y 向上，屏幕 Y 向下，角度取反。
-      final screenStart = -arc.startRad;
-      final screenSweep = -arc.sweepRad;
+      final screenStart = surveyNorthUp ? arc.startRad - math.pi / 2 : -arc.startRad;
+      final screenSweep = surveyNorthUp ? arc.sweepRad : -arc.sweepRad;
       canvas.drawArc(
         rect,
         screenStart,
@@ -1387,8 +1479,14 @@ class _PlotPainter extends CustomPainter {
         ..strokeWidth = 1.7
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
-      final a = Offset(_sx(arrow.from.x, size, scale), _sy(arrow.from.y, size, scale));
-      final b = Offset(_sx(arrow.to.x, size, scale), _sy(arrow.to.y, size, scale));
+      final a = Offset(
+        _sx(arrow.from.x, arrow.from.y, size, scale),
+        _sy(arrow.from.x, arrow.from.y, size, scale),
+      );
+      final b = Offset(
+        _sx(arrow.to.x, arrow.to.y, size, scale),
+        _sy(arrow.to.x, arrow.to.y, size, scale),
+      );
       if (arrow.dashed) {
         _drawDashed(canvas, a, b, paint);
       } else {
@@ -1456,7 +1554,7 @@ class _PlotPainter extends CustomPainter {
       final selected = i == selectedIndex;
       final x = dragging ? dragX! : p.x;
       final y = dragging ? dragY! : p.y;
-      final center = Offset(_sx(x, size, scale), _sy(y, size, scale));
+      final center = Offset(_sx(x, y, size, scale), _sy(x, y, size, scale));
       final color = p.color ?? (p.emphasis ? scheme.primary : scheme.tertiary);
       // 拖拽中放大 1.2 倍，并画一条回到原位置的虚线。
       final radius = (p.emphasis ? 5.0 : 3.4) * (dragging ? 1.2 : 1.0);
@@ -1464,8 +1562,8 @@ class _PlotPainter extends CustomPainter {
         _drawDashed(
           canvas,
           Offset(
-            _sx(dragOriginX!, size, scale),
-            _sy(dragOriginY!, size, scale),
+            _sx(dragOriginX!, dragOriginY!, size, scale),
+            _sy(dragOriginX!, dragOriginY!, size, scale),
           ),
           center,
           Paint()
@@ -1508,7 +1606,7 @@ class _PlotPainter extends CustomPainter {
     _drawText(
       canvas,
       l.text,
-      Offset(_sx(l.x, size, scale), _sy(l.y, size, scale)),
+      Offset(_sx(l.x, l.y, size, scale), _sy(l.x, l.y, size, scale)),
       l.color ?? scheme.onSurfaceVariant,
       fontSize: 10.5,
       anchor: _TextAnchor.leftCenter,
@@ -1631,6 +1729,7 @@ class _PlotPainter extends CustomPainter {
       old.showGrid != showGrid ||
       old.showNorth != showNorth ||
       old.showScaleBar != showScaleBar ||
+      old.surveyNorthUp != surveyNorthUp ||
       old.unit != unit ||
       old.fontFamily != fontFamily ||
       !_listEq(old.fontFamilyFallback ?? const [], fontFamilyFallback ?? const []) ||

@@ -21,6 +21,7 @@ class PageActions extends StatefulWidget {
     this.showUnitSelector = false,
     this.onUnitChanged,
     this.showAngleSelector = false,
+    this.onAngleModeChanged,
   });
 
   final String pageId;
@@ -39,6 +40,7 @@ class PageActions extends StatefulWidget {
 
   /// 是否显示角度格式快捷切换胶囊（度分秒 / 十进制）。
   final bool showAngleSelector;
+  final VoidCallback? onAngleModeChanged;
 
   @override
   State<PageActions> createState() => _PageActionsState();
@@ -57,60 +59,41 @@ class _PageActionsState extends State<PageActions> {
     final build = widget.buildTable;
     if (build == null || _busy) return;
     setState(() => _busy = true);
-    final drafts = DraftScope.read(context);
-    await drafts.flushAll();
-    final table = build();
-    final result = await ExportService.export(table, format: format);
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (!result.ok) {
-      SurveyToast.error(
-        context,
-        '导出失败：${result.error ?? "未知错误"}',
-      );
-      return;
-    }
-    SurveyToast.success(
-      context,
-      '已导出 ${format.label}：${result.path}',
-      duration: const Duration(seconds: 4),
-      actionLabel: Platform.isWindows ? '打开文件夹' : null,
-      onAction: () => _openFolder(result.path!),
-    );
-  }
-
-  Future<void> _openFolder(String targetPath) async {
     try {
-      if (Platform.isWindows) {
-        final file = File(targetPath);
-        if (await file.exists()) {
-          await Process.start(
-            'explorer',
-            ['/select,', targetPath],
-            mode: ProcessStartMode.detached,
-          );
-        } else {
-          await Process.start(
-            'explorer',
-            [file.parent.path],
-            mode: ProcessStartMode.detached,
-          );
+      final drafts = DraftScope.read(context);
+      await drafts.flushAll();
+      final table = build();
+      final onlyHeaderRow = table.rows.length <= 1 &&
+          table.xlsxBuilder == null &&
+          table.formSheetsBuilder == null;
+      if (table.isEmpty || onlyHeaderRow) {
+        if (mounted) {
+          SurveyToast.info(context, '当前暂无可导出的计算成果，请先完善输入');
         }
-      } else if (Platform.isMacOS) {
-        await Process.start(
-          'open',
-          [File(targetPath).parent.path],
-          mode: ProcessStartMode.detached,
-        );
-      } else if (Platform.isLinux) {
-        await Process.start(
-          'xdg-open',
-          [File(targetPath).parent.path],
-          mode: ProcessStartMode.detached,
-        );
+        return;
       }
-    } catch (_) {
-      // 打不开就算了，路径已经显示在提示条里。
+      final result = await ExportService.export(table, format: format);
+      if (!mounted) return;
+      if (!result.ok) {
+        SurveyToast.error(
+          context,
+          '导出失败：${result.error ?? "未知错误"}',
+        );
+        return;
+      }
+      SurveyToast.success(
+        context,
+        '已导出 ${format.label}：${result.path}',
+        duration: const Duration(seconds: 4),
+        actionLabel: Platform.isWindows ? '打开文件夹' : null,
+        onAction: () => ExportService.openFolder(result.path!),
+      );
+    } catch (e) {
+      if (mounted) {
+        SurveyToast.error(context, '导出失败：$e');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -236,6 +219,11 @@ class _PageActionsState extends State<PageActions> {
                   ? AngleInputMode.decimalDegrees
                   : AngleInputMode.dmsCompact;
               await SettingsScope.read(context).setAngleMode(next);
+              if (widget.onAngleModeChanged != null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) widget.onAngleModeChanged?.call();
+                });
+              }
               if (!context.mounted) return;
               final label = next == AngleInputMode.dmsCompact
                   ? '度分秒分格'

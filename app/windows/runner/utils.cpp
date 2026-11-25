@@ -2,9 +2,12 @@
 
 #include <flutter_windows.h>
 #include <io.h>
+#include <objbase.h>
+#include <shlobj.h>
 #include <stdio.h>
 #include <windows.h>
 
+#include <cstring>
 #include <iostream>
 
 void CreateAndAttachConsole() {
@@ -66,4 +69,89 @@ std::string Utf8FromUtf16(const wchar_t* utf16_string) {
     return std::string();
   }
   return utf8_string;
+}
+
+void EnsureDesktopShortcut(const std::vector<std::string>& args) {
+  for (const auto& arg : args) {
+    if (arg == "--no-desktop-shortcut") {
+      return;
+    }
+  }
+
+  wchar_t exe_path[MAX_PATH * 4]{};
+  const DWORD exe_len =
+      ::GetModuleFileNameW(nullptr, exe_path, MAX_PATH * 4);
+  if (exe_len == 0 || exe_len >= MAX_PATH * 4) {
+    return;
+  }
+
+  std::wstring exe_dir(exe_path, exe_len);
+  const size_t sep = exe_dir.find_last_of(L"\\/");
+  if (sep != std::wstring::npos) {
+    exe_dir.resize(sep);
+  } else {
+    exe_dir.clear();
+  }
+
+  wchar_t desktop_dir[MAX_PATH]{};
+  if (FAILED(::SHGetFolderPathW(nullptr, CSIDL_DESKTOPDIRECTORY, nullptr,
+                               SHGFP_TYPE_CURRENT, desktop_dir)) ||
+      desktop_dir[0] == L'\0') {
+    return;
+  }
+
+  // "工程测量工具箱.lnk"
+  std::wstring lnk_path(desktop_dir);
+  if (!lnk_path.empty() && lnk_path.back() != L'\\' &&
+      lnk_path.back() != L'/') {
+    lnk_path.push_back(L'\\');
+  }
+  lnk_path += L"\u5DE5\u7A0B\u6D4B\u91CF\u5DE5\u5177\u7BB1.lnk";
+
+  IShellLinkW* link = nullptr;
+  HRESULT hr = ::CoCreateInstance(
+      CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW,
+      reinterpret_cast<void**>(&link));
+  if (FAILED(hr) || link == nullptr) {
+    return;
+  }
+
+  IPersistFile* persist = nullptr;
+  hr = link->QueryInterface(IID_IPersistFile,
+                            reinterpret_cast<void**>(&persist));
+  if (FAILED(hr) || persist == nullptr) {
+    link->Release();
+    return;
+  }
+
+  const DWORD attrs = ::GetFileAttributesW(lnk_path.c_str());
+  if (attrs != INVALID_FILE_ATTRIBUTES &&
+      SUCCEEDED(persist->Load(lnk_path.c_str(), STGM_READ))) {
+    wchar_t cur_target[MAX_PATH * 4]{};
+    wchar_t cur_icon[MAX_PATH * 4]{};
+    int cur_icon_idx = -1;
+    const HRESULT target_hr =
+        link->GetPath(cur_target, MAX_PATH * 4, nullptr, 0);
+    const HRESULT icon_hr =
+        link->GetIconLocation(cur_icon, MAX_PATH * 4, &cur_icon_idx);
+    if (SUCCEEDED(target_hr) && SUCCEEDED(icon_hr) &&
+        ::_wcsicmp(cur_target, exe_path) == 0 &&
+        ::_wcsicmp(cur_icon, exe_path) == 0 && cur_icon_idx == 0) {
+      persist->Release();
+      link->Release();
+      return;
+    }
+  }
+
+  link->SetPath(exe_path);
+  if (!exe_dir.empty()) {
+    link->SetWorkingDirectory(exe_dir.c_str());
+  }
+  link->SetDescription(
+      L"\u5DE5\u7A0B\u6D4B\u91CF\u5DE5\u5177\u7BB1 (Survey Pro)");
+  link->SetIconLocation(exe_path, 0);
+  persist->Save(lnk_path.c_str(), TRUE);
+
+  persist->Release();
+  link->Release();
 }

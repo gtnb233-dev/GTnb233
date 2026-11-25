@@ -89,7 +89,11 @@ class ExportService {
       final home = Platform.environment['HOME'] ?? Directory.current.path;
       candidates.add(Directory('$home/Documents/$folderName/导出'));
     }
-    candidates.add(Directory('${Directory.systemTemp.path}/$folderName/导出'));
+    candidates.add(
+      Directory(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}$folderName${Platform.pathSeparator}导出',
+      ),
+    );
     return candidates;
   }
 
@@ -100,7 +104,9 @@ class ExportService {
     for (final d in _candidateDirs()) {
       try {
         if (!d.existsSync()) d.createSync(recursive: true);
-        final probe = File('${d.path}/$folderName.writetest');
+        final probe = File(
+          '${d.path}${Platform.pathSeparator}$folderName.writetest',
+        );
         probe.writeAsStringSync('ok');
         probe.deleteSync();
         _cachedDir = d;
@@ -147,10 +153,17 @@ class ExportService {
     required ExportFormat format,
     String? fileNameHint,
   }) async {
+    if (table.isEmpty) {
+      return ExportResult(
+        path: null,
+        format: format,
+        error: '暂无可导出的计算成果',
+      );
+    }
     try {
       final dir = await resolveDirAsync();
       final base = sanitize(fileNameHint ?? table.title);
-      final prefix = '${_stamp()}_$base';
+      final prefix = '${_stamp()}_${base.isEmpty ? '导出成果' : base}';
       var file = File('${dir.path}${Platform.pathSeparator}$prefix.${format.ext}');
       var seq = 1;
       while (await file.exists()) {
@@ -203,6 +216,43 @@ class ExportService {
       return (path: file.path, error: null);
     } catch (e) {
       return (path: null, error: '$e');
+    }
+  }
+
+  /// 跨平台打开导出文件所在文件夹并定位选中目标文件。
+  static Future<void> openFolder(String targetPath) async {
+    try {
+      if (Platform.isWindows) {
+        final normalized = targetPath.replaceAll('/', '\\');
+        final file = File(normalized);
+        if (await file.exists()) {
+          await Process.start(
+            'explorer.exe',
+            ['/select,', normalized],
+            mode: ProcessStartMode.detached,
+          );
+        } else {
+          await Process.start(
+            'explorer.exe',
+            [file.parent.path],
+            mode: ProcessStartMode.detached,
+          );
+        }
+      } else if (Platform.isMacOS) {
+        await Process.start(
+          'open',
+          [File(targetPath).parent.path],
+          mode: ProcessStartMode.detached,
+        );
+      } else if (Platform.isLinux) {
+        await Process.start(
+          'xdg-open',
+          [File(targetPath).parent.path],
+          mode: ProcessStartMode.detached,
+        );
+      }
+    } catch (_) {
+      // 打不开就算了，路径已显示在底部提示里。
     }
   }
 
