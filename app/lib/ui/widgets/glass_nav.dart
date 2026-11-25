@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
 import 'outline_symbol.dart';
+import 'sliding_bottom_nav.dart';
 
 /// 玻璃导航的一项。
 class GlassNavItem {
@@ -18,18 +19,7 @@ class GlassNavItem {
   final IconData selectedIcon;
 }
 
-/// 悬浮胶囊玻璃导航条（对标 HyperOS / iOS 的底部毛玻璃 tab bar）。
-///
-/// 视觉参数集中在类常量里，方便统一调：
-/// - 模糊：[defaultBlurSigma] = 26（BackdropFilter sigmaX/Y）
-/// - 填充：`surface`，浅色 [lightFillAlpha]（0.62）/ 深色 [darkFillAlpha]（0.48）
-/// - 描边：`onSurface` 10% 的 1 px 外框 + 顶部居中高光渐变
-/// - 圆角：整条胶囊（[Radii.pill]），选中项是实心胶囊（`secondaryContainer`）
-/// - 高度：默认 62；可点区域为整列，最小高 48（≥44 触控规范）
-/// - 外边距：默认左右 14、底 12（离屏边约 12–16）
-///
-/// 所有颜色都取自 `Theme.of(context).colorScheme`，三种风格（经典 / Miuix /
-/// Material）只改主题配色，组件本身不写死颜色。
+/// 带背景模糊和边缘高光的悬浮液态玻璃导航栏。
 class GlassNavBar extends StatelessWidget {
   const GlassNavBar({
     super.key,
@@ -51,9 +41,6 @@ class GlassNavBar extends StatelessWidget {
   /// 深色主题下的玻璃填充不透明度。
   static const double darkFillAlpha = 0.48;
 
-  /// 描边（onSurface 的 alpha）。
-  static const double borderAlpha = 0.10;
-
   /// 底部为导航浮动条预留的高度（shell 用它给 body 让位）。
   static const double bottomReserve = 96;
 
@@ -67,10 +54,11 @@ class GlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final shape = BorderRadius.circular(radius);
+    final tint = scheme.surface.withValues(alpha: isDark ? 0.46 : 0.58);
+    final highlight = Colors.white.withValues(alpha: isDark ? 0.12 : 0.43);
     return Padding(
       padding: margin,
       // 条子自己吃掉区域内的点击（空白处不穿透到下面的卡片）；
@@ -97,19 +85,28 @@ class GlassNavBar extends StatelessWidget {
               child: Container(
                 height: height,
                 decoration: BoxDecoration(
-                  color: scheme.surface.withValues(
-                    alpha: isDark ? darkFillAlpha : lightFillAlpha,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.alphaBlend(highlight, tint),
+                      tint,
+                      Color.alphaBlend(
+                        scheme.primary.withValues(alpha: isDark ? 0.12 : 0.07),
+                        tint,
+                      ),
+                    ],
+                    stops: const [0, 0.48, 1],
                   ),
                   borderRadius: shape,
                   border: Border.all(
-                    color: scheme.onSurface.withValues(alpha: borderAlpha),
-                    width: 0.5,
+                    color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.60),
+                    width: 1,
                   ),
                 ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // 顶部高光：整条玻璃上沿的细亮线，让边缘看起来是「磨过的」。
                     IgnorePointer(
                       child: Align(
                         alignment: Alignment.topCenter,
@@ -120,11 +117,11 @@ class GlassNavBar extends StatelessWidget {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  scheme.onSurface.withValues(alpha: 0),
-                                  scheme.onSurface.withValues(
-                                    alpha: isDark ? 0.16 : 0.10,
+                                  Colors.transparent,
+                                  Colors.white.withValues(
+                                    alpha: isDark ? 0.38 : 0.86,
                                   ),
-                                  scheme.onSurface.withValues(alpha: 0),
+                                  Colors.transparent,
                                 ],
                               ),
                             ),
@@ -132,15 +129,23 @@ class GlassNavBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Row(
-                      children: [
-                        for (var i = 0; i < items.length; i++)
-                          _Item(
-                            item: items[i],
-                            selected: i == index,
-                            onTap: () => onSelect(i),
-                          ),
-                      ],
+                    SlidingBottomNav(
+                      selectedIndex: index,
+                      itemCount: items.length,
+                      onSelect: onSelect,
+                      indicatorColor: scheme.secondaryContainer,
+                      liquidGlass: true,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var i = 0; i < items.length; i++)
+                            _Item(
+                              item: items[i],
+                              selected: i == index,
+                              onTap: () => onSelect(i),
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -164,15 +169,12 @@ class _Item extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // 选中胶囊吃主题的 secondaryContainer：经典 / Miuix / Material 三套配色
-    // 各自 tonal，组件不写死颜色。
-    final capsule = scheme.secondaryContainer;
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    final fg = selected ? scheme.onSurface : scheme.onSurfaceVariant;
     return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 7),
+      child: Semantics(
+        selected: selected,
         child: Material(
-          color: selected ? capsule : Colors.transparent,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(Radii.pill),
           clipBehavior: Clip.antiAlias,
           child: InkWell(

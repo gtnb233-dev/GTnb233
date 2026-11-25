@@ -203,7 +203,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('应用外壳在小屏下用底部导航，宽屏用左侧栏', (tester) async {
+  testWidgets('应用外壳在小屏默认用液态玻璃底栏，宽屏用左侧栏', (tester) async {
     // SurveyApp 自带 MaterialApp / MediaQuery，不能再套一层 MaterialApp。
     tester.view.physicalSize = _smallPhone * 3;
     tester.view.devicePixelRatio = 3.0;
@@ -211,13 +211,13 @@ void main() {
     await tester
         .pumpWidget(SurveyApp(settings: AppSettings(), drafts: DraftStore()));
     await tester.pumpAndSettle();
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(GlassNavBar), findsOneWidget);
     expect(find.text('工程测量'), findsWidgets);
     expect(tester.takeException(), isNull);
 
     tester.view.physicalSize = const Size(1280, 800) * 3;
     await tester.pumpAndSettle();
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(GlassNavBar), findsNothing);
     expect(find.byType(NavigationRail), findsNothing);
     expect(find.text('Survey Toolkit'), findsWidgets);
     expect(tester.takeException(), isNull);
@@ -247,7 +247,7 @@ void main() {
 
     tester.view.physicalSize = const Size(360, 700);
     await tester.pumpAndSettle();
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(GlassNavBar), findsOneWidget);
     expect(tester.widget<TextField>(librarySearch).controller!.text, '坐标反算');
 
     tester.view.physicalSize = const Size(1200, 750);

@@ -12,6 +12,7 @@ import 'pages/tools_page.dart';
 import 'widgets/command_palette.dart';
 import 'widgets/glass_nav.dart';
 import 'widgets/outline_symbol.dart';
+import 'widgets/sliding_bottom_nav.dart';
 
 class NavItem {
   const NavItem(this.label, this.icon, this.activeIcon);
@@ -57,8 +58,9 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= 840;
-    final floatingNav = !wide && settings.glassNav;
+    final scheme = Theme.of(context).colorScheme;
+    final wide = MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth;
+    final floatingNav = !wide && settings.floatingGlassNav;
 
     return CallbackShortcuts(
       bindings: {
@@ -126,31 +128,36 @@ class _AppShellState extends State<AppShell> {
           ),
           bottomNavigationBar: wide || floatingNav
               ? null
-              : Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(Radii.sheet),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.fromBorderSide(
-                          BorderSide(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant
-                                .withValues(alpha: 0.55),
-                            width: 0.5,
-                          ),
-                        ),
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    border: Border(
+                      top: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.55),
+                        width: 0.5,
                       ),
+                    ),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: SlidingBottomNav(
+                      selectedIndex: _index,
+                      itemCount: kNavItems.length,
+                      onSelect: _go,
+                      indicatorColor: scheme.secondaryContainer,
                       child: NavigationBar(
-                        backgroundColor: Theme.of(context).cardTheme.color,
+                        height: 62,
+                        backgroundColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        elevation: 0,
+                        indicatorColor: Colors.transparent,
                         selectedIndex: _index,
                         onDestinationSelected: _go,
                         destinations: [
                           for (final item in kNavItems)
                             NavigationDestination(
-                              icon: OutlineSymbol(item.icon),
-                              selectedIcon: OutlineSymbol(item.activeIcon),
+                              icon: OutlineSymbol(item.icon, size: 20),
+                              selectedIcon: OutlineSymbol(item.activeIcon, size: 20),
                               label: item.label,
                             ),
                         ],
@@ -179,8 +186,8 @@ class _BottomScrim extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             scheme.surface.withValues(alpha: 0),
-            scheme.surface.withValues(alpha: dark ? 0.55 : 0.45),
-            scheme.surfaceContainerHigh.withValues(alpha: dark ? 0.90 : 0.94),
+            scheme.surface.withValues(alpha: dark ? 0.12 : 0.15),
+            scheme.surface.withValues(alpha: dark ? 0.50 : 0.42),
           ],
           stops: const [0, 0.55, 1],
         ),

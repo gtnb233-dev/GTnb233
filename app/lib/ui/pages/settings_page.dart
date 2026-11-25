@@ -16,6 +16,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = SettingsScope.of(context);
+    final wide = MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth;
     final drafts = DraftScope.maybeOf(context);
     final savedDraftCount = drafts?.savedCount ?? 0;
     final scheme = Theme.of(context).colorScheme;
@@ -112,15 +113,15 @@ class SettingsPage extends StatelessWidget {
             children: [
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                value: s.glassNav,
+                value: wide ? s.glassNav : s.floatingGlassNav,
                 onChanged: s.setGlassNav,
-                title: const Text(
-                  '玻璃导航栏',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                title: Text(
+                  wide ? '玻璃侧栏' : '液态玻璃导航',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text(
-                  '底部 / 侧栏导航改为半透明毛玻璃',
-                  style: TextStyle(fontSize: 11.5),
+                subtitle: Text(
+                  wide ? '在侧栏使用半透明玻璃背景' : '悬浮底栏与可滑动的玻璃胶囊',
+                  style: const TextStyle(fontSize: 11.5),
                 ),
               ),
               Divider(

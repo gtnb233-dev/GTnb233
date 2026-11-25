@@ -4,6 +4,7 @@ import 'package:survey_pro/theme/app_theme.dart';
 import 'package:survey_pro/theme/tokens.dart';
 import 'package:survey_pro/theme/ui_style.dart';
 import 'package:survey_pro/ui/widgets/glass_nav.dart';
+import 'package:survey_pro/ui/widgets/sliding_bottom_nav.dart';
 
 /// 1.1.0 三种界面风格的主题回归：风格只改配色/圆角，不依赖页面里写死的颜色。
 double _cardRadius(ThemeData theme) {
@@ -142,16 +143,14 @@ void main() {
     expect(size.height, 62);
     expect(size.width, 400 - 14 - 14);
 
-    // 选中项胶囊色来自主题的 secondaryContainer（不写死颜色）。
     final scheme = Theme.of(tester.element(find.byType(GlassNavBar))).colorScheme;
-    final materials = tester.widgetList<Material>(
-      find.ancestor(of: find.text('坐标'), matching: find.byType(Material)),
+    final indicator = tester.widget<DecoratedBox>(
+      find.byKey(SlidingBottomNav.indicatorKey),
     );
-    expect(
-      materials.any((m) => m.color == scheme.secondaryContainer),
-      isTrue,
-      reason: '选中胶囊没有用主题的 secondaryContainer',
-    );
+    final decoration = indicator.decoration as BoxDecoration;
+    final gradient = decoration.gradient! as LinearGradient;
+    expect(gradient.colors[1], scheme.secondaryContainer.withValues(alpha: 0.62));
+    expect(decoration.border, isNotNull);
 
     // 整块可点：点文字就能切页。
     await tester.tap(find.text('设置'));

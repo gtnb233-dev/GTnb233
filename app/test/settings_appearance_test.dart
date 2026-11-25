@@ -55,7 +55,7 @@ void main() {
     for (final style in UiStyle.values) {
       expect(find.text(style.label), findsOneWidget);
     }
-    expect(find.text('玻璃导航栏'), findsOneWidget);
+    expect(find.text('液态玻璃导航'), findsOneWidget);
     expect(find.text('莫奈调色'), findsOneWidget);
     expect(find.byType(FilterChip), findsNWidgets(MonetSeed.values.length));
     for (final seed in MonetSeed.values) {
@@ -64,14 +64,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('点 Miuix 写回设置，点玻璃开关打开', (tester) async {
+  testWidgets('点 Miuix 写回设置，液态玻璃默认开启并可关闭', (tester) async {
     final settings = await _pump(tester);
 
     await _tap(tester, find.text('Miuix'));
     expect(settings.uiStyle, UiStyle.miuix);
 
-    await _tap(tester, find.text('玻璃导航栏'));
-    expect(settings.glassNav, isTrue);
+    expect(settings.floatingGlassNav, isTrue);
+    expect(settings.glassNav, isFalse);
+    await _tap(tester, find.text('液态玻璃导航'));
+    expect(settings.floatingGlassNav, isFalse);
+    final reloaded = AppSettings();
+    await reloaded.load();
+    expect(reloaded.floatingGlassNav, isFalse);
     expect(tester.takeException(), isNull);
   });
 

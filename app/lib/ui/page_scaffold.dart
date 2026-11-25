@@ -380,7 +380,7 @@ List<Widget> _stack(List<Widget> items) {
 
 /// 玻璃导航栏悬浮在内容之上时，滚动内容需要补的底部让位。
 ///
-/// 只在「窄屏（< 840，和 shell 同一断点）且设置里开了玻璃导航」时返回
+/// 窄屏使用悬浮玻璃导航时返回
 /// [GlassNavBar.bottomReserve]；宽屏是侧栏玻璃，不遮内容，返回 0。
 ///
 /// 这里用 dependOnInheritedWidgetOfExactType 而不是 SettingsScope.of：
@@ -388,7 +388,7 @@ List<Widget> _stack(List<Widget> items) {
 double glassNavBottomReserve(BuildContext context) {
   final settings =
       context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier;
-  if (settings == null || !settings.glassNav) return 0;
-  if (MediaQuery.sizeOf(context).width >= 840) return 0;
+  if (settings == null || !settings.floatingGlassNav) return 0;
+  if (MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth) return 0;
   return GlassNavBar.bottomReserve;
 }

@@ -1,7 +1,7 @@
 name: survey_pro
 description: 工程测量工具箱 — 公式计算、坐标、导线、曲线、水准、面积土方、坐标转换
 publish_to: none
-version: 2.0.1+8010
+version: 2.0.5+12050
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

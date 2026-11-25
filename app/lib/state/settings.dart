@@ -101,8 +101,7 @@ class AppSettings extends ChangeNotifier {
 
   UiStyle _uiStyle = UiStyle.classic;
 
-  /// 导航栏是否做成玻璃（毛玻璃 + 半透明 + 悬浮胶囊）。
-  bool _glassNav = false;
+  bool? _glassNav;
 
   /// 是否启用莫奈取色（用种子色生成整套 tonal 调色板）。
   bool _monet = false;
@@ -140,8 +139,9 @@ class AppSettings extends ChangeNotifier {
   /// 当前界面风格。
   UiStyle get uiStyle => _uiStyle;
 
-  /// 玻璃导航栏开关。
-  bool get glassNav => _glassNav;
+  /// 宽屏侧栏默认使用实色，窄屏默认使用悬浮液态玻璃。
+  bool get glassNav => _glassNav ?? false;
+  bool get floatingGlassNav => _glassNav ?? true;
 
   /// 莫奈取色开关与种子来源。
   bool get monet => _monet;
@@ -169,7 +169,7 @@ class AppSettings extends ChangeNotifier {
     _haptic = p.getBool(_kHaptic) ?? true;
     _lastTool = p.getString(_kLastTool);
     _uiStyle = UiStyle.parse(p.getString(_kUiStyle));
-    _glassNav = p.getBool(_kGlassNav) ?? false;
+    _glassNav = p.getBool(_kGlassNav);
     _monet = p.getBool(_kMonet) ?? false;
     _monetSeed = MonetSeed.parse(p.getString(_kMonetSeed));
     final pinned = p.getStringList(_kPinnedTools);

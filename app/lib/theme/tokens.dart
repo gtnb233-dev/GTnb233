@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const double kSidebarNavigationMinWidth = 840;
+
 /// Survey Pro 设计系统的 4dp 间距网格。
 abstract final class Insets {
   static const double xxs = 2;
