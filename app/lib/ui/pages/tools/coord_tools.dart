@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../../l10n/survey_strings.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
@@ -277,11 +278,11 @@ class _InversePageState extends State<InversePage>
         InputCard(
           step: 1,
           title: '已知两点坐标',
-          caption: 'X 为纵轴（北向），Y 为横轴（东向）；当前量级：${u.label} (${u.symbol})',
+          caption: context.tr('X 为纵轴（北向），Y 为横轴（东向）；当前量级：{unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
           trailing: TextButton.icon(
             onPressed: _swapPoints,
             icon: const Icon(Icons.swap_horiz, size: 16),
-            label: const Text('互换 A↔B'),
+            label: const LocalText('互换 A↔B'),
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
           ),
           fields: [
@@ -580,7 +581,7 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         InputCard(
           step: 1,
           title: '起算测站',
-          caption: '当前量级：${u.label} (${u.symbol})',
+          caption: context.tr('当前量级：{unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
           fields: [
             Row(
               children: [
@@ -1608,8 +1609,8 @@ class _IntersectionPageState extends State<IntersectionPage>
           child: SegmentedButton<int>(
             showSelectedIcon: false,
             segments: const [
-              ButtonSegment(value: 0, label: Text('前方交会')),
-              ButtonSegment(value: 1, label: Text('距离交会')),
+              ButtonSegment(value: 0, label: LocalText('前方交会')),
+              ButtonSegment(value: 1, label: LocalText('距离交会')),
             ],
             selected: {_mode},
             onSelectionChanged: (v) => setState(() {

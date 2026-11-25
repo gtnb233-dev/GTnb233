@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../l10n/survey_strings.dart';
 import '../theme/ui_style.dart';
 
 /// 长度 / 坐标输入输出量级：米、厘米、毫米。
@@ -72,6 +73,7 @@ enum LengthUnit {
 /// 全局设置：主题、角度输入格式、长度量级、小数位与触感反馈。
 class AppSettings extends ChangeNotifier {
   static const _kTheme = 'theme_mode';
+  static const _kLanguage = 'app_language';
   static const _kAngle = 'angle_mode';
   static const _kLengthUnit = 'length_unit';
   static const _kCoordDigits = 'coord_digits';
@@ -92,6 +94,7 @@ class AppSettings extends ChangeNotifier {
   ];
 
   ThemeMode _themeMode = ThemeMode.dark;
+  AppLanguage _language = AppLanguage.system;
   AngleInputMode _angleMode = AngleInputMode.dmsCompact;
   LengthUnit _lengthUnit = LengthUnit.meter;
   int _coordDigits = 3;
@@ -109,6 +112,7 @@ class AppSettings extends ChangeNotifier {
   List<String> _pinnedTools = List<String>.of(kDefaultPinnedTools);
 
   ThemeMode get themeMode => _themeMode;
+  AppLanguage get language => _language;
   AngleInputMode get angleMode => _angleMode;
 
   /// 角度输入方式的中文标签，供界面直接显示。
@@ -154,6 +158,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
     final t = p.getString(_kTheme);
+    _language = AppLanguage.fromPreference(p.getString(_kLanguage));
     _themeMode = switch (t) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
@@ -236,6 +241,13 @@ class AppSettings extends ChangeNotifier {
     _uiStyle = style;
     notifyListeners();
     await _persist((p) => p.setString(_kUiStyle, style.name));
+  }
+
+  Future<void> setLanguage(AppLanguage value) async {
+    if (_language == value) return;
+    _language = value;
+    notifyListeners();
+    await _persist((p) => p.setString(_kLanguage, value.name));
   }
 
   Future<void> setGlassNav(bool value) async {

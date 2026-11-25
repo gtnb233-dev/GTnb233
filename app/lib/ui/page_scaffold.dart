@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/survey_strings.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import 'widgets/glass_nav.dart';
@@ -72,7 +73,7 @@ class PageScaffold extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  title,
+                                  context.tr(title),
                                   style: TextStyle(
                                     fontSize:
                                         constraints.maxWidth >= 900 ? 32 : 28,
@@ -85,7 +86,7 @@ class PageScaffold extends StatelessWidget {
                                 if (caption != null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    caption!,
+                                    context.tr(caption!),
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: scheme.onSurfaceVariant,
@@ -201,7 +202,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              widget.title,
+              context.tr(widget.title),
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
@@ -210,7 +211,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
             ),
             if (widget.subtitle != null)
               Text(
-                widget.subtitle!,
+                context.tr(widget.subtitle!),
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,

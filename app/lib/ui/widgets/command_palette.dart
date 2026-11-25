@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
 import '../../theme/tokens.dart';
 import '../pages/tools_page.dart' show FormulaDetailPage;
@@ -52,12 +53,13 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
 
   List<_PaletteEntry> get _matches {
     final q = _query.text.trim().toLowerCase();
-    final tools = searchTools(q).map(_PaletteEntry.tool);
+    final tools = searchTools(q, strings: SurveyStrings.of(context)).map(_PaletteEntry.tool);
     final formulas = q.isEmpty
         ? kFormulaLibrary.take(4).map(_PaletteEntry.formula)
         : kFormulaLibrary
             .where(
               (f) =>
+                  context.tr(f.name).toLowerCase().contains(q) ||
                   f.name.toLowerCase().contains(q) ||
                   f.category.toLowerCase().contains(q) ||
                   f.expression.toLowerCase().contains(q),
@@ -139,14 +141,14 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                         controller: _query,
                         focusNode: _inputFocus,
                         autofocus: true,
-                        decoration: const InputDecoration(
-                          hintText: '搜索测量工具或公式（如：导线、交会、水准、圆曲线）',
+                        decoration: InputDecoration(
+                          hintText: context.tr('搜索测量工具或公式（如：导线、交会、水准、圆曲线）'),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           filled: false,
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
                         ),
                         onChanged: (_) => setState(() => _selected = 0),
                         onSubmitted: (_) {
@@ -155,7 +157,7 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                       ),
                     ),
                     IconButton(
-                      tooltip: '关闭 (Esc)',
+                      tooltip: context.tr('关闭 (Esc)'),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close, size: 18),
                     ),
@@ -170,7 +172,7 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
               if (items.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(Insets.xxl),
-                  child: Text(
+                  child: LocalText(
                     '没有匹配的工具或公式',
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
@@ -213,7 +215,7 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      entry.title,
+                                      context.tr(entry.title),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
@@ -225,7 +227,7 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                                       ),
                                     ),
                                     Text(
-                                      entry.subtitle,
+                                      entry.tool != null ? context.tr(entry.subtitle) : '${context.tr(entry.formula!.category)} · ${entry.formula!.expression}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
@@ -249,7 +251,7 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                                       BorderRadius.circular(Radii.pill),
                                 ),
                                 child: Text(
-                                  entry.badge,
+                                  context.tr(entry.badge),
                                   style: TextStyle(
                                     fontSize: 10.5,
                                     color: scheme.onSurfaceVariant,

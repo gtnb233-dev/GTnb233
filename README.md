@@ -3,28 +3,34 @@
   <h1>工程测量工具箱 · Survey Pro</h1>
   <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-windows-x64-setup.exe"><strong>下载 Windows</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.5">查看 v2.0.5 发布说明</a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-windows-x64-setup.exe"><strong>下载 Windows</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.6">查看 v2.0.6 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
 ## 下载与安装
 
-当前正式版为 **v2.0.5**。
+当前正式版为 **v2.0.6**。
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
-| **Windows x64 安装版** | Windows 10／11，当前用户安装 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-windows-x64-setup.exe) |
-| Windows x64 便携版 | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-windows-x64.zip) |
-| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-android-arm64-v8a.apk) |
-| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-android-universal.apk) |
-| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-android-armeabi-v7a.apk) |
-| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/survey_pro-2.0.5-android-x86_64.apk) |
+| **Windows x64 安装版** | Windows 10／11，当前用户安装 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-windows-x64-setup.exe) |
+| Windows x64 便携版 | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/survey_pro-2.0.6-android-x86_64.apk) |
 
 - **Windows** 可以运行 EXE 完成安装，或解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
-- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.0.5 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.5/SHA256SUMS.txt)
+- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.0.6 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.6/SHA256SUMS.txt)
+
+## 界面语言
+
+默认跟随系统语言。可在「设置 → 语言」手动选择简体中文、英语、绍纳语（ChiShona）、津巴布韦北恩德贝莱语（isiNdebele）、法语、葡萄牙语或西班牙语。应用会记住选择，切换语言无需联网。系统语言列表无可用译文时使用英语。
+
+多语言覆盖导航、设置、首页和工具列表，工具搜索支持所选语言中的名称。部分测量输入、诊断、教程及导出模板仍使用英语或简体中文。语言设置沿用现有测量坐标约定。
 
 ## v2.0.5 液态玻璃导航
 
@@ -103,6 +109,6 @@ Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在
 
 ## 版本与反馈
 
-- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.5)
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.6)
 - [历史版本](https://github.com/gtnb233-dev/GTnb233/releases) · [v1.2.0-beta.3](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.3)
 - [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../app_info.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
@@ -24,6 +25,41 @@ class SettingsPage extends StatelessWidget {
       title: '设置',
       caption: '显示约定与交互偏好，全部保存在本机',
       children: [
+        SurfaceCard(
+          padding: const EdgeInsets.all(Insets.l),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              InputDecorator(
+                decoration: InputDecoration(labelText: context.tr('语言')),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<AppLanguage>(
+                    key: const ValueKey('app-language'),
+                    value: s.language,
+                    isExpanded: true,
+                    isDense: true,
+                    items: [
+                      for (final language in AppLanguage.values)
+                        DropdownMenuItem(
+                          value: language,
+                          child: Text(language.nativeName ?? context.tr('跟随系统')),
+                        ),
+                    ],
+                    onChanged: (language) {
+                      if (language != null) s.setLanguage(language);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: Insets.s),
+              const LocalText(
+                '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。',
+                style: TextStyle(fontSize: 11.5),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Insets.l),
         const SectionHeader(title: '主题与显示'),
         const SizedBox(height: Insets.s),
         SurfaceCard(
@@ -31,7 +67,7 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              const LocalText(
                 '主题模式',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
@@ -41,17 +77,17 @@ class SettingsPage extends StatelessWidget {
                 segments: const [
                   ButtonSegment(
                     value: ThemeMode.system,
-                    label: Text('跟随系统'),
+                    label: LocalText('跟随系统'),
                     icon: Icon(Icons.brightness_auto_outlined, size: 17),
                   ),
                   ButtonSegment(
                     value: ThemeMode.light,
-                    label: Text('浅色'),
+                    label: LocalText('浅色'),
                     icon: Icon(Icons.light_mode_outlined, size: 17),
                   ),
                   ButtonSegment(
                     value: ThemeMode.dark,
-                    label: Text('深色'),
+                    label: LocalText('深色'),
                     icon: Icon(Icons.dark_mode_outlined, size: 17),
                   ),
                 ],
@@ -72,7 +108,7 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              const LocalText(
                 'UI 风格',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
@@ -87,14 +123,14 @@ class SettingsPage extends StatelessWidget {
                 ),
                 segments: [
                   for (final style in UiStyle.values)
-                    ButtonSegment(value: style, label: Text(style.label)),
+                    ButtonSegment(value: style, label: Text(context.tr(style.label))),
                 ],
                 selected: {s.uiStyle},
                 onSelectionChanged: (v) => s.setUiStyle(v.first),
               ),
               const SizedBox(height: 6),
               Text(
-                s.uiStyle.description,
+                context.tr(s.uiStyle.description),
                 style:
                     TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
               ),
@@ -116,11 +152,11 @@ class SettingsPage extends StatelessWidget {
                 value: wide ? s.glassNav : s.floatingGlassNav,
                 onChanged: s.setGlassNav,
                 title: Text(
-                  wide ? '玻璃侧栏' : '液态玻璃导航',
+                  context.tr(wide ? '玻璃侧栏' : '液态玻璃导航'),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  wide ? '在侧栏使用半透明玻璃背景' : '悬浮底栏与可滑动的玻璃胶囊',
+                  context.tr(wide ? '在侧栏使用半透明玻璃背景' : '悬浮底栏与可滑动的玻璃胶囊'),
                   style: const TextStyle(fontSize: 11.5),
                 ),
               ),
@@ -133,11 +169,11 @@ class SettingsPage extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 value: s.monet,
                 onChanged: s.setMonet,
-                title: const Text(
+                title: const LocalText(
                   '莫奈调色',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text(
+                subtitle: const LocalText(
                   '用种子色生成整套 tonal 调色板；Android 12+ / Windows 支持自动跟随系统强调色',
                   style: TextStyle(fontSize: 11.5),
                 ),
@@ -150,7 +186,7 @@ class SettingsPage extends StatelessWidget {
                   children: [
                     for (final seed in MonetSeed.values)
                       FilterChip(
-                        label: Text(seed.label),
+                        label: Text(context.tr(seed.label)),
                         selected: s.monetSeed == seed,
                         visualDensity: VisualDensity.compact,
                         onSelected:
@@ -173,15 +209,15 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              const LocalText(
                 '角度输入格式',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 2),
               Text(
-                s.angleMode == AngleInputMode.dmsCompact
+                context.tr(s.angleMode == AngleInputMode.dmsCompact
                     ? '度分秒分格（度°/分′/秒″）：空格或小数点自动跳格，也支持粘贴 GG.MMSS'
-                    : '十进制度：90.5 表示 90°30′00″（亦兼容空格或小数点直填度分秒）',
+                    : '十进制度：90.5 表示 90°30′00″（亦兼容空格或小数点直填度分秒）'),
                 style: TextStyle(
                   fontSize: 11.5,
                   color: scheme.onSurfaceVariant,
@@ -193,24 +229,24 @@ class SettingsPage extends StatelessWidget {
                 segments: const [
                   ButtonSegment(
                     value: AngleInputMode.dmsCompact,
-                    label: Text('度分秒'),
+                    label: LocalText('度分秒'),
                   ),
                   ButtonSegment(
                     value: AngleInputMode.decimalDegrees,
-                    label: Text('十进制度'),
+                    label: LocalText('十进制度'),
                   ),
                 ],
                 selected: {s.angleMode},
                 onSelectionChanged: (v) => s.setAngleMode(v.first),
               ),
               const SizedBox(height: Insets.l),
-              const Text(
+              const LocalText(
                 '长度输入量级',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 2),
               Text(
-                '当前按 ${s.lengthUnitLabel} 录入与显示（1 m = 100 cm = 1000 mm 自动换算，默认米制）',
+                context.tr('当前按 {unit} 录入与显示（1 m = 100 cm = 1000 mm 自动换算，默认米制）', {'unit': '${context.tr(s.lengthUnit.label)} (${s.lengthUnit.symbol})'}),
                 style: TextStyle(
                   fontSize: 11.5,
                   color: scheme.onSurfaceVariant,
@@ -222,15 +258,15 @@ class SettingsPage extends StatelessWidget {
                 segments: const [
                   ButtonSegment(
                     value: LengthUnit.meter,
-                    label: Text('米 (m)'),
+                    label: LocalText('米 (m)'),
                   ),
                   ButtonSegment(
                     value: LengthUnit.centimeter,
-                    label: Text('厘米 (cm)'),
+                    label: LocalText('厘米 (cm)'),
                   ),
                   ButtonSegment(
                     value: LengthUnit.millimeter,
-                    label: Text('毫米 (mm)'),
+                    label: LocalText('毫米 (mm)'),
                   ),
                 ],
                 selected: {s.lengthUnit},
@@ -275,11 +311,11 @@ class SettingsPage extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: s.haptic,
             onChanged: s.setHaptic,
-            title: const Text(
+            title: const LocalText(
               '触感反馈',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            subtitle: const Text(
+            subtitle: const LocalText(
               '按钮与复制结果时给出轻微振动',
               style: TextStyle(fontSize: 11.5),
             ),
@@ -339,7 +375,7 @@ class SettingsPage extends StatelessWidget {
                 title: '清空全部本地草稿',
                 subtitle: savedDraftCount == 0
                     ? '当前没有已保存的工具草稿'
-                    : '当前共保存 $savedDraftCount 个工具页的草稿输入',
+                    : context.tr('当前共保存 {count} 个工具页的草稿输入', {'count': savedDraftCount}),
                 onTap: () async {
                   if (drafts == null || savedDraftCount == 0) {
                     SurveyToast.info(context, '当前没有可清空的本地草稿');
@@ -349,7 +385,7 @@ class SettingsPage extends StatelessWidget {
                     context,
                     title: '清空全部本地草稿？',
                     subtitle: '不可撤销的本地清理操作',
-                    message: '将删除全部 $savedDraftCount 个工具页的已保存输入，且无法恢复。',
+                    message: context.tr('将删除全部 {count} 个工具页的已保存输入，且无法恢复。', {'count': savedDraftCount}),
                     confirmLabel: '确认清空',
                     destructive: true,
                   );
@@ -386,21 +422,21 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: Insets.m),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const LocalText(
                           '工程测量',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          '版本 $kAppVersion · 离线计算',
-                          style: TextStyle(fontSize: 11.5),
+                          context.tr('版本 {version} · 离线计算', {'version': kAppVersion}),
+                          style: const TextStyle(fontSize: 11.5),
                         ),
                       ],
                     ),
@@ -413,10 +449,10 @@ class SettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: Insets.m),
               Text(
-                '包含 ${kFormulaLibrary.length} 条内置公式，覆盖坐标反算与放样、'
-                '导线与水准平差、圆曲线与缓和曲线、竖曲线、面积与土方、'
-                '精度评定与单位换算。所有计算在本地完成，不上传任何数据。'
-                '计算结果用于辅助作业，正式成果请按规范复核。',
+                context.tr(
+                  '包含 {count} 条内置公式，覆盖坐标反算与放样、导线与水准平差、圆曲线与缓和曲线、竖曲线、面积与土方、精度评定与单位换算。所有计算在本地完成，不上传任何数据。计算结果用于辅助作业，正式成果请按规范复核。',
+                  {'count': kFormulaLibrary.length},
+                ),
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.6,
@@ -469,7 +505,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              name,
+              context.tr(name),
               style:
                   const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
             ),
@@ -492,7 +528,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
         ),
         const SizedBox(height: 3),
         Text(
-          desc,
+          context.tr(desc),
           style: TextStyle(
             fontSize: 11.5,
             height: 1.45,
@@ -692,7 +728,7 @@ class _Stepper extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                label,
+                context.tr(label),
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -700,7 +736,7 @@ class _Stepper extends StatelessWidget {
               ),
               if (helper != null)
                 Text(
-                  helper!,
+                  context.tr(helper!),
                   style: TextStyle(
                     fontSize: 11.5,
                     color: scheme.onSurfaceVariant,

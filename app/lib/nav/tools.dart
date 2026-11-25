@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/survey_strings.dart';
 /// 功能分组，用于工具库分区展示。
 enum ToolGroup {
   coordinates('坐标与放样', Icons.place_outlined),
@@ -205,10 +206,15 @@ final _searchFields = {
 };
 
 /// 按关键词搜索工具（标题、副标题、关键词）。
-List<ToolDef> searchTools(String query) {
+List<ToolDef> searchTools(String query, {SurveyStrings? strings}) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return kTools;
   return kTools
-      .where((tool) => _searchFields[tool]!.any((field) => field.contains(q)))
+      .where((tool) =>
+          _searchFields[tool]!.any((field) => field.contains(q)) ||
+          (strings != null &&
+              [tool.title, tool.subtitle, tool.group.label].any(
+                (field) => strings.translate(field).toLowerCase().contains(q),
+              )))
       .toList(growable: false);
 }

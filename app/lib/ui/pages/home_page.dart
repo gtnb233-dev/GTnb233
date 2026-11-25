@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../app_info.dart';
 import '../../nav/tools.dart';
 import '../../state/drafts.dart';
@@ -29,17 +30,17 @@ class HomePage extends StatelessWidget {
     final recent = toolById(settings.lastTool);
     return PageScaffold(
       title: '工程测量',
-      caption: '离线测量工作台 · $kAppVersionLabel',
+      caption: context.tr('离线测量工作台 · {version}', {'version': kAppVersionLabel}),
       trailing: [
         IconButton(
-          tooltip: '设置',
+          tooltip: context.tr('设置'),
           onPressed: onOpenSettings,
           icon: const OutlineSymbol(Icons.settings_outlined, size: 24),
         ),
       ],
       header: _WorkbenchCard(
         angleMode: settings.angleMode,
-        angleModeLabel: settings.angleModeShortLabel,
+        angleModeLabel: context.tr(settings.angleModeShortLabel),
         lengthUnit: settings.lengthUnit,
         digits: settings.coordDigits,
         onSearch: () => showCommandPalette(context),
@@ -54,7 +55,7 @@ class HomePage extends StatelessWidget {
         SectionHeader(
           title: '常用工具',
           trailing: TextButton(
-              onPressed: () => onNavigate(3), child: const Text('管理常用')),
+              onPressed: () => onNavigate(3), child: const LocalText('管理常用')),
         ),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -125,7 +126,7 @@ class HomePage extends StatelessWidget {
     };
     return MetricTile(
       label: t.title,
-      value: _shortValue(t.id),
+      value: context.tr(_shortValue(t.id)),
       unit: _shortUnit(t.id, unit),
       caption: t.subtitle,
       hasDraft: hasDraft,
@@ -208,10 +209,10 @@ class _WorkbenchCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text('录入参数', style: theme.textTheme.titleMedium)),
+              Expanded(child: LocalText('录入参数', style: theme.textTheme.titleMedium)),
               TextButton(
                 onPressed: onSettings,
-                child: const Text('设置偏好'),
+                child: const LocalText('设置偏好'),
               ),
             ],
           ),
@@ -222,14 +223,14 @@ class _WorkbenchCard extends StatelessWidget {
             children: [
               PopupMenuButton<LengthUnit>(
                 key: const ValueKey<String>('home-unit-pill'),
-                tooltip: '切换长度输入量级',
+                tooltip: context.tr('切换长度输入量级'),
                 initialValue: lengthUnit,
                 onSelected: (u) async {
                   await SettingsScope.read(context).setLengthUnit(u);
                   if (!context.mounted) return;
                   SurveyToast.info(
                     context,
-                    '输入量级已切换为 ${u.label} (${u.symbol})',
+                    context.tr('输入量级已切换为 {unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
                   );
                 },
                 itemBuilder: (_) => [
@@ -248,7 +249,7 @@ class _WorkbenchCard extends StatelessWidget {
                                 : scheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 8),
-                          Text('${u.label} (${u.symbol})'),
+                          Text('${context.tr(u.label)} (${u.symbol})'),
                         ],
                       ),
                     ),
@@ -256,7 +257,7 @@ class _WorkbenchCard extends StatelessWidget {
                 child: _WorkbenchChip(
                   icon: Icons.straighten,
                   label: '长度量级',
-                  value: '${lengthUnit.label}（${lengthUnit.symbol}）',
+                  value: '${context.tr(lengthUnit.label)}（${lengthUnit.symbol}）',
                   showCaret: true,
                   highlighted: lengthUnit != LengthUnit.meter,
                 ),
@@ -274,7 +275,7 @@ class _WorkbenchCard extends StatelessWidget {
                     if (!context.mounted) return;
                     SurveyToast.info(
                       context,
-                      '角度格式已切换为 ${next == AngleInputMode.dmsCompact ? '度分秒分格' : '十进制度'}',
+                      context.tr('角度格式已切换为 {format}', {'format': context.tr(next == AngleInputMode.dmsCompact ? '度分秒分格' : '十进制度')}),
                     );
                   },
                   child: _WorkbenchChip(
@@ -294,12 +295,12 @@ class _WorkbenchCard extends StatelessWidget {
                     await SettingsScope.read(context)
                         .setCoordDigits(nextDigits);
                     if (!context.mounted) return;
-                    SurveyToast.info(context, '坐标默认位数已设为 $nextDigits 位');
+                    SurveyToast.info(context, context.tr('坐标默认位数已设为 {digits} 位', {'digits': nextDigits}));
                   },
                   child: _WorkbenchChip(
                     icon: Icons.pin_outlined,
                     label: '坐标小数位',
-                    value: '保留 $places 位小数',
+                    value: context.tr('保留 {digits} 位小数', {'digits': places}),
                   ),
                 ),
               ),
@@ -316,7 +317,7 @@ class _WorkbenchCard extends StatelessWidget {
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('查找工具或公式'),
+                    const Flexible(child: LocalText('查找工具或公式')),
                     if (showShortcut) ...[
                       const SizedBox(width: 8),
                       Container(
@@ -348,7 +349,7 @@ class _WorkbenchCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: onFormula,
                 icon: const OutlineSymbol(Icons.functions, size: 16),
-                label: const Text('公式计算'),
+                label: const LocalText('公式计算'),
               ),
             ],
           ),
@@ -402,8 +403,8 @@ class _WorkbenchChip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: TextStyle(fontSize: 10, color: fg)),
-                Text(value,
+                Text(context.tr(label), style: TextStyle(fontSize: 10, color: fg)),
+                Text(context.tr(value),
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -440,9 +441,8 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final saved = savedAt == null
-        ? '草稿未保存'
-        : '已保存 ${_two(savedAt!.hour)}:${_two(savedAt!.minute)}:'
-            '${_two(savedAt!.second)}';
+        ? context.tr('草稿未保存')
+        : context.tr('已保存 {time}', {'time': '${_two(savedAt!.hour)}:${_two(savedAt!.minute)}:${_two(savedAt!.second)}'});
     return SurfaceCard(
       padding: const EdgeInsets.symmetric(
         horizontal: Insets.l,
@@ -460,7 +460,7 @@ class _StatusRow extends StatelessWidget {
           const SizedBox(width: Insets.s),
           Expanded(
             child: Text(
-              '$saved · $toolCount 个工具 · 离线可用',
+              context.tr('{status} · {count} 个工具 · 离线可用', {'status': saved, 'count': toolCount}),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -473,7 +473,7 @@ class _StatusRow extends StatelessWidget {
           const SizedBox(width: Insets.s),
           TextButton(
             onPressed: onOpenLibrary,
-            child: const Text('工具库'),
+            child: const LocalText('工具库'),
           ),
         ],
       ),

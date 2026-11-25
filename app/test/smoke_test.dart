@@ -1,3 +1,5 @@
+import 'dart:ui' show Locale;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:survey_core/survey_core.dart';
 import 'package:survey_pro/main.dart';
@@ -5,6 +7,12 @@ import 'package:survey_pro/state/drafts.dart';
 import 'package:survey_pro/state/settings.dart';
 
 void main() {
+  setUp(() {
+    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    dispatcher.localesTestValue = const [Locale('zh', 'CN')];
+    addTearDown(dispatcher.clearLocalesTestValue);
+  });
+
   testWidgets('应用能启动并显示首页标题', (tester) async {
     await tester.pumpWidget(SurveyApp(settings: AppSettings(), drafts: DraftStore()));
     await tester.pumpAndSettle();

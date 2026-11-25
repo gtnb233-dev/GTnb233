@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
 import 'foundation.dart';
@@ -35,7 +36,7 @@ class FieldShell extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                label,
+                context.tr(label),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -57,7 +58,7 @@ class FieldShell extends StatelessWidget {
         if (helper != null && helper!.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
-            helper!,
+            context.tr(helper!),
             style: TextStyle(
               fontSize: 11.5,
               color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
@@ -1594,7 +1595,7 @@ class _InlineBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label,
+        context.tr(label),
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
@@ -1681,7 +1682,7 @@ class InputCard extends StatelessWidget {
                   ],
                   Expanded(
                     child: Text(
-                      title!,
+                      context.tr(title!),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -1705,7 +1706,7 @@ class InputCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: Insets.m),
               child: Text(
-                caption!,
+                context.tr(caption!),
                 style: TextStyle(
                   fontSize: 12.5,
                   color: scheme.onSurfaceVariant,

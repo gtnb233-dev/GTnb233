@@ -2,6 +2,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'outline_symbol.dart';
 import 'sliding_bottom_nav.dart';
@@ -194,7 +195,7 @@ class _Item extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      item.label,
+                      context.tr(item.label),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,

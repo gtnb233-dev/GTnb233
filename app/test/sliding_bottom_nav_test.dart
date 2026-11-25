@@ -9,6 +9,12 @@ import 'package:survey_pro/ui/widgets/glass_nav.dart';
 import 'package:survey_pro/ui/widgets/sliding_bottom_nav.dart';
 
 void main() {
+  setUp(() {
+    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    dispatcher.localesTestValue = const [Locale('zh', 'CN')];
+    addTearDown(dispatcher.clearLocalesTestValue);
+  });
+
   for (final glass in [false, true]) {
     testWidgets(
         'bottom navigation previews, selects and cancels (glass: $glass)',

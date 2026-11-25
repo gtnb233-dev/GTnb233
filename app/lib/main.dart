@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart'
     show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'l10n/survey_strings.dart';
 import 'state/drafts.dart';
 import 'state/settings.dart';
 import 'theme/app_theme.dart';
@@ -140,22 +140,17 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
                 ? Monet.resolveSeed(settings.monetSeed, _systemAccent)
                 : kSeed;
             return MaterialApp(
-              title: '工程测量',
+              onGenerateTitle: (context) => context.tr('工程测量'),
               debugShowCheckedModeBanner: false,
               scrollBehavior: const _AppScrollBehavior(),
               theme: buildAppTheme(Brightness.light, seed: seed, style: style),
               darkTheme:
                   buildAppTheme(Brightness.dark, seed: seed, style: style),
               themeMode: settings.themeMode,
-              // Material 内置控件（复制/粘贴、返回提示、日期选择等）用简体中文，
-              // 避免中文界面里混入英文系统文案。
-              locale: const Locale('zh', 'CN'),
-              supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
-              localizationsDelegates: const [
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
+              locale: settings.language.locale,
+              localeListResolutionCallback: (locales, _) => AppLanguage.resolve(locales),
+              supportedLocales: AppLanguage.supportedLocales,
+              localizationsDelegates: SurveyStrings.delegates,
               home: const AppShell(),
               builder: (context, child) {
                 // 统一限制系统字体缩放上限，避免超大字号把测量结果挤坏版式。

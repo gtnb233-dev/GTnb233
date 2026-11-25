@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
@@ -39,7 +40,7 @@ class _ToolsPageState extends State<ToolsPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final matched = searchTools(_query);
+    final matched = searchTools(_query, strings: SurveyStrings.of(context));
     final searching = _query.trim().isNotEmpty;
 
     // 搜索时只保留命中组，且自动展开；清空搜索回到手风琴常态。
@@ -49,13 +50,13 @@ class _ToolsPageState extends State<ToolsPage> {
     }
     return PageScaffold(
       title: '工具库',
-      caption: '${kTools.length} 个测量工具，按分类浏览',
+      caption: context.tr('{count} 个测量工具，按分类浏览', {'count': kTools.length}),
       children: [
         TextField(
           controller: _search,
           onChanged: (v) => setState(() => _query = v),
           decoration: InputDecoration(
-            hintText: '搜索工具，如「导线」「曲线」「面积」',
+            hintText: context.tr('搜索工具，如「导线」「曲线」「面积」'),
             prefixIcon: const Icon(Icons.search, size: 20),
             suffixIcon: _query.isEmpty
                 ? null
@@ -72,8 +73,8 @@ class _ToolsPageState extends State<ToolsPage> {
         SectionHeader(
           title: '分类总览',
           caption: searching
-              ? '搜索命中 ${matched.length} 个工具'
-              : '${kTools.length} 个工具 · ${ToolGroup.values.length} 个分类，点分类就地展开',
+              ? context.tr('搜索命中 {count} 个工具', {'count': matched.length})
+              : context.tr('{count} 个工具 · {groups} 个分类，点分类就地展开', {'count': kTools.length, 'groups': ToolGroup.values.length}),
           trailing: searching
               ? null
               : TextButton(
@@ -96,9 +97,9 @@ class _ToolsPageState extends State<ToolsPage> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
-                    _expanded.length == ToolGroup.values.length
+                    context.tr(_expanded.length == ToolGroup.values.length
                         ? '全部收起'
-                        : '全部展开',
+                        : '全部展开'),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -124,7 +125,7 @@ class _ToolsPageState extends State<ToolsPage> {
             ],
         if (!searching && _expanded.isNotEmpty)
           Center(
-            child: Text(
+            child: LocalText(
               '点击分类卡片可展开/收起',
               style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
             ),
@@ -188,7 +189,7 @@ class _GroupCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          group.label,
+                          context.tr(group.label),
                           style: const TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
@@ -196,7 +197,7 @@ class _GroupCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          tools.map((t) => t.title).take(3).join(' · '),
+                          tools.map((t) => context.tr(t.title)).take(3).join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -289,7 +290,7 @@ class _ToolRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tool.title,
+                    context.tr(tool.title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -299,7 +300,7 @@ class _ToolRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    tool.subtitle,
+                    context.tr(tool.subtitle),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -313,7 +314,7 @@ class _ToolRow extends StatelessWidget {
             if (settings != null)
               IconButton(
                 key: ValueKey<String>('toolbox-pin-${tool.id}'),
-                tooltip: pinned ? '取消首页固定' : '固定到首页常用',
+                tooltip: context.tr(pinned ? '取消首页固定' : '固定到首页常用'),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
@@ -333,9 +334,10 @@ class _ToolRow extends StatelessWidget {
                   } else {
                     SurveyToast.info(
                       context,
-                      pinned
-                          ? '已从首页常用移除「${tool.title}」'
-                          : '已固定「${tool.title}」到首页常用',
+                      context.tr(
+                        pinned ? '已从首页常用移除「{tool}」' : '已固定「{tool}」到首页常用',
+                        {'tool': context.tr(tool.title)},
+                      ),
                     );
                   }
                 },
@@ -375,7 +377,7 @@ class CoordPage extends StatelessWidget {
                 children: [
                   Icon(Icons.info_outline, size: 17, color: scheme.primary),
                   const SizedBox(width: 6),
-                  const Text(
+                  const LocalText(
                     '计算约定',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
@@ -383,10 +385,14 @@ class CoordPage extends StatelessWidget {
               ),
               const SizedBox(height: Insets.s),
               Text(
-                '· 方位角 = atan2(ΔY, ΔX)，取值 0°–360°\n'
-                '· 坐标增量 ΔX = D·cosα，ΔY = D·sinα\n'
-                '· 小数位：${settings.coordDigits} 位；'
-                '角度：${settings.angleMode == AngleInputMode.dmsCompact ? '度分秒输入' : '十进制度输入'}',
+                [
+                  context.tr('· 方位角 = atan2(ΔY, ΔX)，取值 0°–360°'),
+                  context.tr('· 坐标增量 ΔX = D·cosα，ΔY = D·sinα'),
+                  context.tr('· 小数位：{digits} 位；角度：{angle}', {
+                    'digits': settings.coordDigits,
+                    'angle': context.tr(settings.angleMode == AngleInputMode.dmsCompact ? '度分秒输入' : '十进制度输入'),
+                  }),
+                ].join('\n'),
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.6,
@@ -500,17 +506,17 @@ class _FormulaPageState extends State<FormulaPage> {
                 fontWeight: FontWeight.w600,
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
-              decoration: const InputDecoration(
-                labelText: '表达式',
-                hintText: '例如 sqrt((x2-x1)^2 + (y2-y1)^2)',
+              decoration: InputDecoration(
+                labelText: context.tr('表达式'),
+                hintText: context.tr('例如 sqrt((x2-x1)^2 + (y2-y1)^2)'),
               ),
               onSubmitted: (_) => _compute(notify: true),
             ),
             TextField(
               controller: _vars,
               style: const TextStyle(fontSize: 14),
-              decoration: const InputDecoration(
-                labelText: '变量（可选，逗号分隔）',
+              decoration: InputDecoration(
+                labelText: context.tr('变量（可选，逗号分隔）'),
                 hintText: 'x1=0, y1=0',
               ),
               onSubmitted: (_) => _compute(notify: true),
@@ -519,7 +525,7 @@ class _FormulaPageState extends State<FormulaPage> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
+                  LocalText(
                     '结果',
                     style: TextStyle(
                       fontSize: 12.5,
@@ -545,7 +551,7 @@ class _FormulaPageState extends State<FormulaPage> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _error!,
+                      context.tr(_error!),
                       style: TextStyle(fontSize: 12.5, color: scheme.error),
                     ),
                   ),
@@ -568,7 +574,7 @@ class _FormulaPageState extends State<FormulaPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(Insets.xs, Insets.s, 0, 4),
             child: Text(
-              category,
+              context.tr(category),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
@@ -717,7 +723,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage> {
               if (f.description != null) ...[
                 const SizedBox(height: Insets.s),
                 Text(
-                  f.description!,
+                  context.tr(f.description!),
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.5,
@@ -756,7 +762,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage> {
           padding: const EdgeInsets.all(Insets.l),
           child: Row(
             children: [
-              Text(
+              LocalText(
                 '结果',
                 style: TextStyle(
                   fontSize: 13,
@@ -768,7 +774,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage> {
               Expanded(
                 child: _error != null
                     ? Text(
-                        _error!,
+                        context.tr(_error!),
                         textAlign: TextAlign.right,
                         style: TextStyle(fontSize: 13, color: scheme.error),
                       )

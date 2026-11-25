@@ -37,6 +37,12 @@ Rect _glassRect(WidgetTester tester) => tester.getRect(
     );
 
 void main() {
+  setUp(() {
+    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    dispatcher.localesTestValue = const [Locale('zh', 'CN')];
+    addTearDown(dispatcher.clearLocalesTestValue);
+  });
+
   testWidgets('玻璃条吃掉自身区域的点击，条外点击正常', (tester) async {
     tester.view.physicalSize = const Size(400, 800) * 3;
     tester.view.devicePixelRatio = 3.0;

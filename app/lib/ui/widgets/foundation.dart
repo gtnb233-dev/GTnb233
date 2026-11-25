@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 
 /// 卡片基调。
@@ -143,7 +144,7 @@ class SectionHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  context.tr(title),
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: scheme.onSurface,
                     fontWeight: FontWeight.w600,
@@ -154,7 +155,7 @@ class SectionHeader extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      caption!,
+                      context.tr(caption!),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontSize: 12,
@@ -235,7 +236,7 @@ class Pill extends StatelessWidget {
           // 会把外层 RenderFlex 撑溢出（首页「角度 度分秒 (GG.MMSS)」就是）。
           Flexible(
             child: Text(
-              label,
+              context.tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -286,7 +287,7 @@ class PrimaryAction extends StatelessWidget {
                 Icon(icon, size: 19),
                 const SizedBox(width: 8),
               ],
-              Text(label),
+              Text(context.tr(label)),
             ],
           );
     return SizedBox(
@@ -335,7 +336,7 @@ class EmptyHint extends StatelessWidget {
           ),
           const SizedBox(height: Insets.m),
           Text(
-            message,
+            context.tr(message),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13.5,
@@ -346,7 +347,7 @@ class EmptyHint extends StatelessWidget {
           if (hint != null) ...[
             const SizedBox(height: 4),
             Text(
-              hint!,
+              context.tr(hint!),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -419,7 +420,7 @@ class ChoiceTile extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      title,
+                      context.tr(title),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         fontSize: 14.5,
@@ -429,7 +430,7 @@ class ChoiceTile extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 1),
                         child: Text(
-                          subtitle!,
+                          context.tr(subtitle!),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                             fontSize: 12,

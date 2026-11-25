@@ -58,6 +58,12 @@ Future<void> _pumpPage(
 }
 
 void main() {
+  setUp(() {
+    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    dispatcher.localesTestValue = const [Locale('zh', 'CN')];
+    addTearDown(dispatcher.clearLocalesTestValue);
+  });
+
   final pages = <String, Widget>{
     '首页': HomePage(onNavigate: (_) {}, onOpenSettings: () {}),
     '工具库': const ToolsPage(),

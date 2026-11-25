@@ -5,6 +5,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
 import '../page_scaffold.dart' show glassNavBottomReserve;
@@ -35,7 +36,7 @@ class SurveyTooltip extends StatelessWidget {
     final bg = isDark ? IosColors.darkTertiary : const Color(0xFF1C1C1E);
     return Tooltip(
       key: tooltipKey,
-      message: message,
+      message: context.tr(message),
       preferBelow: preferBelow,
       waitDuration: waitDuration,
       triggerMode: triggerMode,
@@ -135,10 +136,10 @@ abstract final class SurveyToast {
     if (overlay == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(context.tr(message)),
           duration: duration,
           action: actionLabel != null && onAction != null
-              ? SnackBarAction(label: actionLabel, onPressed: onAction)
+              ? SnackBarAction(label: context.tr(actionLabel), onPressed: onAction)
               : null,
         ),
       );
@@ -398,7 +399,7 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
                               const SizedBox(width: Insets.s),
                               Flexible(
                                 child: Text(
-                                  widget.message,
+                                  context.tr(widget.message),
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -429,7 +430,7 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
                                         MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: Text(
-                                    widget.actionLabel!,
+                                    context.tr(widget.actionLabel!),
                                     style: const TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w700,
@@ -535,7 +536,7 @@ class SurveyAlert extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 2),
                           child: Text(
-                            title!,
+                            context.tr(title!),
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
@@ -544,7 +545,7 @@ class SurveyAlert extends StatelessWidget {
                           ),
                         ),
                       Text(
-                        message,
+                        context.tr(message),
                         style: TextStyle(
                           fontSize: 12.5,
                           height: 1.4,
@@ -688,7 +689,7 @@ abstract final class SurveyModal {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    title,
+                                    context.tr(title),
                                     style: TextStyle(
                                       fontSize: 16.5,
                                       fontWeight: FontWeight.w600,
@@ -699,7 +700,7 @@ abstract final class SurveyModal {
                                       subtitle.isNotEmpty) ...[
                                     const SizedBox(height: 2),
                                     Text(
-                                      subtitle,
+                                      context.tr(subtitle),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: scheme.onSurfaceVariant,
@@ -786,13 +787,13 @@ abstract final class SurveyModal {
       tone: destructive ? ModalTone.danger : ModalTone.warning,
       maxWidth: 400,
       child: Text(
-        message,
+        context.tr(message),
         style: const TextStyle(fontSize: 13.5, height: 1.55),
       ),
       actionsBuilder: (dialogCtx) => [
         OutlinedButton(
           onPressed: () => Navigator.of(dialogCtx).pop(false),
-          child: Text(cancelLabel),
+          child: Text(context.tr(cancelLabel)),
         ),
         FilledButton(
           style: destructive
@@ -802,7 +803,7 @@ abstract final class SurveyModal {
                 )
               : null,
           onPressed: () => Navigator.of(dialogCtx).pop(true),
-          child: Text(confirmLabel),
+          child: Text(context.tr(confirmLabel)),
         ),
       ],
     );
@@ -944,7 +945,7 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                widget.title,
+                                context.tr(widget.title),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -955,7 +956,7 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
                                   widget.description!.isNotEmpty) ...[
                                 const SizedBox(height: 3),
                                 Text(
-                                  widget.description!,
+                                  context.tr(widget.description!),
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     height: 1.4,
@@ -984,7 +985,7 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: Text(
-                            widget.cancelLabel,
+                            context.tr(widget.cancelLabel),
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
@@ -1006,7 +1007,7 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: Text(
-                            widget.confirmLabel,
+                            context.tr(widget.confirmLabel),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

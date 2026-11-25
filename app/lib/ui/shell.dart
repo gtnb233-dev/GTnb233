@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/survey_strings.dart';
 import '../app_info.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
@@ -158,7 +159,7 @@ class _AppShellState extends State<AppShell> {
                             NavigationDestination(
                               icon: OutlineSymbol(item.icon, size: 20),
                               selectedIcon: OutlineSymbol(item.activeIcon, size: 20),
-                              label: item.label,
+                              label: context.tr(item.label),
                             ),
                         ],
                       ),
@@ -218,7 +219,7 @@ class _WorkspaceSidebar extends StatelessWidget {
     final glass = settings.glassNav;
     final dark = scheme.brightness == Brightness.dark;
     final menuButton = IconButton(
-      tooltip: collapsed ? '展开侧栏' : '收起侧栏',
+      tooltip: context.tr(collapsed ? '展开侧栏' : '收起侧栏'),
       onPressed: onToggle,
       icon: OutlineSymbol(collapsed ? Icons.menu_open : Icons.first_page,
           size: 20),
@@ -255,7 +256,7 @@ class _WorkspaceSidebar extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                LocalText(
                                   '工程测量',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -310,7 +311,7 @@ class _WorkspaceSidebar extends StatelessWidget {
                     _ThemeSwitcher(settings: settings),
                     const SizedBox(height: Insets.s),
                     Text(
-                      '$kAppVersionLabel · $kAppPlatforms',
+                      '$kAppVersionLabel · ${context.tr(kAppPlatforms)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -387,7 +388,7 @@ class _SidebarAction extends StatelessWidget {
     if (collapsed) {
       return Center(
         child: IconButton(
-          tooltip: label,
+          tooltip: context.tr(label),
           onPressed: onPressed,
           icon: OutlineSymbol(icon, size: 20),
           isSelected: selected,
@@ -424,7 +425,7 @@ class _SidebarAction extends StatelessWidget {
             OutlineSymbol(icon, size: 18),
             const SizedBox(width: Insets.s),
             Expanded(
-              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(context.tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             if (shortcut != null)
               Text(shortcut!, style: theme.textTheme.labelSmall),
@@ -458,11 +459,11 @@ class _ThemeSwitcher extends StatelessWidget {
         children: [
           for (final mode in ThemeMode.values)
             IconButton(
-              tooltip: switch (mode) {
+              tooltip: context.tr(switch (mode) {
                 ThemeMode.system => '跟随系统',
                 ThemeMode.light => '浅色',
                 ThemeMode.dark => '深色',
-              },
+              }),
               isSelected: mode == settings.themeMode,
               onPressed: () => settings.setThemeMode(mode),
               icon: Icon(

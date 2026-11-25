@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'foundation.dart';
 import 'overlays.dart';
@@ -78,7 +79,7 @@ class _ResultTileState extends State<ResultTile> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    widget.label,
+                    context.tr(widget.label),
                     style: TextStyle(
                       fontSize: widget.dense ? 12.5 : 13.5,
                       color: scheme.onSurfaceVariant,
@@ -367,7 +368,7 @@ class _MetricTileState extends State<MetricTile> {
                 ],
                 Expanded(
                   child: Text(
-                    widget.label,
+                    context.tr(widget.label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -432,7 +433,7 @@ class _MetricTileState extends State<MetricTile> {
             if (widget.caption != null) ...[
               const SizedBox(height: Insets.s),
               Text(
-                widget.caption!,
+                context.tr(widget.caption!),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
