@@ -34,6 +34,10 @@ class FlutterWindow : public Win32Window {
   // Platform channel for system accent color & window dark/light sync.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       theme_channel_;
+
+  // Platform channel for native Win32 open/save file dialogs.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      files_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

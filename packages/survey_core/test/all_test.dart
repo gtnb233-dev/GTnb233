@@ -1903,5 +1903,110 @@ void main() {
     });
   });
 
+  group('Wave 0 检核与结构化错误', () {
+    test('四等水准：视线高 ≤ 0.2m 检核与 ±7m 累计视距差预警分离', () {
+      // 读数 ≤ 200mm 时 sightHeightOk = false
+      final lowSight = doubleStaffLeveling(const [
+        DoubleStaffObservation(
+          backUpper: 1000,
+          backLower: 180,
+          frontUpper: 1500,
+          frontLower: 700,
+          backBlack: 590,
+          backRed: 5277,
+          frontBlack: 1100,
+          frontRed: 5787,
+        ),
+      ]);
+      expectFalse(lowSight.stations.first.sightHeightOk);
+      expectFalse(lowSight.stations.first.ok);
+      expectTrue(lowSight.stations.first.issueText.contains('视线高 ≤ 0.2m'));
+
+      // 累计视距差 7.5m（两站各 3.75m）：cumStadiaWarning = true，且 cumulativeOk = true
+      // 第三站累计 11.25m：cumulativeOk = false，cumStadiaWarning = false
+      const st375 = DoubleStaffObservation(
+        backUpper: 1500,
+        backLower: 700,
+        frontUpper: 1400,
+        frontLower: 637.5,
+        backBlack: 1100,
+        backRed: 5787,
+        frontBlack: 1018.75,
+        frontRed: 5705.75,
+      );
+      final warn = doubleStaffLeveling(const [st375, st375]);
+      expectClose(warn.stations[1].cumulativeDistanceDiffM, 7.5, tol: 1e-9);
+      expectTrue(warn.stations[1].cumStadiaWarning);
+      expectTrue(warn.stations[1].cumulativeOk);
+      expectTrue(warn.stations[1].ok);
+
+      final over = doubleStaffLeveling(const [st375, st375, st375]);
+      expectClose(over.stations[2].cumulativeDistanceDiffM, 11.25, tol: 1e-9);
+      expectFalse(over.stations[2].cumulativeOk);
+      expectFalse(over.stations[2].cumStadiaWarning);
+      expectFalse(over.stations[2].ok);
+    });
+
+    test('结构化错误 SurveyErrorCode / SurveyStructuredError 覆盖各模块', () {
+      // angle.dart (保留中文输入解析)
+      expectClose(parseAngle('123度45分56.7秒'), dmsToDeg(123, 45, 56.7),
+          tol: 1e-9);
+      try {
+        parseAngle('');
+        expectTrue(false);
+      } on SurveyStructuredError catch (e) {
+        expectEqual(e.code, SurveyErrorCode.angleEmpty);
+        expectTrue(e is FormatException);
+      }
+
+      // expression.dart
+      try {
+        ExpressionEvaluator.evaluate('1 / 0');
+        expectTrue(false);
+      } on FormulaException catch (e) {
+        expectEqual(e.code, SurveyErrorCode.formulaDivisionByZero);
+        expectEqual(e.defaultMessage, '除数为 0');
+      }
+
+      // geodesy.dart & projection.dart & leveling.dart
+      try {
+        geodeticToCartesian(latDeg: 95, lonDeg: 100);
+        expectTrue(false);
+      } on SurveyStructuredError catch (e) {
+        expectEqual(e.code, SurveyErrorCode.geodesyLatOutOfRange);
+        expectTrue(e is ArgumentError);
+      }
+
+      try {
+        gaussZoneNumber(100, zoneWidth: 5);
+        expectTrue(false);
+      } on SurveyStructuredError catch (e) {
+        expectEqual(e.code, SurveyErrorCode.projectionZoneWidthInvalid);
+      }
+
+      try {
+        levelingMisclosureLimitMm(grade: LevelingGrade.fourth);
+        expectTrue(false);
+      } on SurveyStructuredError catch (e) {
+        expectEqual(e.code, SurveyErrorCode.levelingLengthOrStationRequired);
+      }
+
+      // intersection.dart & format.dart
+      final inter = distanceIntersection(
+        a: const Point2(0, 0),
+        b: const Point2(0, 0),
+        distanceAp: 10,
+        distanceBp: 10,
+      );
+      expectEqual(
+        inter.structuredError?.code,
+        SurveyErrorCode.intersectionPointsCoincident,
+      );
+
+      final tol = checkTolerance(15, 10);
+      expectEqual(tol.structuredError?.code, SurveyErrorCode.toleranceExceeded);
+    });
+  });
+
   exit(finish());
 }

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'errors.dart';
+
 /// 定点小数格式化，去除 `-0.000` 这类负零。
 String fmt(double v, [int digits = 3]) {
   if (v.isNaN) return 'NaN';
@@ -74,6 +76,14 @@ class ToleranceCheck {
 
   String describe({int digits = 4}) =>
       '${fmt(value, digits)} / 限差 ${fmt(limit, digits)} → ${ok ? "合格" : "超限"}';
+
+  SurveyStructuredError? get structuredError => ok
+      ? null
+      : SurveyStructuredError(
+          SurveyErrorCode.toleranceExceeded,
+          describe(),
+          {'value': value, 'limit': limit},
+        );
 }
 
 ToleranceCheck checkTolerance(double value, double limit) =>

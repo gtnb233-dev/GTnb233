@@ -316,6 +316,9 @@ if (Test-Path -LiteralPath $nativeAssets) {
     $nativeDlls = Get-ChildItem -LiteralPath $nativeAssets -Filter '*.dll' -Recurse -File -ErrorAction SilentlyContinue
     if ($nativeDlls) {
         Copy-DirContent -Source $nativeAssets -Destination $Dist
+        foreach ($dll in $nativeDlls) {
+            Write-Log ('   bundled native asset: ' + $dll.Name)
+        }
     }
 }
 

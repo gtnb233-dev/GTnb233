@@ -6,6 +6,7 @@ import 'package:survey_core/survey_core.dart';
 import '../../../l10n/survey_strings.dart';
 
 import '../../../export/export_service.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -25,6 +26,23 @@ double? _parseAngleOpt(String text, AngleInputMode mode) {
   } on FormatException {
     return null;
   }
+}
+
+String _cl(BuildContext context, String zh, String en) =>
+    SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
+
+String _quadrantBearingText(BuildContext context, double deg, int secDigits) {
+  final b = quadrantFromAzimuth(deg);
+  final rStr = fmtAngle(b.rDeg, secDigits: secDigits);
+  if (SurveyStrings.of(context).languageCode == 'zh') {
+    return '${b.label} $rStr';
+  }
+  return switch (b.quadrant) {
+    Quadrant.northEast => 'N $rStr E',
+    Quadrant.southEast => 'S $rStr E',
+    Quadrant.southWest => 'S $rStr W',
+    Quadrant.northWest => 'N $rStr W',
+  };
 }
 
 /// 单位与角度换算。
@@ -61,9 +79,69 @@ class _ConvertPageState extends State<ConvertPage>
         'length': '1000',
       };
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pushLivePlot());
+  }
+
+  void _loadSample() {
+    _deg.text = draftDefaults['deg']!;
+    _slope.text = draftDefaults['slope']!;
+    _length.text = draftDefaults['length']!;
+    setState(() {
+      _slopeMode = 0;
+      _lengthUnit = 0;
+    });
+    _pushLivePlot();
+  }
+
+  void _pushLivePlot() {
+    if (!mounted) return;
+    final s = SettingsScope.read(context);
+    final deg = _parseAngleOpt(_deg.text, s.angleMode);
+    if (deg == null) return;
+    final rad = degToRad(deg);
+    const r = 100.0;
+    final endX = r * math.cos(rad);
+    final endY = r * math.sin(rad);
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: _cl(context, '单位换算', 'Unit & Angle Conversion'),
+        sourceToolId: 'convert',
+        sourceLabel: _cl(context, '单位换算', 'Unit Conversion'),
+        surveyNorthUp: true,
+        unit: 'm',
+        points: [
+          const LivePlotPointData(x: 0, y: 0, label: 'O'),
+          LivePlotPointData(
+            x: endX,
+            y: endY,
+            label: fmtAngle(deg, secDigits: s.angleSecDigits),
+            emphasis: true,
+          ),
+        ],
+        lines: [
+          LivePlotLineData(
+            from: const LivePlotPointData(x: 0, y: 0, label: ''),
+            to: const LivePlotPointData(x: 100, y: 0, label: ''),
+            color: const Color(0xFFFF3B30),
+            label: _cl(context, '北 N', 'N'),
+          ),
+          LivePlotLineData(
+            from: const LivePlotPointData(x: 0, y: 0, label: 'O'),
+            to: LivePlotPointData(x: endX, y: endY, label: ''),
+            label: '${fmt(deg, 4)}°',
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 导出：角度 / 坡度 / 长度三组换算。
   SheetTable _exportTable() {
     final s = SettingsScope.read(context);
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final deg = _parseAngleOpt(_deg.text, s.angleMode);
     final slopeValue = _slopeMode == 1
         ? (_parseAngleOpt(_slope.text, s.angleMode) ?? 0)
@@ -78,39 +156,95 @@ class _ConvertPageState extends State<ConvertPage>
     const unitLabels = ['m', 'km', 'cm', 'mm', 'ft'];
     final meters = (_num(_length) ?? 0) * toMeter[_lengthUnit];
     return SheetTable(
-      title: '单位换算',
+      title: isZh ? '单位换算' : 'Unit & Angle Conversion',
       rows: <List<String>>[
-        <String>['分组', '量', '值', '单位'],
+        <String>[
+          isZh ? '分组' : 'Group',
+          isZh ? '量' : 'Quantity',
+          isZh ? '值' : 'Value',
+          isZh ? '单位' : 'Unit',
+        ],
         if (deg != null) ...<List<String>>[
-          <String>['角度', '十进制度', fmt(deg, 6), '°'],
-          <String>['角度', '度分秒', fmtAngle(deg, secDigits: s.angleSecDigits), ''],
           <String>[
-            '角度',
-            '压缩格式 GG.MMSS',
+            isZh ? '角度' : 'Angle',
+            isZh ? '十进制度' : 'Decimal Degrees (DD)',
+            fmt(deg, 6),
+            '°',
+          ],
+          <String>[
+            isZh ? '角度' : 'Angle',
+            isZh ? '度分秒' : 'DMS',
+            fmtAngle(deg, secDigits: s.angleSecDigits),
+            '',
+          ],
+          <String>[
+            isZh ? '角度' : 'Angle',
+            isZh ? '压缩格式 GG.MMSS' : 'Compact GG.MMSS',
             fmtDmsCompact(deg, secDigits: s.angleSecDigits),
             '',
           ],
-          <String>['角度', '弧度', fmt(degToRad(deg), 8), 'rad'],
-          <String>['角度', '密位（6000 制）', fmt(deg / 0.06, 2), 'mil'],
-          <String>['角度', '象限角', azimuthToQuadrant(deg), ''],
+          <String>[
+            isZh ? '角度' : 'Angle',
+            isZh ? '弧度' : 'Radians (RAD)',
+            fmt(degToRad(deg), 8),
+            'rad',
+          ],
+          <String>[
+            isZh ? '角度' : 'Angle',
+            isZh ? '密位（6000 制）' : 'Mil (6000)',
+            fmt(deg / 0.06, 2),
+            'mil',
+          ],
+          <String>[
+            isZh ? '角度' : 'Angle',
+            isZh ? '象限角' : 'Quadrant Bearing',
+            _quadrantBearingText(context, deg, s.angleSecDigits),
+            '',
+          ],
         ],
-        <String>['坡度', '坡度角', fmtAngle(slopeAngleDeg, secDigits: 1), ''],
-        <String>['坡度', '百分比坡度', fmt(percent, 4), '%'],
-        <String>['坡度', '千分数', fmt(percent * 10, 3), '‰'],
-        <String>['长度', '输入值', _length.text.trim(), unitLabels[_lengthUnit]],
+        <String>[
+          isZh ? '坡度' : 'Slope',
+          isZh ? '坡度角' : 'Slope Angle',
+          fmtAngle(slopeAngleDeg, secDigits: 1),
+          '',
+        ],
+        <String>[
+          isZh ? '坡度' : 'Slope',
+          isZh ? '百分比坡度' : 'Percent Grade',
+          fmt(percent, 4),
+          '%',
+        ],
+        <String>[
+          isZh ? '坡度' : 'Slope',
+          isZh ? '千分数' : 'Permille Grade',
+          fmt(percent * 10, 3),
+          '‰',
+        ],
+        <String>[
+          isZh ? '长度' : 'Length',
+          isZh ? '输入值' : 'Input',
+          _length.text.trim(),
+          unitLabels[_lengthUnit],
+        ],
         for (var i = 0; i < toMeter.length; i++)
           <String>[
-            '长度',
-            '换算为 ${unitLabels[i]}',
+            isZh ? '长度' : 'Length',
+            isZh ? '换算为 ${unitLabels[i]}' : 'Convert to ${unitLabels[i]}',
             fmt(meters / toMeter[i], 6),
             unitLabels[i]
           ],
       ],
-      notes: const [
-        '坡度角 α = atan(i)，i 为百分比坡度；千分数 = 百分比 × 10。',
-        '密位按 6000 制：1 密位 = 0.06°。',
-        '长度换算以米为中间量：1 km = 1000 m，1 ft = 0.3048 m。',
-      ],
+      notes: isZh
+          ? const [
+              '坡度角 α = atan(i)，i 为百分比坡度；千分数 = 百分比 × 10。',
+              '密位按 6000 制：1 密位 = 0.06°。',
+              '长度换算以米为中间量：1 km = 1000 m，1 ft = 0.3048 m。',
+            ]
+          : const [
+              'Slope angle α = atan(i), where i is percent grade; permille = percent × 10.',
+              'Mil (6000 system): 1 mil = 0.06°.',
+              'Length conversion via meters: 1 km = 1000 m, 1 ft = 0.3048 m.',
+            ],
     );
   }
 
@@ -144,38 +278,58 @@ class _ConvertPageState extends State<ConvertPage>
     final meters = (_num(_length) ?? 0) * toMeter[_lengthUnit];
 
     return DetailScaffold(
-      title: '单位换算',
-      subtitle: '角度、坡度与长度单位的快速互算',
+      title: _cl(context, '单位换算', 'Unit & Angle Conversion'),
+      subtitle: _cl(
+        context,
+        '角度、坡度与长度单位的快速互算',
+        'Convert angles (DMS/DD/RAD), slopes, and length scales',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         buildTable: _exportTable,
         showAngleSelector: true,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           setState(() {});
+          _pushLivePlot();
         },
       ),
       children: [
-        PageTutorial(id: 'convert', workedSteps: [
-          if (deg != null)
-            '${fmt(deg, 6)}° × π ÷ 180 = ${fmt(degToRad(deg), 9)} rad',
-          'i = tan(${fmt(slopeAngleDeg, 6)}°) × 100 = ${fmt(percent, 4)}%',
-          if (_num(_length) case final length?)
-            '${fmt(length, 6)} × ${toMeter[_lengthUnit]} = ${fmt(meters, 6)} m',
-        ]),
+        PageTutorial(
+          id: 'convert',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (deg != null)
+              '${fmt(deg, 6)}° × π ÷ 180 = ${fmt(degToRad(deg), 9)} rad',
+            'i = tan(${fmt(slopeAngleDeg, 6)}°) × 100 = ${fmt(percent, 4)}%',
+            if (_num(_length) case final length?)
+              '${fmt(length, 6)} × ${toMeter[_lengthUnit]} = ${fmt(meters, 6)} m',
+          ],
+        ),
         InputCard(
           step: 1,
           icon: Icons.rotate_90_degrees_ccw_outlined,
-          title: '角度换算',
-          caption: '支持分格输入度分秒（空格/小数点跳格）或十进制度，同步换算弧度与密位',
+          title: _cl(context, '角度换算', 'Angle Conversion'),
+          caption: _cl(
+            context,
+            '支持分格输入度分秒（空格/小数点跳格）或十进制度，同步换算弧度与密位',
+            'Supports DMS, decimal degrees (DD), radians (RAD), and 6000-mil',
+          ),
           fields: [
             AngleField(
               key: _degKey,
               controller: _deg,
-              label: '输入角度',
+              label: _cl(context, '输入角度', 'Input Angle'),
               mode: s.angleMode,
               secDigits: s.angleSecDigits,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _pushLivePlot();
+              },
             ),
           ],
         ),
@@ -185,41 +339,45 @@ class _ConvertPageState extends State<ConvertPage>
             child: ResultGrid(
               items: [
                 ResultTile(
-                  label: '度分秒',
+                  label: _cl(context, '度分秒', 'DMS'),
                   value: fmtAngle(deg, secDigits: s.angleSecDigits),
                   emphasis: true,
                   copyable: true,
                   icon: Icons.straighten,
                 ),
                 ResultTile(
-                  label: '十进制度',
+                  label: _cl(context, '十进制度', 'DD (Decimal Deg)'),
                   value: fmt(deg, 6),
                   unit: '°',
                   copyable: true,
                 ),
                 ResultTile(
-                  label: '压缩格式 GG.MMSS',
+                  label: _cl(context, '压缩格式 GG.MMSS', 'Compact DD.MMSS'),
                   value: fmtDmsCompact(deg, secDigits: s.angleSecDigits),
                   copyable: true,
-                  note: '可直接作为全站仪输入',
+                  note: _cl(
+                    context,
+                    '可直接作为全站仪输入',
+                    'Ready for total station input',
+                  ),
                 ),
                 ResultTile(
-                  label: '弧度',
+                  label: _cl(context, '弧度', 'RAD (Radians)'),
                   value: fmt(degToRad(deg), 8),
                   unit: 'rad',
                 ),
                 ResultTile(
-                  label: '密位（6000 制）',
+                  label: _cl(context, '密位（6000 制）', 'Mil (6000)'),
                   value: fmt(deg / 0.06, 2),
                   unit: 'mil',
                 ),
                 ResultTile(
-                  label: '象限角',
-                  value: azimuthToQuadrant(deg),
+                  label: _cl(context, '象限角', 'Quadrant Bearing'),
+                  value: _quadrantBearingText(context, deg, s.angleSecDigits),
                   copyable: true,
                 ),
                 ResultTile(
-                  label: '正余弦',
+                  label: _cl(context, '正余弦', 'sin / cos'),
                   value: 'sin ${fmt(math.sin(degToRad(deg)), 6)} / '
                       'cos ${fmt(math.cos(degToRad(deg)), 6)}',
                 ),
@@ -230,8 +388,12 @@ class _ConvertPageState extends State<ConvertPage>
         InputCard(
           step: 2,
           icon: Icons.trending_up,
-          title: '坡度换算',
-          caption: '坡度角 α = atan(i)，i 为百分比坡度',
+          title: _cl(context, '坡度换算', 'Slope / Grade Conversion'),
+          caption: _cl(
+            context,
+            '坡度角 α = atan(i)，i 为百分比坡度',
+            'Slope angle α = atan(i), where i is percent grade',
+          ),
           fields: [
             Row(
               children: [
@@ -254,7 +416,7 @@ class _ConvertPageState extends State<ConvertPage>
             if (_slopeMode == 1)
               AngleField(
                 controller: _slope,
-                label: '坡度角',
+                label: _cl(context, '坡度角', 'Slope Angle'),
                 mode: s.angleMode,
                 secDigits: s.angleSecDigits,
                 onChanged: (_) => setState(() {}),
@@ -262,7 +424,7 @@ class _ConvertPageState extends State<ConvertPage>
             else
               NumberField(
                 controller: _slope,
-                label: '坡度值',
+                label: _cl(context, '坡度值', 'Slope Value'),
                 prefixTag: 'i',
                 unit: const ['%', '°', '‰'][_slopeMode],
                 allowNegative: true,
@@ -275,19 +437,22 @@ class _ConvertPageState extends State<ConvertPage>
           child: ResultGrid(
             items: [
               ResultTile(
-                label: '坡度角',
+                label: _cl(context, '坡度角', 'Slope Angle'),
                 value: fmtAngle(slopeAngleDeg, secDigits: s.angleSecDigits),
                 emphasis: true,
                 copyable: true,
               ),
               ResultTile(
-                label: '百分比坡度',
+                label: _cl(context, '百分比坡度', 'Percent Grade'),
                 value: '${fmt(percent, 4)}%',
                 emphasis: true,
               ),
-              ResultTile(label: '千分数', value: '${fmt(permille, 3)}‰'),
               ResultTile(
-                label: '每 100m 升降',
+                label: _cl(context, '千分数', 'Permille Grade'),
+                value: '${fmt(permille, 3)}‰',
+              ),
+              ResultTile(
+                label: _cl(context, '每 100m 升降', 'Rise / Run (per 100m)'),
                 value: fmt(percent, 3),
                 unit: 'm',
               ),
@@ -298,7 +463,7 @@ class _ConvertPageState extends State<ConvertPage>
         InputCard(
           step: 3,
           icon: Icons.straighten,
-          title: '长度换算',
+          title: _cl(context, '长度换算', 'Length & Scale Conversion'),
           fields: [
             // 5 段在窄屏（320dp）会超出可用宽度，放进横向滚动容器里。
             SingleChildScrollView(
@@ -320,7 +485,11 @@ class _ConvertPageState extends State<ConvertPage>
             const SizedBox(height: Insets.m),
             NumberField(
               controller: _length,
-              label: '长度（${unitLabels[_lengthUnit]}）',
+              label: _cl(
+                context,
+                '长度（${unitLabels[_lengthUnit]}）',
+                'Length (${unitLabels[_lengthUnit]})',
+              ),
               prefixTag: 'L',
               unit: unitLabels[_lengthUnit],
               allowNegative: true,
@@ -334,7 +503,11 @@ class _ConvertPageState extends State<ConvertPage>
             items: [
               for (var i = 0; i < toMeter.length; i++)
                 ResultTile(
-                  label: '换算为 ${unitLabels[i]}',
+                  label: _cl(
+                    context,
+                    '换算为 ${unitLabels[i]}',
+                    'In ${unitLabels[i]}',
+                  ),
                   value: fmt(meters / toMeter[i], 6),
                   unit: unitLabels[i],
                   emphasis: i == 0,
@@ -347,8 +520,12 @@ class _ConvertPageState extends State<ConvertPage>
         SurfaceCard(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: ChoiceTile(
-            title: '象限角与方位角换算',
-            subtitle: 'R = α / 180°−α / α−180° / 360°−α，四象限双向即时换算',
+            title: _cl(context, '象限角与方位角换算', 'Quadrant Bearing & Azimuth'),
+            subtitle: _cl(
+              context,
+              'R = α / 180°−α / α−180° / 360°−α，四象限双向即时换算',
+              'Bidirectional 4-quadrant bearing / azimuth conversion',
+            ),
             icon: Icons.explore_outlined,
             onTap: () => Navigator.of(context).push(
               WorkspacePageRoute<void>(
@@ -367,7 +544,11 @@ class _ConvertPageState extends State<ConvertPage>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  context.tr('当前角度输入格式：{unit}', {'unit': s.angleMode.symbol}),
+                  _cl(
+                    context,
+                    '当前角度输入格式：${s.angleMode.symbol}',
+                    'Current angle input format: ${s.angleMode.symbol}',
+                  ),
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.55,

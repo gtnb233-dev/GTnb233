@@ -199,6 +199,7 @@ void main() {
 
       final btn = find.text('批量自定义点名');
       await tester.ensureVisible(btn);
+      await tester.pumpAndSettle();
       await tester.tap(btn);
       await tester.pumpAndSettle();
 

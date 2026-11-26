@@ -9,6 +9,7 @@ import '../../../nav/tools.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
 import '../../../l10n/survey_strings.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -18,6 +19,7 @@ import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
+import 'control_points_page.dart';
 
 /// 批量放样：一次给定测站 + 后视，批量算出多个目标点的水平角与平距。
 ///
@@ -67,6 +69,38 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
     return double.tryParse(t);
   }
 
+  String _l(BuildContext context, String zh, String en) =>
+      SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
+
+  void _loadSample() {
+    _sx.text = '1000.000';
+    _sy.text = '2000.000';
+    _bx.text = '1080.000';
+    _by.text = '2000.000';
+    _targets.text = 'P1, 1040.000, 2030.000\n'
+        'P2, 1060.000, 2045.000\n'
+        'P3, 1010.000, 2055.000';
+    _calc();
+  }
+
+  Future<void> _pickControlPoint(bool isStation) async {
+    final cp = await showControlPointPicker(context);
+    if (cp == null || !mounted) return;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
+    final d = u.displayDigits(s.coordDigits);
+    final xStr = fmt(u.fromMeters(cp.x), d);
+    final yStr = fmt(u.fromMeters(cp.y), d);
+    if (isStation) {
+      _sx.text = xStr;
+      _sy.text = yStr;
+    } else {
+      _bx.text = xStr;
+      _by.text = yStr;
+    }
+    _calc();
+  }
+
   void _calc({bool notify = false}) {
     if (!mounted) return;
     final u = SettingsScope.read(context).lengthUnit;
@@ -76,7 +110,8 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
       setState(() {
         _rows = const [];
         _selectedRow = null;
-        _error = '测站与后视的 X/Y 都要填数字';
+        _error = _l(context, '测站与后视的 X/Y 都要填数字',
+            'Station and backsight X/Y must be numbers');
       });
       return;
     }
@@ -86,7 +121,8 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
       setState(() {
         _rows = const [];
         _selectedRow = null;
-        _error = '后视点与测站重合，无法定向';
+        _error = _l(context, '后视点与测站重合，无法定向',
+            'Backsight coincides with station; cannot orient');
       });
       return;
     }
@@ -95,7 +131,8 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
       setState(() {
         _rows = const [];
         _selectedRow = null;
-        _error = '目标点为空：每行一个点，格式「点名, X, Y」或「X Y」';
+        _error = _l(context, '目标点为空：每行一个点，格式「点名, X, Y」或「X Y」',
+            'Targets empty: one point per line as "Name, X, Y" or "X Y"');
       });
       return;
     }
@@ -119,7 +156,9 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
         ),
       );
     }
-    final err = out.every((r) => r.degenerate) ? '所有目标点都与测站重合' : null;
+    final err = out.every((r) => r.degenerate)
+        ? _l(context, '所有目标点都与测站重合', 'All targets coincide with station')
+        : null;
     setState(() {
       _rows = out;
       if (_selectedRow != null && _selectedRow! >= out.length) {
@@ -127,8 +166,47 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
       }
       _error = err;
     });
+    final okRows = out.where((r) => !r.degenerate).toList();
+    if (okRows.isNotEmpty) {
+      final stPt = LivePlotPointData(
+          x: sx, y: sy, label: context.tr('测站'), emphasis: true);
+      final bsPt =
+          LivePlotPointData(x: bx, y: by, label: context.tr('后视'));
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: context.tr('批量放样'),
+          sourceToolId: 'batch_stakeout',
+          sourceLabel: context.tr('批量放样'),
+          points: [
+            stPt,
+            bsPt,
+            for (final r in okRows)
+              LivePlotPointData(x: r.point.x, y: r.point.y, label: r.label),
+          ],
+          lines: [
+            LivePlotLineData(
+              from: stPt,
+              to: bsPt,
+              dashed: true,
+              label: context.tr('后视'),
+            ),
+            for (final r in okRows)
+              LivePlotLineData(
+                from: stPt,
+                to: LivePlotPointData(
+                    x: r.point.x, y: r.point.y, label: r.label),
+              ),
+          ],
+          unit: u.symbol,
+        ),
+      );
+    }
     if (notify && err == null) {
-      SurveyToast.calcSuccess(context, '放样表计算成功（${out.length} 点）');
+      SurveyToast.calcSuccess(
+        context,
+        _l(context, '放样表计算成功（${out.length} 点）',
+            'Stakeout table computed (${out.length} pts)'),
+      );
     }
   }
 
@@ -315,6 +393,16 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
         confirmClear: true,
         showUnitSelector: true,
         showAngleSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
         buildTable: _exportTable,
@@ -389,14 +477,14 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                   runSpacing: Insets.s,
                   children: [
                     for (final (label, value) in [
-                      ('目标点', '${ok.length} 个'),
+                      (context.tr('目标点'), _l(context, '${ok.length} 个', '${ok.length}')),
                       (
-                        '最远平距',
+                        context.tr('最远平距'),
                         '${fmt(u.fromMeters(ok.map((r) => r.result!.distance).reduce(math.max)), digits)} ${u.symbol}'
                       ),
                       if (orientAz != null)
                         (
-                          '后视方位角',
+                          context.tr('后视方位角'),
                           fmtAzimuth(orientAz, secDigits: s.angleSecDigits)
                         ),
                     ])
@@ -416,14 +504,18 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                 const SizedBox(height: Insets.m),
                 SectionHeader(
                   title: '放样表',
-                  caption: '共 ${ok.length} 个点 · 量级 ${u.label} (${u.symbol})',
+                  caption: _l(
+                    context,
+                    '共 ${ok.length} 个点 · 量级 ${u.label} (${u.symbol})',
+                    '${ok.length} pts · Unit ${u.symbol}',
+                  ),
                   actions: [
                     ExportCsvButton(
                       columns: [
-                        '点名',
-                        '水平角 β',
-                        '平距 D (${u.symbol})',
-                        '方位角 α',
+                        context.tr('点名'),
+                        context.tr('水平角 β'),
+                        '${context.tr('平距 D')} (${u.symbol})',
+                        context.tr('方位角 α'),
                         'X',
                         'Y',
                       ],
@@ -466,20 +558,32 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
               ],
             ),
       children: [
-        PageTutorial(id: 'batch_stakeout', workedSteps: [
-          if ((activeValidPos == null ? ok.firstOrNull : ok[activeValidPos])
-              case final target?)
-            if (target.result case final r?) ...[
-              '${target.label}: D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
-              'β = αₚ − αᵦ ⇒ ${fmtAngle(r.horizontalAngleDeg)}',
-            ],
-        ]),
+        PageTutorial(
+          id: 'batch_stakeout',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if ((activeValidPos == null ? ok.firstOrNull : ok[activeValidPos])
+                case final target?)
+              if (target.result case final r?) ...[
+                '${target.label}: D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
+                'β = αₚ − αᵦ ⇒ ${fmtAngle(r.horizontalAngleDeg)}',
+              ],
+          ],
+        ),
         InputCard(
           step: 1,
           title: '测站与后视定向',
           caption: orientAz == null
-              ? '水平角自后视方向顺时针转到目标方向；当前量级：${u.label} (${u.symbol})'
-              : '后视定向方位角 α = ${fmtAzimuth(orientAz, secDigits: s.angleSecDigits)} · 量级：${u.label} (${u.symbol})',
+              ? _l(
+                  context,
+                  '水平角自后视方向顺时针转到目标方向；当前量级：${u.label} (${u.symbol})',
+                  'Horizontal angle clockwise from BS to target; unit: ${u.symbol}',
+                )
+              : _l(
+                  context,
+                  '后视定向方位角 α = ${fmtAzimuth(orientAz, secDigits: s.angleSecDigits)} · 量级：${u.label} (${u.symbol})',
+                  'BS azimuth α = ${fmtAzimuth(orientAz, secDigits: s.angleSecDigits)} · unit: ${u.symbol}',
+                ),
           fields: [
             Row(
               children: [
@@ -501,6 +605,12 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickControlPoint(true),
                 ),
               ],
             ),
@@ -525,6 +635,12 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                     onChanged: (_) => _calc(),
                   ),
                 ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickControlPoint(false),
+                ),
               ],
             ),
           ],
@@ -535,22 +651,29 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
           caption: '表格逐格录入（新增行自动生成 P1/P2/P3… 点名），也可右上切换文本粘贴',
           fields: [
             TableInputSheet(
-              label: '目标点坐标列表',
+              label: _l(context, '目标点坐标列表', 'Target Coordinates'),
               unit: u.symbol,
-              helper: '格式：点名 / X (${u.symbol}) / Y (${u.symbol})',
+              helper: _l(
+                context,
+                '格式：点名 / X (${u.symbol}) / Y (${u.symbol})',
+                'Format: Name / X (${u.symbol}) / Y (${u.symbol})',
+              ),
               addLabel: '添加目标点',
               showRowIndex: false,
               syncKey: u,
               controllers: [_targets],
-              countLabelBuilder: () =>
-                  '${parsePoints(_targets.text).length} 点 · ${u.symbol}',
+              countLabelBuilder: () {
+                final count = parsePoints(_targets.text).length;
+                return _l(context, '$count 点 · ${u.symbol}',
+                    '$count pts · ${u.symbol}');
+              },
               columns: [
-                const TableInputColumn(
-                  title: '点名',
+                TableInputColumn(
+                  title: context.tr('点名'),
                   kind: TableCellKind.text,
                   width: 78,
                   flex: 4,
-                  hint: '点名',
+                  hint: context.tr('点名'),
                   autoName: true,
                   autoNamePrefix: 'P',
                 ),
@@ -579,8 +702,11 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                 minLines: 5,
                 maxLines: 8,
                 hint: 'P1, 1040.000, 2030.000',
-                countLabel: (txt) =>
-                    '${parsePoints(txt).length} 点 · ${u.symbol}',
+                countLabel: (txt) {
+                  final count = parsePoints(txt).length;
+                  return _l(context, '$count 点 · ${u.symbol}',
+                      '$count pts · ${u.symbol}');
+                },
                 onChanged: (_) => _calc(),
               ),
               onChanged: () => _calc(),
@@ -640,7 +766,7 @@ class _StakeoutRail extends StatelessWidget {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: Insets.s),
                 leading: Icon(tool.icon, size: 16),
-                title: Text(tool.title),
+                title: LocalText(tool.title),
                 selected: tool.id == 'batch_stakeout',
                 selectedTileColor: scheme.primaryContainer,
                 onTap: tool.id == 'batch_stakeout'

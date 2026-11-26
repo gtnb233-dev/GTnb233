@@ -21,16 +21,26 @@ class PageTutorial extends StatefulWidget {
     required this.id,
     this.initiallyExpanded = false,
     this.workedSteps,
+    this.liveCalcBuilder,
+    this.onLoadSample,
   });
 
   final String id;
   final bool initiallyExpanded;
   final List<String>? workedSteps;
+  final List<String> Function(BuildContext context)? liveCalcBuilder;
+  final VoidCallback? onLoadSample;
 
   Future<void> openGuide(BuildContext context) => workspacePanel<void>(
         context,
-        '离线教程',
-        PageTutorial(id: id, initiallyExpanded: true, workedSteps: workedSteps),
+        context.tr('离线教程'),
+        PageTutorial(
+          id: id,
+          initiallyExpanded: true,
+          workedSteps: workedSteps,
+          liveCalcBuilder: liveCalcBuilder,
+          onLoadSample: onLoadSample,
+        ),
         desktopDrawer: true,
       );
 
@@ -138,10 +148,10 @@ class _PageTutorialState extends State<PageTutorial> {
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.5,
-                                fontFamily: 'Consolas',
+                                fontFamily: kSurveyMono,
                                 fontFamilyFallback: const [
-                                  'Menlo',
-                                  'monospace'
+                                  'Noto Sans SC',
+                                  'monospace',
                                 ],
                                 color: scheme.onSurface,
                               ),
@@ -157,7 +167,9 @@ class _PageTutorialState extends State<PageTutorial> {
                       ),
                     ),
                   ],
-                  if (widget.workedSteps case final steps?) ...[
+                  if ((widget.liveCalcBuilder?.call(context) ??
+                          widget.workedSteps)
+                      case final steps?) ...[
                     const SizedBox(height: Insets.m),
                     _label(context, context.tr('代入当前数据')),
                     const SizedBox(height: 6),
@@ -167,7 +179,7 @@ class _PageTutorialState extends State<PageTutorial> {
                       for (final step in steps)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
-                          child: SelectableText(step,
+                          child: SelectableText(context.tr(step),
                               style: monoNumber(context,
                                   size: 12, weight: FontWeight.w400)),
                         ),
@@ -207,7 +219,26 @@ class _PageTutorialState extends State<PageTutorial> {
                   ],
                   if (t.example.isNotEmpty) ...[
                     const SizedBox(height: Insets.m),
-                    _label(context, context.tr('算例')),
+                    Row(
+                      children: [
+                        Expanded(child: _label(context, context.tr('算例'))),
+                        if (widget.onLoadSample != null)
+                          TextButton.icon(
+                            onPressed: widget.onLoadSample,
+                            icon: const Icon(Icons.science_outlined, size: 15),
+                            label: Text(context.tr('载入算例')),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     for (final e in t.example)
                       Padding(
@@ -215,14 +246,20 @@ class _PageTutorialState extends State<PageTutorial> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(
-                              width: 78,
-                              child: Text(
-                                context.tr(e.$1),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurfaceVariant,
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth: 78,
+                                maxWidth: 128,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Text(
+                                  context.tr(e.$1),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ),

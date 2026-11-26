@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../platform/native_bridge_contract.dart';
 import 'survey_form_image.dart';
 import 'survey_forms.dart';
 import 'xlsx_writer.dart';
@@ -50,10 +51,9 @@ class SheetTable {
   SheetTable localizeLabels(String Function(String) translate) => SheetTable(
         title: translate(title),
         rows: [
-          if (rows.isNotEmpty) rows.first.map(translate).toList(),
-          ...rows.skip(1)
+          for (final row in rows) row.map(translate).toList(),
         ],
-        notes: notes,
+        notes: [for (final n in notes) translate(n)],
         xlsxBuilder: xlsxBuilder,
         translateLabel: translate,
         formSheetsBuilder: formSheetsBuilder == null
@@ -66,11 +66,19 @@ class SheetTable {
 
 /// 导出结果。
 class ExportResult {
-  const ExportResult({required this.path, required this.format, this.error});
+  const ExportResult({
+    required this.path,
+    required this.format,
+    this.error,
+    this.contentUri,
+    this.displayPath,
+  });
   final String? path;
   final ExportFormat format;
   final String? error;
-  bool get ok => path != null;
+  final String? contentUri;
+  final String? displayPath;
+  bool get ok => path != null || contentUri != null;
 }
 
 /// 把 [SheetTable] 落成文件。
@@ -118,6 +126,9 @@ class ExportService {
     );
     return candidates;
   }
+
+  /// 默认导出目录（同步解析）。
+  static Directory get exportDir => resolveDir();
 
   /// 解析可写目录（按平台依次尝试，同步版本供测试与兼容调用）。
   static Directory resolveDir() {
@@ -209,12 +220,25 @@ class ExportService {
           final sheets = table.formSheetsBuilder != null
               ? table.formSheetsBuilder!()
               : [SurveyForms.fromSheetTable(table)];
-          final bytes = await SurveyFormImageRenderer.renderWorkbook(sheets);
-          await file.writeAsBytes(bytes, flush: true);
+          final bytes = await SurveyFormImageRenderer.renderWorkbook(
+            sheets,
+            translate: table._translateLabel,
+          );
+          final saved = await _savePngPlatform(
+            bytes: bytes,
+            suggestedName: '$prefix.png',
+            fallbackFile: file,
+          );
+          return ExportResult(
+            path: saved.path,
+            format: format,
+            contentUri: saved.contentUri,
+            displayPath: saved.displayPath,
+          );
         case ExportFormat.csv:
           await file.writeAsString('\uFEFF${toCsv(table)}', flush: true);
         case ExportFormat.txt:
-          await file.writeAsString(toText(table), flush: true);
+          await file.writeAsString(buildTxtReport(table), flush: true);
       }
       return ExportResult(path: file.path, format: format);
     } catch (e) {
@@ -222,7 +246,46 @@ class ExportService {
     }
   }
 
-  /// 将可视化图形渲染出的 PNG 字节保存到同一导出目录。
+  static Future<({String? path, String? contentUri, String? displayPath})>
+      _savePngPlatform({
+    required Uint8List bytes,
+    required String suggestedName,
+    required File fallbackFile,
+  }) async {
+    if (Platform.isAndroid) {
+      final res = await NativeFilesBridge.savePngToGallery(
+        bytes: bytes,
+        filename: suggestedName,
+        album: 'SurveyPro',
+      );
+      final uri = res?['uri']?.toString();
+      final displayPath = res?['displayPath']?.toString();
+      if (uri != null && uri.isNotEmpty) {
+        return (
+          path: (displayPath != null && displayPath.isNotEmpty)
+              ? displayPath
+              : uri,
+          contentUri: uri,
+          displayPath: displayPath,
+        );
+      }
+    } else if (Platform.isWindows) {
+      final picked = await NativeFilesBridge.pickSaveFile(
+        suggestedName: suggestedName,
+        filterLabel: 'PNG Image',
+        extensions: const ['png'],
+      );
+      if (picked != null && picked.isNotEmpty) {
+        final outFile = File(picked);
+        await outFile.writeAsBytes(bytes, flush: true);
+        return (path: outFile.path, contentUri: null, displayPath: null);
+      }
+    }
+    await fallbackFile.writeAsBytes(bytes, flush: true);
+    return (path: fallbackFile.path, contentUri: null, displayPath: null);
+  }
+
+  /// 将可视化图形渲染出的 PNG 字节保存到同一导出目录（Android 写入相册，Windows 弹出保存对话框）。
   static Future<({String? path, String? error})> savePng(
     Uint8List bytes,
     String title,
@@ -230,15 +293,19 @@ class ExportService {
     try {
       final dir = await resolveDirAsync();
       final base = sanitize(title);
-      final prefix = '${_stamp()}_$base';
+      final prefix = '${_stamp()}_${base.isEmpty ? '图件' : base}';
       var file = File('${dir.path}${Platform.pathSeparator}$prefix.png');
       var seq = 1;
       while (await file.exists()) {
         file = File('${dir.path}${Platform.pathSeparator}${prefix}_$seq.png');
         seq++;
       }
-      await file.writeAsBytes(bytes, flush: true);
-      return (path: file.path, error: null);
+      final saved = await _savePngPlatform(
+        bytes: bytes,
+        suggestedName: '$prefix.png',
+        fallbackFile: file,
+      );
+      return (path: saved.path, error: null);
     } catch (e) {
       return (path: null, error: '$e');
     }
@@ -380,6 +447,54 @@ class ExportService {
     }
     return sb.toString();
   }
+
+  /// 生成南方 CASS 格式坐标文本（`点号,,Y,X,H`，无表头，UTF-8）。
+  static String toCassCsv(
+    Iterable<({String name, double x, double y, double h})> points,
+  ) {
+    final sb = StringBuffer();
+    for (final p in points) {
+      sb.writeln(
+        '${csvField(p.name)},,${p.y.toStringAsFixed(4)},'
+        '${p.x.toStringAsFixed(4)},${p.h.toStringAsFixed(4)}',
+      );
+    }
+    return sb.toString();
+  }
+
+  /// 导出南方 CASS 格式坐标 `.dat` / `.csv` 文件（带 UTF-8 BOM `\uFEFF`）。
+  static Future<ExportResult> exportCassCsv(
+    Iterable<({String name, double x, double y, double h})> points, {
+    String title = 'CASS坐标',
+    String ext = 'csv',
+  }) async {
+    final list = points.toList(growable: false);
+    if (list.isEmpty) {
+      return const ExportResult(
+        path: null,
+        format: ExportFormat.csv,
+        error: '暂无可导出的计算成果',
+      );
+    }
+    try {
+      final dir = await resolveDirAsync();
+      final base = sanitize(title);
+      final prefix = '${_stamp()}_${base.isEmpty ? 'CASS坐标' : base}';
+      var file = File('${dir.path}${Platform.pathSeparator}$prefix.$ext');
+      var seq = 1;
+      while (await file.exists()) {
+        file = File('${dir.path}${Platform.pathSeparator}${prefix}_$seq.$ext');
+        seq++;
+      }
+      await file.writeAsString('\uFEFF${toCassCsv(list)}', flush: true);
+      return ExportResult(path: file.path, format: ExportFormat.csv);
+    } catch (e) {
+      return ExportResult(path: null, format: ExportFormat.csv, error: '$e');
+    }
+  }
+
+  /// 生成纯文本完整报告（供「复制全文」与 `.txt` 导出共用）。
+  static String buildTxtReport(SheetTable table) => toText(table);
 
   /// 纯文本：等宽对齐（中日韩字符按 2 列宽算），适合直接贴进记事本/聊天窗。
   static String toText(SheetTable t) {

@@ -14,6 +14,7 @@ library;
 import 'dart:math' as math;
 
 import 'angle.dart';
+import 'errors.dart';
 import 'projection.dart';
 
 /// 空间直角坐标（ECEF，m）。
@@ -49,13 +50,28 @@ Cartesian geodeticToCartesian({
   Ellipsoid ellipsoid = kCgcs2000,
 }) {
   if (!latDeg.isFinite || latDeg.abs() > 90) {
-    throw ArgumentError.value(latDeg, 'latDeg', '纬度超出 [-90, 90]');
+    throw SurveyArgumentError.value(
+      latDeg,
+      'latDeg',
+      SurveyErrorCode.geodesyLatOutOfRange,
+      '纬度超出 [-90, 90]',
+    );
   }
   if (!lonDeg.isFinite || lonDeg.abs() > 180) {
-    throw ArgumentError.value(lonDeg, 'lonDeg', '经度超出 [-180, 180]');
+    throw SurveyArgumentError.value(
+      lonDeg,
+      'lonDeg',
+      SurveyErrorCode.geodesyLonOutOfRange,
+      '经度超出 [-180, 180]',
+    );
   }
   if (!heightM.isFinite) {
-    throw ArgumentError.value(heightM, 'heightM', '大地高必须为有限数');
+    throw SurveyArgumentError.value(
+      heightM,
+      'heightM',
+      SurveyErrorCode.geodesyHeightNotFinite,
+      '大地高必须为有限数',
+    );
   }
   final b = latDeg * deg2rad;
   final l = lonDeg * deg2rad;
@@ -81,7 +97,10 @@ LatLonHeight cartesianToGeodetic({
   Ellipsoid ellipsoid = kCgcs2000,
 }) {
   if (!x.isFinite || !y.isFinite || !z.isFinite) {
-    throw ArgumentError('空间直角坐标必须为有限数');
+    throw SurveyArgumentError(
+      SurveyErrorCode.geodesyEcefNotFinite,
+      '空间直角坐标必须为有限数',
+    );
   }
   final e2 = ellipsoid.e2;
   final a = ellipsoid.a;

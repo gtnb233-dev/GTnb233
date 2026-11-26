@@ -3,41 +3,46 @@
   <h1>工程测量工具箱 · Survey Pro</h1>
   <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-windows-x64-setup.exe"><strong>下载 Windows</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.8">查看 v2.0.8 发布说明</a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-windows-x64.zip"><strong>下载 Windows</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.1.0">查看 v2.1.0 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
 ## 下载与安装
 
-当前正式版为 **v2.0.8**。
+当前正式版为 **v2.1.0**。
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
-| **Windows x64 安装版** | Windows 10／11，当前用户安装 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-windows-x64-setup.exe) |
-| Windows x64 便携版 | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-windows-x64.zip) |
-| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-arm64-v8a.apk) |
-| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-universal.apk) |
-| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-armeabi-v7a.apk) |
-| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/survey_pro-2.0.8-android-x86_64.apk) |
+| **Windows x64 便携版** | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/survey_pro-2.1.0-android-x86_64.apk) |
 
-- **Windows** 可以运行 EXE 完成安装，或解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
-- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.0.8 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.0.8/SHA256SUMS.txt)
+- **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
+- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.1.0 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.0/SHA256SUMS.txt)
 
-## v2.0.8 更新摘要
+## 核心亮点
 
-- **实时计算与上北右东坐标图**：极坐标正算首帧即算、拖点实时联动重算、距离交会同步绘制 `P1/P2` 双解，测量平面图统一按上北（`+X`）右东（`+Y`）定向。
-- **计算与图形导出修复**：修复 `LivePlot` 导出 PNG 帧时序与透明背景问题、Windows 导出目录跳转兼容性、Excel `<cellStyles>`/控制字符与合并单元格去重，以及 `cm`/`mm` 单位下放样/曲线表格与四参数/七参数双工作表对齐。
-- **导线平差可选角与起点正北红线**：支持闭合导线手动切换 `自动 / 内角和 / 外角和`、起始方位角快捷预设及二级/图根/三级限差可选，导线图与导出略图在起点绘制朝正北红色参考线（`北 N`）。
-- **Windows 自动桌面快捷方式**：`survey_pro.exe` 启动与安装版自动创建/维护带应用图标的桌面快捷方式（可用 `--no-desktop-shortcut` 跳过）。
+- **100% 本地离线 · 19 项工程测量全覆盖**
+  涵盖控制点库、四等水准（双面尺法实时检核与自动跳格）、导线平差、坐标正反算与交会、坐标转换（高斯/四参/七参）、曲线放样、断面/方格网/TIN 土方计算；内置 22 套离线教案与标准算例，断网可用。
+- **Rust + Flutter 混合计算引擎**
+  重计算模块（DXF 解析、TIN 三角网土方、2D 空间索引）由 `rust/survey_rust_core`（Dart FFI）驱动，并配备等价回退机制；角度底层全程 `f64` 弧度无损计算，支持 `DMS / DD / RAD` 随时切换。
+- **全局 `LivePlot` 实时动态坐标图**
+  严格工程坐标系（`X↑北 / Y→东`），随输入实时绘制点位、连线、闭合差与高程纵断面，支持 60fps 缩放平移、点选查坐标及宽屏右侧分屏联动。
+- **Apple HIG 液态玻璃 + 840dp 响应式双模界面**
+  浅色/深色/跟随系统三态无缝切换；Windows 桌面与 Android 平板横屏采用一体化顶栏与双列可折叠侧栏，Android 手机竖屏自动切换为侧推式抽屉与单层悬浮顶栏（支持跟手侧滑返回）。
+- **防丢草稿与全离线多格式导出**
+  输入自动防抖保存草稿并支持 Undo/Redo；成果支持导出 **2.5x 高清图片（Android 自动入相册）**、**含导线略图的 `.xlsx` 表格**、**UTF-8 BOM `.csv`** 及 **`.txt` 文本报告**，且界面与导出文件均支持全球多语言无残留切换。
 
 ## 界面语言
 
 默认跟随系统语言。可在「设置 → 语言」手动选择简体中文、英语、绍纳语（ChiShona）、津巴布韦北恩德贝莱语（isiNdebele）、法语、葡萄牙语或西班牙语。应用会记住选择，切换语言无需联网。系统语言列表无可用译文时使用英语。
 
-多语言覆盖导航、设置、首页和工具列表，工具搜索支持所选语言中的名称。部分测量输入、诊断、教程及导出模板仍使用英语或简体中文。语言设置沿用现有测量坐标约定。
+多语言覆盖导航、设置、首页、全部 19 项测量工具、弹窗、22 套离线教案、42 个结构化错误提示及 Excel / CSV / TXT / PNG 导出模板（英文模式通过全量零汉字 Zero-CJK 巡检，小语种缺失词条统一回退至英文）。语言设置沿用现有测量坐标约定。
 
 ## v2.0.5 液态玻璃导航
 
@@ -67,10 +72,10 @@ Android 和 Windows 窄窗口默认使用悬浮玻璃底栏。横滑时高亮胶
 
 | 分类 | 包含工具 |
 | --- | --- |
-| 坐标与放样 | 坐标反算、坐标正算／极坐标放样、放样数据计算、批量放样、交会计算 |
+| 坐标与放样 | 控制点库、坐标反算、坐标正算／极坐标放样、放样数据计算、批量放样、交会计算 |
 | 控制测量 | 导线平差、水准路线平差、四等水准测量、精度估算 |
 | 线路与曲线 | 圆曲线、缓和曲线、竖曲线、路线中桩坐标 |
-| 面积与土方 | 面积计算、土方量计算（平均断面法／方格网法） |
+| 面积与土方 | 面积计算、土方量计算（平均断面法／方格网法／TIN 三角网） |
 | 计算与换算 | 公式计算器、坐标转换、角度与坡度换算 |
 
 - **查找和录入**：Windows 使用 `Ctrl+K` 查找工具与公式。计算页本地保存草稿，支持逐格录入和批量粘贴。
@@ -116,6 +121,6 @@ Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在
 
 ## 版本与反馈
 
-- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.0.8)
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.1.0)
 - [历史版本](https://github.com/gtnb233-dev/GTnb233/releases) · [v1.2.0-beta.3](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.3)
 - [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。

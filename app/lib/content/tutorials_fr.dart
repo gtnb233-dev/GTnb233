@@ -415,4 +415,27 @@ const _frenchTutorials = <String, Tutorial>{
       'Les fonctions trigonométriques directes prennent des degrés décimaux. Les fonctions inverses renvoient des radians, convertibles avec deg(…).'
     ],
   ),
+  'control_points': Tutorial(
+    title: 'Bibliothèque de points de contrôle',
+    summary:
+        'Gérer les points de contrôle du projet (identifiant, Nord X, Est Y, altitude H, groupe et notes) avec import/export CSV/DXF et sélection directe dans les outils.',
+    formulas: [
+      'CSV standard : Nom, X (Nord), Y (Est), H (Altitude), Groupe, Note',
+      'CSV CASS : Nom, Code, Y (Est), X (Nord), H (Altitude)'
+    ],
+    steps: [
+      'Ajouter des points manuellement ou importer en lot depuis un fichier CSV ou DXF.',
+      'Filtrer par groupe ou mot-clé avec détection en temps réel des doublons.',
+      'Projeter le réseau sur LivePlot (Nord X vers le haut, Est Y vers la droite).',
+      'Sélectionner un point en un clic depuis les outils de calcul topographique.'
+    ],
+    example: [
+      ('Point de contrôle', 'K1 : X=3054120,450, Y=523410,120, H=845,320'),
+      ('Export', 'CSV standard et format d’échange CASS')
+    ],
+    notes: [
+      'La convention topographique est respectée : X correspond au Nord et Y à l’Est.',
+      'Les fichiers CASS placent Y (Est) avant X (Nord) lors de l’importation.'
+    ],
+  ),
 };

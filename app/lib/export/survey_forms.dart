@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:survey_core/survey_core.dart';
 
@@ -381,6 +382,7 @@ class SurveyForms {
     int coordDigits = 3,
     int secDigits = 1,
     DateTime? date,
+    Uint8List? sketchPngBytes,
   }) {
     final cells = <XlsxCell>[];
     final merges = <XlsxMerge>[];
@@ -679,12 +681,16 @@ class SurveyForms {
         '3. 导线全长闭合差：f = √(fx²+fy²) = ${fmt(result.linearMisclosure * 1000, 1)} mm，'
         '全长相对闭合差 K = f / ΣD = $relStr（限差 1/${result.relativeLimitDenominator.round()}，'
         '${result.linearOk ? '合格' : '超限'}）';
+    final hasSketchPng =
+        sketchPngBytes != null && sketchPngBytes.isNotEmpty;
     add(rCalcStart, 0, calcText, style: XlsxCellStyle.cellLeftTop, forceString: true);
-    merge(rCalcStart, 0, rCalcEnd, 8);
+    merge(rCalcStart, 0, rCalcEnd, hasSketchPng ? 8 : 13);
 
     const sketchHeader = '导线略图（起点红线朝正北 N）';
-    add(rCalcStart, 9, sketchHeader, style: XlsxCellStyle.cellLeftTop, forceString: true);
-    merge(rCalcStart, 9, rCalcEnd, 13);
+    if (hasSketchPng) {
+      add(rCalcStart, 9, '', style: XlsxCellStyle.cellLeftTop, forceString: true);
+      merge(rCalcStart, 9, rCalcEnd, 13);
+    }
 
     final rSign = rCalcEnd + 1;
     rowHeights[rSign] = 22;
@@ -724,10 +730,10 @@ class SurveyForms {
       merges: merges,
       colWidths: const <int, double>{
         0: 8.5,
-        1: 12.5,
-        2: 9.0,
-        3: 12.5,
-        4: 13.0,
+        1: 18.0,
+        2: 9.5,
+        3: 18.0,
+        4: 18.5,
         5: 10.0,
         6: 10.5,
         7: 10.5,
@@ -744,7 +750,7 @@ class SurveyForms {
       tableOuterEndRow: rCalcEnd,
       tableOuterEndCol: 13,
       sketches: <XlsxSketchArea>[
-        if (sketchPts.length >= 2)
+        if (hasSketchPng && sketchPts.length >= 2)
           XlsxSketchArea(
             r1: rCalcStart,
             c1: 9,
@@ -759,6 +765,17 @@ class SurveyForms {
               surveyNorthUp: true,
               startNorthRay: true,
             ),
+          ),
+      ],
+      images: <XlsxEmbeddedImage>[
+        if (hasSketchPng)
+          XlsxEmbeddedImage(
+            pngBytes: sketchPngBytes,
+            fromRow: rCalcStart,
+            fromCol: 9,
+            toRow: rCalcEnd,
+            toCol: 13,
+            name: 'TraverseSketch',
           ),
       ],
     );

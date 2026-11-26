@@ -73,7 +73,14 @@ class _EarthworkGridChartState extends State<EarthworkGridChart> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '方格网挖填热力与零线（$rows×$cols 格 · a=${fmt(widget.grid.cellSize, 1)}m）',
+                context.tr(
+                  '方格网挖填热力与零线（{rows}×{cols} 格 · a={size}m）',
+                  {
+                    'rows': rows,
+                    'cols': cols,
+                    'size': fmt(widget.grid.cellSize, 1),
+                  },
+                ),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -155,11 +162,21 @@ class _EarthworkGridChartState extends State<EarthworkGridChart> {
             ),
             child: Text(
               selected == null
-                  ? '点击任意方格可查看四角施工高度与跨零线细分详情'
-                  : '第 ${selected.row + 1} 行第 ${selected.col + 1} 列'
-                      ' · 角高 ${selected.corners.map((v) => v > 0 ? "+${fmt(v, 2)}" : fmt(v, 2)).join(" / ")}'
-                      ' · 挖 ${fmt(selected.cut, 2)} m³ / 填 ${fmt(selected.fill, 2)} m³'
-                      '${selected.split ? "（跨零线细分）" : ""}',
+                  ? context.tr('点击任意方格可查看四角施工高度与跨零线细分详情')
+                  : context.tr(
+                      '第 {row} 行第 {col} 列 · 角高 {corners} · 挖 {cut} m³ / 填 {fill} m³{split}',
+                      {
+                        'row': selected.row + 1,
+                        'col': selected.col + 1,
+                        'corners': selected.corners
+                            .map((v) => v > 0 ? '+${fmt(v, 2)}' : fmt(v, 2))
+                            .join(' / '),
+                        'cut': fmt(selected.cut, 2),
+                        'fill': fmt(selected.fill, 2),
+                        'split':
+                            selected.split ? context.tr('（跨零线细分）') : '',
+                      },
+                    ),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -412,7 +429,10 @@ class SectionProfileChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            '断面面积沿线变化图（总方量 ${fmt(result.total, 2)} m³）',
+            context.tr(
+              '断面面积沿线变化图（总方量 {total} m³）',
+              {'total': fmt(result.total, 2)},
+            ),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -608,7 +628,13 @@ class VerticalCurveChart extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '竖曲线纵断面图（${curve.isCrest ? "凸形" : "凹形"} · E=${fmt(curve.external, 3)}m）',
+                context.tr(
+                  '竖曲线纵断面图（{type} · E={ext}m）',
+                  {
+                    'type': context.tr(curve.isCrest ? '凸形' : '凹形'),
+                    'ext': fmt(curve.external, 3),
+                  },
+                ),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -634,6 +660,9 @@ class VerticalCurveChart extends StatelessWidget {
                 queryStation: queryStation,
                 queryElevation: queryElevation,
                 scheme: scheme,
+                startLabel: context.tr('起点'),
+                vpiLabel: context.tr('变坡点'),
+                endLabel: context.tr('终点'),
                 fontFamily: DefaultTextStyle.of(context).style.fontFamily,
                 fontFamilyFallback:
                     DefaultTextStyle.of(context).style.fontFamilyFallback,
@@ -652,6 +681,9 @@ class _VerticalCurvePainter extends CustomPainter {
     required this.queryStation,
     required this.queryElevation,
     required this.scheme,
+    required this.startLabel,
+    required this.vpiLabel,
+    required this.endLabel,
     this.fontFamily,
     this.fontFamilyFallback,
   });
@@ -660,6 +692,9 @@ class _VerticalCurvePainter extends CustomPainter {
   final double? queryStation;
   final double? queryElevation;
   final ColorScheme scheme;
+  final String startLabel;
+  final String vpiLabel;
+  final String endLabel;
   final String? fontFamily;
   final List<String>? fontFamilyFallback;
 
@@ -791,10 +826,10 @@ class _VerticalCurvePainter extends CustomPainter {
       );
     }
 
-    dot(pBvc, '起点', scheme.tertiary, offset: const Offset(0, 12));
-    dot(pVpi, '变坡点', scheme.onSurfaceVariant,
+    dot(pBvc, startLabel, scheme.tertiary, offset: const Offset(0, 12));
+    dot(pVpi, vpiLabel, scheme.onSurfaceVariant,
         offset: Offset(0, curve.isCrest ? -12 : 12));
-    dot(toPx(curve.evcStation, curve.evcElevation), '终点', scheme.tertiary,
+    dot(toPx(curve.evcStation, curve.evcElevation), endLabel, scheme.tertiary,
         offset: const Offset(0, 12));
 
     if (queryStation != null && queryElevation != null) {
@@ -1187,7 +1222,7 @@ class _LegendLine extends StatelessWidget {
         Container(width: 12, height: 2, color: color),
         const SizedBox(width: 4),
         Text(
-          label,
+          context.tr(label),
           style: TextStyle(
             fontSize: 10.5,
             color: Theme.of(context).colorScheme.onSurfaceVariant,

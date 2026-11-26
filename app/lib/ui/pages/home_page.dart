@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../workspace_page_route.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
@@ -11,7 +10,6 @@ import '../tool_router.dart';
 import '../widgets/outline_symbol.dart';
 import '../widgets/widgets.dart';
 import '../widgets/workspace_commands.dart';
-import 'tools/tin_workspace.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage(
@@ -112,25 +110,15 @@ class HomePage extends StatelessWidget {
                           horizontal: 16, vertical: 4),
                       leading: OutlineSymbol(tool.icon,
                           color: theme.colorScheme.primary),
-                      title: LocalText(
-                          tool.id == 'earthwork' ? '土方 TIN' : tool.title),
+                      title: LocalText(tool.title),
                       subtitle: LocalText(
-                          tool.id == 'earthwork'
-                              ? '三角网棱柱体法 · 挖填方量'
-                              : tool.subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
+                        tool.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing:
                           const OutlineSymbol(Icons.chevron_right, size: 16),
-                      onTap: () {
-                        if (tool.id == 'earthwork') {
-                          Navigator.of(context).push(WorkspacePageRoute<void>(
-                            builder: (_) => const TinWorkspacePage(),
-                          ));
-                        } else {
-                          openTool(context, tool);
-                        }
-                      },
+                      onTap: () => openTool(context, tool),
                     ),
                   ),
                 ),

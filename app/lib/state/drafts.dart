@@ -15,9 +15,11 @@ class DraftStore extends ChangeNotifier {
   static const Duration debounce = Duration(milliseconds: 400);
   static const String _prefix = 'draft.';
   static const String _stampPrefix = 'draft_at.';
+  static const String _projectPrefix = 'draft_project.';
 
   final Map<String, Map<String, String>> _cache = {};
   final Map<String, DateTime> _savedAt = {};
+  final Map<String, String> _projects = {};
   final Map<String, Timer> _timers = {};
   bool _loaded = false;
   Future<void> _writes = Future<void>.value();
@@ -45,6 +47,8 @@ class DraftStore extends ChangeNotifier {
         final stamp = p.getString('$_stampPrefix$pageId');
         final parsed = stamp == null ? null : DateTime.tryParse(stamp);
         if (parsed != null) _savedAt[pageId] = parsed;
+        final proj = p.getString('$_projectPrefix$pageId');
+        if (proj != null && proj.isNotEmpty) _projects[pageId] = proj;
       }
     }
     _loaded = true;
@@ -58,6 +62,39 @@ class DraftStore extends ChangeNotifier {
   String? value(String pageId, String field) => _cache[pageId]?[field];
 
   DateTime? savedAt(String pageId) => _savedAt[pageId];
+
+  String? projectOf(String pageId) => _projects[pageId];
+
+  List<String> get projects {
+    final set = <String>{
+      for (final p in _projects.values)
+        if (p.trim().isNotEmpty) p.trim(),
+    };
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  Future<void> setProject(String pageId, String? project) async {
+    final trimmed = project?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      if (_projects.remove(pageId) == null) return;
+      notifyListeners();
+      await _enqueue((p) => p.remove('$_projectPrefix$pageId'));
+      return;
+    }
+    if (_projects[pageId] == trimmed) return;
+    _projects[pageId] = trimmed;
+    notifyListeners();
+    await _enqueue((p) => p.setString('$_projectPrefix$pageId', trimmed));
+  }
+
+  List<String> idsInProject(String? project) {
+    if (project == null || project.trim().isEmpty) {
+      return recentIds.where((id) => !_projects.containsKey(id)).toList();
+    }
+    final target = project.trim();
+    return recentIds.where((id) => _projects[id] == target).toList();
+  }
 
   /// 当前已保存草稿的页面数量。
   int get savedCount => recentIds.length;
@@ -114,10 +151,12 @@ class DraftStore extends ChangeNotifier {
     }
     _cache.remove(pageId);
     _savedAt.remove(pageId);
+    _projects.remove(pageId);
     notifyListeners();
     await _enqueue((p) async {
       await p.remove('$_prefix$pageId');
       await p.remove('$_stampPrefix$pageId');
+      await p.remove('$_projectPrefix$pageId');
     });
   }
 
@@ -128,12 +167,14 @@ class DraftStore extends ChangeNotifier {
       _timers.remove(id)?.cancel();
       _cache.remove(id);
       _savedAt.remove(id);
+      _projects.remove(id);
     }
     notifyListeners();
     await _enqueue((p) async {
       for (final id in ids) {
         await p.remove('$_prefix$id');
         await p.remove('$_stampPrefix$id');
+        await p.remove('$_projectPrefix$id');
       }
     });
   }

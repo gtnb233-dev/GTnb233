@@ -27,15 +27,25 @@ class SurveyFormImageRenderer {
   static const double _kPageMarginY = 40.0;
   static const double _kSheetGap = 32.0;
   static const double _kMinPageWidth = 1160.0;
-  static const double _kMaxBitmapHeight = 7600.0;
+  static const double _kMaxBitmapWidth = 8192.0;
+  static const double _kMaxBitmapHeight = 16384.0;
 
-  /// 将单个或多个工作表渲染为连续纵向排布的高清 PNG 字节流。
-  static Future<Uint8List> renderWorkbook(List<XlsxSheetData> sheets) async {
-    final list = sheets.isEmpty
+  /// 将单个或多个工作表渲染为连续纵向排布的 2x–3x HiDPI 高清 PNG 字节流。
+  static Future<Uint8List> renderWorkbook(
+    List<XlsxSheetData> sheets, {
+    double pixelRatio = 2.5,
+    String Function(String)? translate,
+  }) async {
+    final rawList = sheets.isEmpty
         ? const <XlsxSheetData>[
             XlsxSheetData(sheetName: 'Sheet1', cells: <XlsxCell>[]),
           ]
         : sheets;
+    final list = translate == null
+        ? rawList
+        : <XlsxSheetData>[
+            for (final s in rawList) s.localizeLabels(translate),
+          ];
 
     final layouts = <_SheetLayout>[
       for (final s in list) _computeLayout(s),
@@ -51,16 +61,18 @@ class SurveyFormImageRenderer {
         ) +
         (layouts.length - 1) * _kSheetGap;
 
-    final double scaleH = rawHeight > _kMaxBitmapHeight
+    final targetScale = pixelRatio.clamp(2.0, 3.0);
+    final double scaleH = rawHeight > 0
         ? (_kMaxBitmapHeight / rawHeight)
-        : 1.0;
-    final double scaleW = maxPageWidth > 4096.0
-        ? (4096.0 / maxPageWidth)
-        : 1.0;
-    final double scale = math.min(scaleH, scaleW).clamp(0.35, 1.0);
+        : targetScale;
+    final double scaleW = maxPageWidth > 0
+        ? (_kMaxBitmapWidth / maxPageWidth)
+        : targetScale;
+    final double scale =
+        math.min(targetScale, math.min(scaleH, scaleW)).clamp(0.5, 3.0);
 
-    final outW = (maxPageWidth * scale).ceil().clamp(64, 4096);
-    final outH = (rawHeight * scale).ceil().clamp(64, 8192);
+    final outW = (maxPageWidth * scale).ceil().clamp(64, 8192);
+    final outH = (rawHeight * scale).ceil().clamp(64, 16384);
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -82,7 +94,12 @@ class SurveyFormImageRenderer {
       final xOffset = (maxPageWidth - layout.pageWidth) / 2;
       canvas.save();
       canvas.translate(xOffset, yCursor);
-      _paintSheet(canvas, layout, drawPageCard: multiPage);
+      _paintSheet(
+        canvas,
+        layout,
+        drawPageCard: multiPage,
+        translate: translate,
+      );
       canvas.restore();
       yCursor += layout.pageHeight + _kSheetGap;
     }
@@ -233,6 +250,7 @@ class SurveyFormImageRenderer {
     Canvas canvas,
     _SheetLayout layout, {
     required bool drawPageCard,
+    String Function(String)? translate,
   }) {
     final sheet = layout.sheet;
     if (drawPageCard) {
@@ -359,7 +377,7 @@ class SurveyFormImageRenderer {
     // Pass 5: 矢量工程略图绘制
     for (final sk in sheet.sketches) {
       final box = rectFor(sk.r1, sk.c1, sk.r2, sk.c2);
-      _paintSketchBox(canvas, box, sk);
+      _paintSketchBox(canvas, box, sk, translate: translate);
     }
 
     canvas.restore();
@@ -437,6 +455,7 @@ class SurveyFormImageRenderer {
       ),
       textAlign: _textAlign(style),
       textDirection: TextDirection.ltr,
+      maxLines: style == XlsxCellStyle.cellSummary ? 1 : null,
     );
     tp.layout(maxWidth: maxWidth);
     return tp;
@@ -474,7 +493,12 @@ class SurveyFormImageRenderer {
 
   // ---------------- 矢量略图渲染 ----------------
 
-  static void _paintSketchBox(Canvas canvas, Rect box, XlsxSketchArea area) {
+  static void _paintSketchBox(
+    Canvas canvas,
+    Rect box,
+    XlsxSketchArea area, {
+    String Function(String)? translate,
+  }) {
     canvas.save();
     canvas.clipRect(box);
 
@@ -500,7 +524,7 @@ class SurveyFormImageRenderer {
       if (sk is LevelingRouteSketch) {
         _paintLevelingRouteSketch(canvas, plotRect, sk);
       } else if (sk is GeometryPlotSketch) {
-        _paintGeometrySketch(canvas, plotRect, sk);
+        _paintGeometrySketch(canvas, plotRect, sk, translate: translate);
       }
     }
     canvas.restore();
@@ -611,8 +635,9 @@ class SurveyFormImageRenderer {
   static void _paintGeometrySketch(
     Canvas canvas,
     Rect rect,
-    GeometryPlotSketch sketch,
-  ) {
+    GeometryPlotSketch sketch, {
+    String Function(String)? translate,
+  }) {
     double horizVal(double x, double y) => sketch.surveyNorthUp ? y : x;
     double vertVal(double x, double y) => sketch.surveyNorthUp ? x : y;
 
@@ -753,7 +778,7 @@ class SurveyFormImageRenderer {
       canvas.drawPath(head, Paint()..color = const Color(0xFFD32F2F));
       _paintSmallLabel(
         canvas,
-        '北 N',
+        translate?.call('北 N') ?? '北 N',
         Offset(rayTip.dx + 14.0, rayTip.dy + 2.0),
         color: const Color(0xFFD32F2F),
         bold: true,

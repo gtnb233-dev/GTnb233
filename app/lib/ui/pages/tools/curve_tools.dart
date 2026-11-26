@@ -6,6 +6,8 @@ import 'package:survey_core/survey_core.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../l10n/survey_strings.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -13,6 +15,9 @@ import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
+
+String _cvl(BuildContext context, String zh, String en) =>
+    SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
 
 double? _num(TextEditingController c) => double.tryParse(c.text.trim());
 
@@ -56,64 +61,69 @@ class _CircularCurvePageState extends State<CircularCurvePage>
 
   /// 导出：曲线要素 + 主点里程。
   SheetTable _exportTable() {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final u = SettingsScope.read(context).lengthUnit;
     final d = u.displayDigits(3);
     final c = _res;
     return SheetTable(
-      title: '圆曲线要素',
+      title: isZh ? '圆曲线要素' : 'Circular Curve Elements',
       rows: <List<String>>[
-        <String>['量', '值', '单位'],
         <String>[
-          '转角 α',
+          isZh ? '量' : 'Quantity',
+          isZh ? '值' : 'Value',
+          isZh ? '单位' : 'Unit',
+        ],
+        <String>[
+          isZh ? '转角 α' : 'Deflection α',
           _alphaKey.currentState?.value == null
               ? ''
               : fmtAngle(_alphaKey.currentState!.value!, secDigits: 1),
           ''
         ],
-        <String>['半径 R', _r.text.trim(), u.symbol],
-        <String>['交点里程', _jd.text.trim(), u.symbol],
+        <String>[isZh ? '半径 R' : 'Radius R', _r.text.trim(), u.symbol],
+        <String>[isZh ? '交点里程' : 'PI Station', _jd.text.trim(), u.symbol],
         <String>[
-          '切线长 T',
+          isZh ? '切线长 T' : 'Tangent T',
           c == null ? '' : fmt(u.fromMeters(c.tangent), d),
           u.symbol
         ],
         <String>[
-          '曲线长 L',
+          isZh ? '曲线长 L' : 'Curve Length L',
           c == null ? '' : fmt(u.fromMeters(c.curveLength), d),
           u.symbol
         ],
         <String>[
-          '外距 E',
+          isZh ? '外距 E' : 'External E',
           c == null ? '' : fmt(u.fromMeters(c.external), d),
           u.symbol
         ],
         <String>[
-          '切曲差 q',
+          isZh ? '切曲差 q' : 'Tangent Defect q',
           c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d),
           u.symbol
         ],
         <String>[
-          '弦长 C',
+          isZh ? '弦长 C' : 'Chord C',
           c == null ? '' : fmt(u.fromMeters(c.chordLength), d),
           u.symbol
         ],
         <String>[
-          '中央纵距 M',
+          isZh ? '中央纵距 M' : 'Mid Ordinate M',
           c == null ? '' : fmt(u.fromMeters(c.midOrdinate), d),
           u.symbol
         ],
         <String>[
-          'ZY 直圆点',
+          isZh ? 'ZY 直圆点' : 'ZY (PC)',
           c == null ? '' : fmt(u.fromMeters(c.zyStation), d),
           u.symbol
         ],
         <String>[
-          'QZ 曲中点',
+          isZh ? 'QZ 曲中点' : 'QZ (MC)',
           c == null ? '' : fmt(u.fromMeters(c.qzStation), d),
           u.symbol
         ],
         <String>[
-          'YZ 圆直点',
+          isZh ? 'YZ 圆直点' : 'YZ (PT)',
           c == null ? '' : fmt(u.fromMeters(c.yzStation), d),
           u.symbol
         ],
@@ -140,27 +150,45 @@ class _CircularCurvePageState extends State<CircularCurvePage>
               ];
               return <XlsxSheetData>[
                 SurveyForms.buildCurveFormSheet(
-                  title: '圆曲线要素及主点桩号计算表',
-                  paramSummary: '转角 α=${fmtAngle(c.alphaDeg, secDigits: 1)}    '
-                      '半径 R=${fmt(c.radius, 2)} m    '
-                      '交点里程=${SurveyForms.formatStationKm(c.jdStation)}',
+                  title: isZh
+                      ? '圆曲线要素及主点桩号计算表'
+                      : 'Circular Curve Elements & Stations',
+                  paramSummary: isZh
+                      ? '转角 α=${fmtAngle(c.alphaDeg, secDigits: 1)}    '
+                          '半径 R=${fmt(c.radius, 2)} m    '
+                          '交点里程=${SurveyForms.formatStationKm(c.jdStation)}'
+                      : 'α=${fmtAngle(c.alphaDeg, secDigits: 1)}    '
+                          'R=${fmt(c.radius, 2)} m    '
+                          'PI=${SurveyForms.formatStationKm(c.jdStation)}',
                   elements: <(String, String, String)>[
-                    ('切线长 T', fmt(c.tangent, 3), 'm'),
-                    ('曲线长 L', fmt(c.curveLength, 3), 'm'),
-                    ('外距 E', fmt(c.external, 3), 'm'),
-                    ('切曲差 q', fmt(c.tangentDefect, 3), 'm'),
-                    ('弦长 C', fmt(c.chordLength, 3), 'm'),
-                    ('中央纵距 M', fmt(c.midOrdinate, 3), 'm'),
+                    (isZh ? '切线长 T' : 'Tangent T', fmt(c.tangent, 3), 'm'),
+                    (isZh ? '曲线长 L' : 'Length L', fmt(c.curveLength, 3), 'm'),
+                    (isZh ? '外距 E' : 'External E', fmt(c.external, 3), 'm'),
+                    (
+                      isZh ? '切曲差 q' : 'Defect q',
+                      fmt(c.tangentDefect, 3),
+                      'm'
+                    ),
+                    (isZh ? '弦长 C' : 'Chord C', fmt(c.chordLength, 3), 'm'),
+                    (
+                      isZh ? '中央纵距 M' : 'Mid Ord M',
+                      fmt(c.midOrdinate, 3),
+                      'm'
+                    ),
                   ],
                   chainages: <(String, String, double, String)>[
-                    ('ZY', 'JD − T', c.zyStation, '直圆点'),
-                    ('QZ', 'ZY + L/2', c.qzStation, '曲中点'),
-                    ('YZ', 'ZY + L', c.yzStation, '圆直点'),
+                    ('ZY', 'JD − T', c.zyStation, isZh ? '直圆点' : 'PC'),
+                    ('QZ', 'ZY + L/2', c.qzStation, isZh ? '曲中点' : 'MC'),
+                    ('YZ', 'ZY + L', c.yzStation, isZh ? '圆直点' : 'PT'),
                   ],
                   checkNotes: <String>[
                     'T = R·tan(α/2)，L = R·α，E = R(sec(α/2) − 1)，q = 2T − L',
-                    '校核：ZY + L = ${fmt(c.zyStation + c.curveLength, 3)} m（YZ = ${fmt(c.yzStation, 3)} m）',
-                    '校核：2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m（q = ${fmt(c.tangentDefect, 3)} m）',
+                    isZh
+                        ? '校核：ZY + L = ${fmt(c.zyStation + c.curveLength, 3)} m（YZ = ${fmt(c.yzStation, 3)} m）'
+                        : 'Check: ZY + L = ${fmt(c.zyStation + c.curveLength, 3)} m (YZ = ${fmt(c.yzStation, 3)} m)',
+                    isZh
+                        ? '校核：2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m（q = ${fmt(c.tangentDefect, 3)} m）'
+                        : 'Check: 2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m (q = ${fmt(c.tangentDefect, 3)} m)',
                   ],
                   sketch: GeometryPlotSketch(
                     points: <({
@@ -186,15 +214,22 @@ class _CircularCurvePageState extends State<CircularCurvePage>
                     curvePath: curvePath,
                     showNorthArrow: false,
                   ),
-                  sketchTitle: '圆曲线平面要素略图：',
+                  sketchTitle: isZh
+                      ? '圆曲线平面要素略图：'
+                      : 'Circular Curve Plan Sketch:',
                 ),
               ];
             }
           : null,
-      notes: const [
-        'T = R·tan(α/2)，L = R·α，E = R(sec(α/2) − 1)，q = 2T − L。',
-        '主点里程：ZY = JD − T，QZ = ZY + L/2，YZ = ZY + L。',
-      ],
+      notes: isZh
+          ? const [
+              'T = R·tan(α/2)，L = R·α，E = R(sec(α/2) − 1)，q = 2T − L。',
+              '主点里程：ZY = JD − T，QZ = ZY + L/2，YZ = ZY + L。',
+            ]
+          : const [
+              'T = R·tan(α/2), L = R·α, E = R(sec(α/2) − 1), q = 2T − L.',
+              'Stations: ZY(PC) = PI − T, QZ(MC) = ZY + L/2, YZ(PT) = ZY + L.',
+            ],
     );
   }
 
@@ -212,6 +247,15 @@ class _CircularCurvePageState extends State<CircularCurvePage>
     super.dispose();
   }
 
+  void _loadSample() {
+    _alphaCtrl.text = draftDefaults['alpha']!;
+    _alphaKey.currentState?.setDegrees(40);
+    _r.text = draftDefaults['r']!;
+    _jd.text = draftDefaults['jd']!;
+    _arc.text = draftDefaults['arc']!;
+    _calc();
+  }
+
   void _calc({bool notify = false}) {
     if (!mounted) return;
     final u = SettingsScope.read(context).lengthUnit;
@@ -222,15 +266,81 @@ class _CircularCurvePageState extends State<CircularCurvePage>
       setState(() => _res = null);
       return;
     }
-    setState(
-      () => _res = circularCurve(
-        alphaDeg: alpha,
-        radius: u.toMeters(rRaw),
-        jdStation: u.toMeters(jdRaw),
+    final c = circularCurve(
+      alphaDeg: alpha,
+      radius: u.toMeters(rRaw),
+      jdStation: u.toMeters(jdRaw),
+    );
+    setState(() => _res = c);
+    final yzPt =
+        circularCurveOffset(radius: c.radius, arcLength: c.curveLength);
+    final qzPt =
+        circularCurveOffset(radius: c.radius, arcLength: c.curveLength / 2);
+    final zySnap = LivePlotPointData(
+      x: 0,
+      y: 0,
+      label: _cvl(context, 'ZY', 'ZY (PC)'),
+      emphasis: true,
+      draggable: false,
+    );
+    final jdSnap = LivePlotPointData(
+      x: u.fromMeters(c.tangent),
+      y: 0,
+      label: _cvl(context, 'JD', 'PI'),
+      draggable: false,
+    );
+    final qzSnap = LivePlotPointData(
+      x: u.fromMeters(qzPt.x),
+      y: u.fromMeters(qzPt.y),
+      label: _cvl(context, 'QZ', 'QZ (MC)'),
+      draggable: false,
+    );
+    final yzSnap = LivePlotPointData(
+      x: u.fromMeters(yzPt.x),
+      y: u.fromMeters(yzPt.y),
+      label: _cvl(context, 'YZ', 'YZ (PT)'),
+      emphasis: true,
+      draggable: false,
+    );
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: _cvl(context, '圆曲线', 'Circular Curve'),
+        sourceToolId: 'circular_curve',
+        sourceLabel: _cvl(context, '圆曲线', 'Circular Curve'),
+        surveyNorthUp: false,
+        unit: u.symbol,
+        points: [zySnap, jdSnap, qzSnap, yzSnap],
+        paths: [
+          LivePlotPathData(
+            points: [
+              for (var i = 0; i <= 36; i++)
+                () {
+                  final off = circularCurveOffset(
+                    radius: c.radius,
+                    arcLength: c.curveLength * (i / 36.0),
+                  );
+                  return LivePlotPointData(
+                    x: u.fromMeters(off.x),
+                    y: u.fromMeters(off.y),
+                    label: '',
+                    draggable: false,
+                  );
+                }(),
+            ],
+            strokeWidth: 2.4,
+          ),
+        ],
+        lines: [
+          LivePlotLineData(from: zySnap, to: jdSnap, dashed: true),
+          LivePlotLineData(from: jdSnap, to: yzSnap, dashed: true),
+        ],
       ),
     );
     if (notify) {
-      SurveyToast.calcSuccess(context, '圆曲线要素计算成功');
+      SurveyToast.calcSuccess(
+        context,
+        _cvl(context, '圆曲线要素计算成功', 'Circular curve calculated'),
+      );
     }
   }
 
@@ -352,13 +462,14 @@ class _CircularCurvePageState extends State<CircularCurvePage>
         ),
       ],
       unit: u.symbol,
-      exportTitle: '圆曲线',
+      exportTitle: _cvl(context, '圆曲线', 'Circular Curve'),
       height: 250,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final s = SettingsScope.of(context);
     final u = s.lengthUnit;
     final lenDigits = u.displayDigits(3);
@@ -375,12 +486,14 @@ class _CircularCurvePageState extends State<CircularCurvePage>
             children: [
               _buildCurvePlot(c, arcM, u),
               const SizedBox(height: Insets.l),
-              const SectionHeader(title: '曲线要素'),
+              SectionHeader(
+                title: _cvl(context, '曲线要素', 'Curve Elements'),
+              ),
               const SizedBox(height: Insets.s),
               ResultGrid(
                 items: [
                   ResultTile(
-                    label: '切线长 T',
+                    label: _cvl(context, '切线长 T', 'Tangent T'),
                     value: fmt(u.fromMeters(c.tangent), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.tangent),
@@ -388,7 +501,7 @@ class _CircularCurvePageState extends State<CircularCurvePage>
                     icon: Icons.straighten,
                   ),
                   ResultTile(
-                    label: '曲线长 L',
+                    label: _cvl(context, '曲线长 L', 'Curve Length L'),
                     value: fmt(u.fromMeters(c.curveLength), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.curveLength),
@@ -396,23 +509,23 @@ class _CircularCurvePageState extends State<CircularCurvePage>
                     icon: Icons.timeline,
                   ),
                   ResultTile(
-                    label: '外距 E',
+                    label: _cvl(context, '外距 E', 'External E'),
                     value: fmt(u.fromMeters(c.external), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.external),
                   ),
                   ResultTile(
-                    label: '切曲差 q',
+                    label: _cvl(context, '切曲差 q', 'Tangent Defect q'),
                     value: fmt(u.fromMeters(c.tangentDefect), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: '弦长 C',
+                    label: _cvl(context, '弦长 C', 'Chord C'),
                     value: fmt(u.fromMeters(c.chordLength), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: '中央纵距 M',
+                    label: _cvl(context, '中央纵距 M', 'Mid Ordinate M'),
                     value: fmt(u.fromMeters(c.midOrdinate), lenDigits),
                     unit: u.symbol,
                   ),
@@ -426,14 +539,28 @@ class _CircularCurvePageState extends State<CircularCurvePage>
         : Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SectionHeader(title: '主点里程'),
+              SectionHeader(
+                title: _cvl(context, '主点里程', 'Key Stations'),
+              ),
               const SizedBox(height: Insets.s),
               DataSheet(
-                columns: ['主点', '里程 (${u.symbol})'],
+                columns: [
+                  _cvl(context, '主点', 'Station'),
+                  _cvl(context, '里程 (${u.symbol})', 'Chainage (${u.symbol})'),
+                ],
                 rows: [
-                  ['ZY 直圆点', fmt(u.fromMeters(c.zyStation), lenDigits)],
-                  ['QZ 曲中点', fmt(u.fromMeters(c.qzStation), lenDigits)],
-                  ['YZ 圆直点', fmt(u.fromMeters(c.yzStation), lenDigits)],
+                  [
+                    isZh ? 'ZY 直圆点' : 'ZY (PC)',
+                    fmt(u.fromMeters(c.zyStation), lenDigits),
+                  ],
+                  [
+                    isZh ? 'QZ 曲中点' : 'QZ (MC)',
+                    fmt(u.fromMeters(c.qzStation), lenDigits),
+                  ],
+                  [
+                    isZh ? 'YZ 圆直点' : 'YZ (PT)',
+                    fmt(u.fromMeters(c.yzStation), lenDigits),
+                  ],
                 ],
                 highlightRows: const {1},
               ),
@@ -441,7 +568,7 @@ class _CircularCurvePageState extends State<CircularCurvePage>
           );
 
     return DetailScaffold(
-      title: '圆曲线',
+      title: _cvl(context, '圆曲线', 'Circular Curve'),
       subtitle: 'T = R·tan(α/2)，L = R·α，E = R(sec(α/2) − 1)',
       toolbar: PageActions(
         pageId: draftPageId,
@@ -450,6 +577,10 @@ class _CircularCurvePageState extends State<CircularCurvePage>
         showAngleSelector: true,
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           _calc();
@@ -458,21 +589,29 @@ class _CircularCurvePageState extends State<CircularCurvePage>
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
-        PageTutorial(id: 'circular_curve', workedSteps: [
-          if (c != null) ...[
-            'T = ${fmt(c.radius, 3)} tan(${fmt(c.alphaDeg, 5)}° ÷ 2) = ${fmt(c.tangent, 3)} m',
-            'L = π × ${fmt(c.radius, 3)} × ${fmt(c.alphaDeg, 5)} ÷ 180 = ${fmt(c.curveLength, 3)} m',
+        PageTutorial(
+          id: 'circular_curve',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (c != null) ...[
+              'T = ${fmt(c.radius, 3)} tan(${fmt(c.alphaDeg, 5)}° ÷ 2) = ${fmt(c.tangent, 3)} m',
+              'L = π × ${fmt(c.radius, 3)} × ${fmt(c.alphaDeg, 5)} ÷ 180 = ${fmt(c.curveLength, 3)} m',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           icon: Icons.architecture_outlined,
-          title: '设计参数',
-          caption: '输入转角 α、半径 R 与交点 JD 里程',
+          title: _cvl(context, '设计参数', 'Design Parameters'),
+          caption: _cvl(
+            context,
+            '输入转角 α、半径 R 与交点 JD 里程',
+            'Enter deflection α, radius R, and PI station',
+          ),
           fields: [
             AngleField(
               key: _alphaKey,
-              label: '转角 α',
+              label: _cvl(context, '转角 α', 'Deflection α'),
               mode: s.angleMode,
               controller: _alphaCtrl,
               initialDegrees: 40,
@@ -480,7 +619,7 @@ class _CircularCurvePageState extends State<CircularCurvePage>
             ),
             NumberField(
               controller: _r,
-              label: '半径 R',
+              label: _cvl(context, '半径 R', 'Radius R'),
               prefixTag: 'R',
               lengthUnit: u,
               allowNegative: false,
@@ -488,14 +627,14 @@ class _CircularCurvePageState extends State<CircularCurvePage>
             ),
             NumberField(
               controller: _jd,
-              label: '交点里程',
+              label: _cvl(context, '交点里程', 'PI Station'),
               prefixTag: 'JD',
               lengthUnit: u,
               onChanged: (_) => _calc(),
             ),
           ],
           action: PrimaryAction(
-            label: '计算要素',
+            label: _cvl(context, '计算要素', 'Compute Curve'),
             onPressed: () => _calc(notify: true),
           ),
         ),
@@ -503,12 +642,16 @@ class _CircularCurvePageState extends State<CircularCurvePage>
           InputCard(
             step: 2,
             icon: Icons.straighten_outlined,
-            title: '切线支距',
-            caption: '以 ZY 为原点、切线为 x 轴，输入距 ZY 的曲线长',
+            title: _cvl(context, '切线支距', 'Tangent Offset'),
+            caption: _cvl(
+              context,
+              '以 ZY 为原点、切线为 x 轴，输入距 ZY 的曲线长',
+              'Origin at ZY (PC), tangent along +x; enter arc length from ZY',
+            ),
             fields: [
               NumberField(
                 controller: _arc,
-                label: '曲线长 l',
+                label: _cvl(context, '曲线长 l', 'Arc Length l'),
                 prefixTag: 'l',
                 lengthUnit: u,
                 allowNegative: false,
@@ -583,84 +726,89 @@ class _ClothoidPageState extends State<ClothoidPage>
 
   /// 导出：缓和曲线要素 + 五个主点里程。
   SheetTable _exportTable() {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final u = SettingsScope.read(context).lengthUnit;
     final d = u.displayDigits(3);
     final dp = u.displayDigits(4);
     final c = _res;
     return SheetTable(
-      title: '缓和曲线要素',
+      title: isZh ? '缓和曲线要素' : 'Spiral–Curve–Spiral Elements',
       rows: <List<String>>[
-        <String>['量', '值', '单位'],
-        <String>['半径 R', _r.text.trim(), u.symbol],
-        <String>['缓和曲线长 ls', _ls.text.trim(), u.symbol],
-        <String>['交点里程', _jd.text.trim(), u.symbol],
         <String>[
-          '切线长 T',
+          isZh ? '量' : 'Quantity',
+          isZh ? '值' : 'Value',
+          isZh ? '单位' : 'Unit',
+        ],
+        <String>[isZh ? '半径 R' : 'Radius R', _r.text.trim(), u.symbol],
+        <String>[isZh ? '缓和曲线长 ls' : 'Spiral ls', _ls.text.trim(), u.symbol],
+        <String>[isZh ? '交点里程' : 'PI Station', _jd.text.trim(), u.symbol],
+        <String>[
+          isZh ? '切线长 T' : 'Tangent T',
           c == null ? '' : fmt(u.fromMeters(c.tangent), d),
           u.symbol
         ],
         <String>[
-          '曲线长 L',
+          isZh ? '曲线长 L' : 'Total Length L',
           c == null ? '' : fmt(u.fromMeters(c.curveLength), d),
           u.symbol
         ],
         <String>[
-          '圆曲线长 Ly',
+          isZh ? '圆曲线长 Ly' : 'Circular Arc Ly',
           c == null ? '' : fmt(u.fromMeters(c.circularLength), d),
           u.symbol
         ],
         <String>[
-          '外距 E',
+          isZh ? '外距 E' : 'External E',
           c == null ? '' : fmt(u.fromMeters(c.external), d),
           u.symbol
         ],
         <String>[
-          '切曲差 q',
+          isZh ? '切曲差 q' : 'Tangent Defect q',
           c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d),
           u.symbol
         ],
         <String>[
-          '内移值 p',
+          isZh ? '内移值 p' : 'Shift p',
           c == null ? '' : fmt(u.fromMeters(c.shiftP), dp),
           u.symbol
         ],
         <String>[
-          '切垂距 m',
+          isZh ? '切垂距 m' : 'Tangent Offset m',
           c == null ? '' : fmt(u.fromMeters(c.tangentOffsetM), dp),
           u.symbol
         ],
         <String>[
-          '缓和曲线角 β₀',
+          isZh ? '缓和曲线角 β₀' : 'Spiral Angle β₀',
           c == null ? '' : fmtAngle(c.transitionAngleDeg, secDigits: 1),
           ''
         ],
         <String>[
-          '参数 A',
+          isZh ? '参数 A' : 'Parameter A',
           c == null ? '' : fmt(u.fromMeters(c.parameter), d),
           u.symbol
         ],
         <String>[
-          'ZH 直缓点',
+          isZh ? 'ZH 直缓点' : 'ZH (TS)',
           c == null ? '' : fmt(u.fromMeters(c.zhStation), d),
           u.symbol
         ],
         <String>[
-          'HY 缓圆点',
+          isZh ? 'HY 缓圆点' : 'HY (SC)',
           c == null ? '' : fmt(u.fromMeters(c.hyStation), d),
           u.symbol
         ],
         <String>[
-          'QZ 曲中点',
+          isZh ? 'QZ 曲中点' : 'QZ (MC)',
           c == null ? '' : fmt(u.fromMeters(c.qzStation), d),
           u.symbol
         ],
         <String>[
-          'YH 圆缓点',
+          isZh ? 'YH 圆缓点' : 'YH (CS)',
           c == null ? '' : fmt(u.fromMeters(c.yhStation), d),
           u.symbol
         ],
         <String>[
-          'HZ 缓直点',
+          isZh ? 'HZ 缓直点' : 'HZ (ST)',
           c == null ? '' : fmt(u.fromMeters(c.hzStation), d),
           u.symbol
         ],
@@ -725,35 +873,56 @@ class _ClothoidPageState extends State<ClothoidPage>
               final yhPt = exit.first;
               return <XlsxSheetData>[
                 SurveyForms.buildCurveFormSheet(
-                  title: '缓和曲线要素及主点桩号计算表',
-                  paramSummary: '转角 α=${fmtAngle(c.alphaDeg, secDigits: 1)}    '
-                      '半径 R=${fmt(r, 2)} m    缓和段 ls=${fmt(ls, 2)} m',
+                  title: isZh
+                      ? '缓和曲线要素及主点桩号计算表'
+                      : 'Spiral–Curve–Spiral Elements & Stations',
+                  paramSummary: isZh
+                      ? '转角 α=${fmtAngle(c.alphaDeg, secDigits: 1)}    '
+                          '半径 R=${fmt(r, 2)} m    缓和段 ls=${fmt(ls, 2)} m'
+                      : 'α=${fmtAngle(c.alphaDeg, secDigits: 1)}    '
+                          'R=${fmt(r, 2)} m    ls=${fmt(ls, 2)} m',
                   elements: <(String, String, String)>[
-                    ('切线长 T', fmt(c.tangent, 3), 'm'),
-                    ('曲线长 L', fmt(c.curveLength, 3), 'm'),
-                    ('圆曲线长 Ly', fmt(c.circularLength, 3), 'm'),
-                    ('外距 E', fmt(c.external, 3), 'm'),
-                    ('切曲差 q', fmt(c.tangentDefect, 3), 'm'),
-                    ('内移值 p', fmt(c.shiftP, 4), 'm'),
-                    ('切垂距 m', fmt(c.tangentOffsetM, 4), 'm'),
+                    (isZh ? '切线长 T' : 'Tangent T', fmt(c.tangent, 3), 'm'),
+                    (isZh ? '曲线长 L' : 'Length L', fmt(c.curveLength, 3), 'm'),
                     (
-                      '缓和角 β₀',
+                      isZh ? '圆曲线长 Ly' : 'Arc Ly',
+                      fmt(c.circularLength, 3),
+                      'm'
+                    ),
+                    (isZh ? '外距 E' : 'External E', fmt(c.external, 3), 'm'),
+                    (
+                      isZh ? '切曲差 q' : 'Defect q',
+                      fmt(c.tangentDefect, 3),
+                      'm'
+                    ),
+                    (isZh ? '内移值 p' : 'Shift p', fmt(c.shiftP, 4), 'm'),
+                    (
+                      isZh ? '切垂距 m' : 'Offset m',
+                      fmt(c.tangentOffsetM, 4),
+                      'm'
+                    ),
+                    (
+                      isZh ? '缓和角 β₀' : 'Spiral β₀',
                       fmtAngle(c.transitionAngleDeg, secDigits: 1),
                       ''
                     ),
-                    ('参数 A', fmt(c.parameter, 3), ''),
+                    (isZh ? '参数 A' : 'Param A', fmt(c.parameter, 3), ''),
                   ],
                   chainages: <(String, String, double, String)>[
-                    ('ZH', 'JD − T', c.zhStation, '直缓点'),
-                    ('HY', 'ZH + ls', c.hyStation, '缓圆点'),
-                    ('QZ', 'ZH + L/2', c.qzStation, '曲中点'),
-                    ('YH', 'HZ − ls', c.yhStation, '圆缓点'),
-                    ('HZ', 'YH + ls', c.hzStation, '缓直点'),
+                    ('ZH', 'JD − T', c.zhStation, isZh ? '直缓点' : 'TS'),
+                    ('HY', 'ZH + ls', c.hyStation, isZh ? '缓圆点' : 'SC'),
+                    ('QZ', 'ZH + L/2', c.qzStation, isZh ? '曲中点' : 'MC'),
+                    ('YH', 'HZ − ls', c.yhStation, isZh ? '圆缓点' : 'CS'),
+                    ('HZ', 'YH + ls', c.hzStation, isZh ? '缓直点' : 'ST'),
                   ],
                   checkNotes: <String>[
                     'T = (R + p)·tan(α/2) + m，L = R·(α − 2β₀) + 2ls',
-                    '校核：ZH + L = ${fmt(c.zhStation + c.curveLength, 3)} m（HZ = ${fmt(c.hzStation, 3)} m）',
-                    '校核：2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m（q = ${fmt(c.tangentDefect, 3)} m）',
+                    isZh
+                        ? '校核：ZH + L = ${fmt(c.zhStation + c.curveLength, 3)} m（HZ = ${fmt(c.hzStation, 3)} m）'
+                        : 'Check: ZH + L = ${fmt(c.zhStation + c.curveLength, 3)} m (HZ = ${fmt(c.hzStation, 3)} m)',
+                    isZh
+                        ? '校核：2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m（q = ${fmt(c.tangentDefect, 3)} m）'
+                        : 'Check: 2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m (q = ${fmt(c.tangentDefect, 3)} m)',
                   ],
                   sketch: GeometryPlotSketch(
                     points: <({
@@ -785,16 +954,24 @@ class _ClothoidPageState extends State<ClothoidPage>
                     ],
                     showNorthArrow: false,
                   ),
-                  sketchTitle: '带缓和曲线平曲线略图：',
+                  sketchTitle: isZh
+                      ? '带缓和曲线平曲线略图：'
+                      : 'Spiral–Curve–Spiral Plan Sketch:',
                 ),
               ];
             }
           : null,
-      notes: const [
-        'T = (R + p)·tan(α/2) + m，L = R·(α − 2β₀) + 2ls，E = (R + p)/cos(α/2) − R。',
-        'p = ls²/(24R) − ls⁴/(2688R³)，m = ls/2 − ls³/(240R²)，A = √(R·ls)。',
-        '圆曲线长为负时说明转角小于两倍缓和曲线角，应按凸形/复曲线另行处理。',
-      ],
+      notes: isZh
+          ? const [
+              'T = (R + p)·tan(α/2) + m，L = R·(α − 2β₀) + 2ls，E = (R + p)/cos(α/2) − R。',
+              'p = ls²/(24R) − ls⁴/(2688R³)，m = ls/2 − ls³/(240R²)，A = √(R·ls)。',
+              '圆曲线长为负时说明转角小于两倍缓和曲线角，应按凸形/复曲线另行处理。',
+            ]
+          : const [
+              'T = (R + p)·tan(α/2) + m, L = R·(α − 2β₀) + 2ls, E = (R + p)/cos(α/2) − R.',
+              'p = ls²/(24R) − ls⁴/(2688R³), m = ls/2 − ls³/(240R²), A = √(R·ls).',
+              'If circular arc Ly ≤ 0, deflection is below 2β₀ (increase R or reduce ls).',
+            ],
     );
   }
 
@@ -810,6 +987,15 @@ class _ClothoidPageState extends State<ClothoidPage>
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _loadSample() {
+    _alphaCtrl.text = draftDefaults['alpha']!;
+    _alphaKey.currentState?.setDegrees(35);
+    _r.text = draftDefaults['r']!;
+    _ls.text = draftDefaults['ls']!;
+    _jd.text = draftDefaults['jd']!;
+    _calc();
   }
 
   void _calc({bool notify = false}) {
@@ -833,8 +1019,55 @@ class _ClothoidPageState extends State<ClothoidPage>
       jdStation: u.toMeters(_num(_jd) ?? 0),
     );
     setState(() => _res = res);
+    final alphaRad = res.alphaDeg * math.pi / 180.0;
+    final r = res.radius;
+    final ls = res.transitionLength;
+    final zhSnap = LivePlotPointData(
+      x: 0,
+      y: 0,
+      label: _cvl(context, 'ZH', 'ZH (TS)'),
+      emphasis: true,
+      draggable: false,
+    );
+    final jdSnap = LivePlotPointData(
+      x: u.fromMeters(res.tangent),
+      y: 0,
+      label: _cvl(context, 'JD', 'PI'),
+      draggable: false,
+    );
+    final hzSnap = LivePlotPointData(
+      x: u.fromMeters(res.tangent + res.tangent * math.cos(alphaRad)),
+      y: u.fromMeters(res.tangent * math.sin(alphaRad)),
+      label: _cvl(context, 'HZ', 'HZ (ST)'),
+      emphasis: true,
+      draggable: false,
+    );
+    final hyPtM = clothoidOffset(radius: r, transitionLength: ls, arcLength: ls);
+    final hySnap = LivePlotPointData(
+      x: u.fromMeters(hyPtM.x),
+      y: u.fromMeters(hyPtM.y),
+      label: _cvl(context, 'HY', 'HY (SC)'),
+      draggable: false,
+    );
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: _cvl(context, '缓和曲线', 'Spiral–Curve–Spiral'),
+        sourceToolId: 'clothoid',
+        sourceLabel: _cvl(context, '缓和曲线', 'Clothoid Curve'),
+        surveyNorthUp: false,
+        unit: u.symbol,
+        points: [zhSnap, hySnap, jdSnap, hzSnap],
+        lines: [
+          LivePlotLineData(from: zhSnap, to: jdSnap, dashed: true),
+          LivePlotLineData(from: jdSnap, to: hzSnap, dashed: true),
+        ],
+      ),
+    );
     if (notify && res.circularLength > 0) {
-      SurveyToast.calcSuccess(context, '缓和曲线要素计算成功');
+      SurveyToast.calcSuccess(
+        context,
+        _cvl(context, '缓和曲线要素计算成功', 'Clothoid curve calculated'),
+      );
     }
   }
 
@@ -998,12 +1231,12 @@ class _ClothoidPageState extends State<ClothoidPage>
             children: [
               _buildClothoidPlot(c, scheme, u),
               const SizedBox(height: Insets.l),
-              const SectionHeader(title: '曲线要素'),
+              SectionHeader(title: _cvl(context, '曲线要素', 'Curve Elements')),
               const SizedBox(height: Insets.s),
               ResultGrid(
                 items: [
                   ResultTile(
-                    label: '切线长 T',
+                    label: _cvl(context, '切线长 T', 'Tangent T'),
                     value: fmt(u.fromMeters(c.tangent), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.tangent),
@@ -1011,7 +1244,7 @@ class _ClothoidPageState extends State<ClothoidPage>
                     icon: Icons.straighten,
                   ),
                   ResultTile(
-                    label: '曲线长 L',
+                    label: _cvl(context, '曲线长 L', 'Total Length L'),
                     value: fmt(u.fromMeters(c.curveLength), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.curveLength),
@@ -1019,39 +1252,39 @@ class _ClothoidPageState extends State<ClothoidPage>
                     icon: Icons.timeline,
                   ),
                   ResultTile(
-                    label: '圆曲线长 Ly',
+                    label: _cvl(context, '圆曲线长 Ly', 'Circular Arc Ly'),
                     value: fmt(u.fromMeters(c.circularLength), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: '外距 E',
+                    label: _cvl(context, '外距 E', 'External E'),
                     value: fmt(u.fromMeters(c.external), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: '切曲差 q',
+                    label: _cvl(context, '切曲差 q', 'Tangent Defect q'),
                     value: fmt(u.fromMeters(c.tangentDefect), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: '内移值 p',
+                    label: _cvl(context, '内移值 p', 'Shift p'),
                     value: fmt(u.fromMeters(c.shiftP), fineDigits),
                     unit: u.symbol,
                     note: mNote(c.shiftP, 4),
                   ),
                   ResultTile(
-                    label: '切垂距 m',
+                    label: _cvl(context, '切垂距 m', 'Tangent Offset m'),
                     value: fmt(u.fromMeters(c.tangentOffsetM), fineDigits),
                     unit: u.symbol,
                     note: mNote(c.tangentOffsetM, 4),
                   ),
                   ResultTile(
-                    label: '缓和曲线角 β₀',
+                    label: _cvl(context, '缓和曲线角 β₀', 'Spiral Angle β₀'),
                     value: fmtAngle(c.transitionAngleDeg,
                         secDigits: s.angleSecDigits),
                   ),
                   ResultTile(
-                    label: '参数 A',
+                    label: _cvl(context, '参数 A', 'Parameter A'),
                     value: fmt(u.fromMeters(c.parameter), lenDigits),
                     unit: u.symbol,
                   ),
@@ -1060,21 +1293,40 @@ class _ClothoidPageState extends State<ClothoidPage>
             ],
           );
 
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final bottomSection = c == null
         ? null
         : Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SectionHeader(title: '主点里程'),
+              SectionHeader(title: _cvl(context, '主点里程', 'Key Stations')),
               const SizedBox(height: Insets.s),
               DataSheet(
-                columns: ['主点', '里程 (${u.symbol})'],
+                columns: [
+                  _cvl(context, '主点', 'Station'),
+                  _cvl(context, '里程 (${u.symbol})', 'Chainage (${u.symbol})'),
+                ],
                 rows: [
-                  ['ZH 直缓点', fmt(u.fromMeters(c.zhStation), lenDigits)],
-                  ['HY 缓圆点', fmt(u.fromMeters(c.hyStation), lenDigits)],
-                  ['QZ 曲中点', fmt(u.fromMeters(c.qzStation), lenDigits)],
-                  ['YH 圆缓点', fmt(u.fromMeters(c.yhStation), lenDigits)],
-                  ['HZ 缓直点', fmt(u.fromMeters(c.hzStation), lenDigits)],
+                  [
+                    isZh ? 'ZH 直缓点' : 'ZH (TS)',
+                    fmt(u.fromMeters(c.zhStation), lenDigits),
+                  ],
+                  [
+                    isZh ? 'HY 缓圆点' : 'HY (SC)',
+                    fmt(u.fromMeters(c.hyStation), lenDigits),
+                  ],
+                  [
+                    isZh ? 'QZ 曲中点' : 'QZ (MC)',
+                    fmt(u.fromMeters(c.qzStation), lenDigits),
+                  ],
+                  [
+                    isZh ? 'YH 圆缓点' : 'YH (CS)',
+                    fmt(u.fromMeters(c.yhStation), lenDigits),
+                  ],
+                  [
+                    isZh ? 'HZ 缓直点' : 'HZ (ST)',
+                    fmt(u.fromMeters(c.hzStation), lenDigits),
+                  ],
                 ],
                 highlightRows: const {2},
               ),
@@ -1082,8 +1334,12 @@ class _ClothoidPageState extends State<ClothoidPage>
           );
 
     return DetailScaffold(
-      title: '缓和曲线',
-      subtitle: '基本型：缓和曲线 + 圆曲线 + 缓和曲线',
+      title: _cvl(context, '缓和曲线', 'Clothoid Curve'),
+      subtitle: _cvl(
+        context,
+        '基本型：缓和曲线 + 圆曲线 + 缓和曲线',
+        'Spiral–Curve–Spiral (SCS)',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         buildTable: _exportTable,
@@ -1091,6 +1347,10 @@ class _ClothoidPageState extends State<ClothoidPage>
         showAngleSelector: true,
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           _calc();
@@ -1099,19 +1359,27 @@ class _ClothoidPageState extends State<ClothoidPage>
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
-        PageTutorial(id: 'clothoid', workedSteps: [
-          if (c != null)
-            'A = √(${fmt(c.radius, 3)} × ${fmt(c.transitionLength, 3)}) = ${fmt(c.parameter, 3)} m',
-        ]),
+        PageTutorial(
+          id: 'clothoid',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (c != null)
+              'A = √(${fmt(c.radius, 3)} × ${fmt(c.transitionLength, 3)}) = ${fmt(c.parameter, 3)} m',
+          ],
+        ),
         InputCard(
           step: 1,
           icon: Icons.architecture_outlined,
-          title: '设计参数',
-          caption: '输入转角 α、圆曲线半径 R、缓和段长 ls 与交点里程',
+          title: _cvl(context, '设计参数', 'Design Parameters'),
+          caption: _cvl(
+            context,
+            '输入转角 α、圆曲线半径 R、缓和段长 ls 与交点里程',
+            'Enter deflection α, radius R, spiral length ls, and PI station',
+          ),
           fields: [
             AngleField(
               key: _alphaKey,
-              label: '转角 α',
+              label: _cvl(context, '转角 α', 'Deflection α'),
               mode: s.angleMode,
               controller: _alphaCtrl,
               initialDegrees: 35,
@@ -1119,7 +1387,7 @@ class _ClothoidPageState extends State<ClothoidPage>
             ),
             NumberField(
               controller: _r,
-              label: '圆曲线半径 R',
+              label: _cvl(context, '圆曲线半径 R', 'Circular Radius R'),
               prefixTag: 'R',
               lengthUnit: u,
               allowNegative: false,
@@ -1127,7 +1395,7 @@ class _ClothoidPageState extends State<ClothoidPage>
             ),
             NumberField(
               controller: _ls,
-              label: '缓和曲线长 ls',
+              label: _cvl(context, '缓和曲线长 ls', 'Spiral Length ls'),
               prefixTag: 'ls',
               lengthUnit: u,
               allowNegative: false,
@@ -1135,25 +1403,30 @@ class _ClothoidPageState extends State<ClothoidPage>
             ),
             NumberField(
               controller: _jd,
-              label: '交点里程',
+              label: _cvl(context, '交点里程', 'PI Station'),
               prefixTag: 'JD',
               lengthUnit: u,
               onChanged: (_) => _calc(),
             ),
           ],
           action: PrimaryAction(
-            label: '计算要素',
+            label: _cvl(context, '计算要素', 'Compute Curve'),
             onPressed: () => _calc(notify: true),
           ),
         ),
         if (c != null && c.circularLength <= 0)
-          const Padding(
-            padding: EdgeInsets.only(top: Insets.m),
+          Padding(
+            padding: const EdgeInsets.only(top: Insets.m),
             child: SurveyAlert(
               tone: AlertTone.warning,
-              title: '曲线几何提示',
-              message: '圆曲线长为负：转角小于两倍缓和曲线角，'
-                  '应按「凸形/复曲线」另行处理（增大 R 或减小 ls）。',
+              title: _cvl(context, '曲线几何提示', 'Curve Geometry Warning'),
+              message: _cvl(
+                context,
+                '圆曲线长为负：转角小于两倍缓和曲线角，'
+                    '应按「凸形/复曲线」另行处理（增大 R 或减小 ls）。',
+                'Circular arc Ly ≤ 0: deflection α is less than 2β₀. '
+                    'Increase R or reduce ls.',
+              ),
             ),
           ),
       ],
@@ -1204,6 +1477,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
 
   /// 导出：竖曲线要素 + BVC/EVC + 指定桩号设计高程。
   SheetTable _exportTable() {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final u = SettingsScope.read(context).lengthUnit;
     final d = u.displayDigits(3);
     final c = _res;
@@ -1213,54 +1487,70 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
         ? verticalElevationAt(curve: c, station: staM)
         : null;
     return SheetTable(
-      title: '竖曲线要素',
+      title: isZh ? '竖曲线要素' : 'Vertical Curve Elements',
       rows: <List<String>>[
-        <String>['量', '值', '单位'],
-        <String>['前坡 i₁', _i1.text.trim(), '%'],
-        <String>['后坡 i₂', _i2.text.trim(), '%'],
-        <String>['竖曲线半径 R', _r.text.trim(), u.symbol],
-        <String>['变坡点里程', _vpiSta.text.trim(), u.symbol],
-        <String>['变坡点高程', _vpiEle.text.trim(), u.symbol],
-        <String>['线形', c == null ? '' : (c.isCrest ? '凸形竖曲线' : '凹形竖曲线'), ''],
         <String>[
-          '切线长 T',
+          isZh ? '量' : 'Quantity',
+          isZh ? '值' : 'Value',
+          isZh ? '单位' : 'Unit',
+        ],
+        <String>[isZh ? '前坡 i₁' : 'Grade In i₁', _i1.text.trim(), '%'],
+        <String>[isZh ? '后坡 i₂' : 'Grade Out i₂', _i2.text.trim(), '%'],
+        <String>[isZh ? '竖曲线半径 R' : 'Radius R', _r.text.trim(), u.symbol],
+        <String>[isZh ? '变坡点里程' : 'VPI Station', _vpiSta.text.trim(), u.symbol],
+        <String>[isZh ? '变坡点高程' : 'VPI Elevation', _vpiEle.text.trim(), u.symbol],
+        <String>[
+          isZh ? '线形' : 'Curve Type',
+          c == null
+              ? ''
+              : (c.isCrest
+                  ? (isZh ? '凸形竖曲线' : 'Crest Curve')
+                  : (isZh ? '凹形竖曲线' : 'Sag Curve')),
+          ''
+        ],
+        <String>[
+          isZh ? '切线长 T' : 'Tangent T',
           c == null ? '' : fmt(u.fromMeters(c.tangent), d),
           u.symbol
         ],
         <String>[
-          '曲线长 L',
+          isZh ? '曲线长 L' : 'Curve Length L',
           c == null ? '' : fmt(u.fromMeters(c.curveLength), d),
           u.symbol
         ],
         <String>[
-          '外距 E',
+          isZh ? '外距 E' : 'External E',
           c == null ? '' : fmt(u.fromMeters(c.external), d),
           u.symbol
         ],
-        <String>['坡度差 ω', c == null ? '' : fmt(c.gradeChange * 100, 3), '%'],
         <String>[
-          'BVC 里程',
+          isZh ? '坡度差 ω' : 'Grade Change ω',
+          c == null ? '' : fmt(c.gradeChange * 100, 3),
+          '%'
+        ],
+        <String>[
+          isZh ? 'BVC 里程' : 'BVC Station',
           c == null ? '' : fmt(u.fromMeters(c.bvcStation), d),
           u.symbol
         ],
         <String>[
-          'BVC 高程',
+          isZh ? 'BVC 高程' : 'BVC Elevation',
           c == null ? '' : fmt(u.fromMeters(c.bvcElevation), d),
           u.symbol
         ],
         <String>[
-          'EVC 里程',
+          isZh ? 'EVC 里程' : 'EVC Station',
           c == null ? '' : fmt(u.fromMeters(c.evcStation), d),
           u.symbol
         ],
         <String>[
-          'EVC 高程',
+          isZh ? 'EVC 高程' : 'EVC Elevation',
           c == null ? '' : fmt(u.fromMeters(c.evcElevation), d),
           u.symbol
         ],
-        <String>['桩号', _sta.text.trim(), u.symbol],
+        <String>[isZh ? '桩号' : 'Query Station', _sta.text.trim(), u.symbol],
         <String>[
-          '设计高程',
+          isZh ? '设计高程' : 'Design Elevation',
           queryEle == null ? '' : fmt(u.fromMeters(queryEle), d),
           u.symbol
         ],
@@ -1307,44 +1597,61 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
               ];
               return <XlsxSheetData>[
                 SurveyForms.buildCurveFormSheet(
-                  title: '竖曲线要素及设计高程计算表',
-                  paramSummary: '前坡 i₁=${_i1.text.trim()}%    '
-                      '后坡 i₂=${_i2.text.trim()}%    '
-                      '半径 R=${fmt(c.radius, 1)} m',
+                  title: isZh
+                      ? '竖曲线要素及设计高程计算表'
+                      : 'Vertical Curve Elements & Elevations',
+                  paramSummary:
+                      'i₁=${_i1.text.trim()}%    i₂=${_i2.text.trim()}%    '
+                      'R=${fmt(c.radius, 1)} m',
                   elements: <(String, String, String)>[
-                    ('线形类别', c.isCrest ? '凸形竖曲线' : '凹形竖曲线', ''),
-                    ('切线长 T', fmt(c.tangent, 3), 'm'),
-                    ('曲线长 L', fmt(c.curveLength, 3), 'm'),
-                    ('外距 E', fmt(c.external, 3), 'm'),
-                    ('坡度差 ω', fmt(c.gradeChange * 100, 3), '%'),
+                    (
+                      isZh ? '线形类别' : 'Type',
+                      c.isCrest
+                          ? (isZh ? '凸形竖曲线' : 'Crest')
+                          : (isZh ? '凹形竖曲线' : 'Sag'),
+                      ''
+                    ),
+                    (isZh ? '切线长 T' : 'Tangent T', fmt(c.tangent, 3), 'm'),
+                    (isZh ? '曲线长 L' : 'Length L', fmt(c.curveLength, 3), 'm'),
+                    (isZh ? '外距 E' : 'External E', fmt(c.external, 3), 'm'),
+                    (
+                      isZh ? '坡度差 ω' : 'Grade ω',
+                      fmt(c.gradeChange * 100, 3),
+                      '%'
+                    ),
                   ],
                   chainages: <(String, String, double, String)>[
                     (
                       'BVC',
                       'VPI − T',
                       c.bvcStation,
-                      '高程 ${fmt(c.bvcElevation, 3)} m'
+                      'Elev ${fmt(c.bvcElevation, 3)} m'
                     ),
                     (
                       'VPI',
-                      '变坡点',
+                      isZh ? '变坡点' : 'VPI',
                       c.vpiStation,
-                      '高程 ${fmt(c.vpiElevation, 3)} m'
+                      'Elev ${fmt(c.vpiElevation, 3)} m'
                     ),
                     (
                       'EVC',
                       'VPI + T',
                       c.evcStation,
-                      '高程 ${fmt(c.evcElevation, 3)} m'
+                      'Elev ${fmt(c.evcElevation, 3)} m'
                     ),
                     if (staM != null && queryEle != null)
-                      ('待求点', '纵断面公式', staM, '设计高程 ${fmt(queryEle, 3)} m'),
+                      (
+                        isZh ? '待求点' : 'Query',
+                        isZh ? '纵断面公式' : 'Parabola',
+                        staM,
+                        'Elev ${fmt(queryEle, 3)} m'
+                      ),
                   ],
                   checkNotes: <String>[
                     'L = R·|ω|，T = L/2，E = T²/(2R)；ω = i₂ − i₁',
-                    'BVC + L = ${fmt(c.bvcStation + c.curveLength, 3)} m（EVC = ${fmt(c.evcStation, 3)} m）',
+                    'BVC + L = ${fmt(c.bvcStation + c.curveLength, 3)} m (EVC = ${fmt(c.evcStation, 3)} m)',
                     if (staM != null && queryEle != null)
-                      '待求桩号 ${SurveyForms.formatStationKm(staM)} 设计高程 = ${fmt(queryEle, 3)} m',
+                      '${SurveyForms.formatStationKm(staM)} Elev = ${fmt(queryEle, 3)} m',
                   ],
                   sketch: GeometryPlotSketch(
                     points: pts,
@@ -1366,15 +1673,22 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
                     showNorthArrow: false,
                     uniformScale: false,
                   ),
-                  sketchTitle: '竖曲线纵断面示意图：',
+                  sketchTitle: isZh
+                      ? '竖曲线纵断面示意图：'
+                      : 'Vertical Curve Profile Sketch:',
                 ),
               ];
             }
           : null,
-      notes: const [
-        'L = R·|ω|，T = L/2，E = T²/(2R)；ω = i₂ − i₁（以小数坡度计）。',
-        'H = H_BVC + i₁·x + ω·x²/(2L)；超出曲线范围按切线延长。',
-      ],
+      notes: isZh
+          ? const [
+              'L = R·|ω|，T = L/2，E = T²/(2R)；ω = i₂ − i₁（以小数坡度计）。',
+              'H = H_BVC + i₁·x + ω·x²/(2L)；超出曲线范围按切线延长。',
+            ]
+          : const [
+              'L = R·|ω|, T = L/2, E = T²/(2R), ω = i₂ − i₁ (decimal grade).',
+              'H = H_BVC + i₁·x + ω·x²/(2L); tangent extension outside curve.',
+            ],
     );
   }
 
@@ -1392,6 +1706,16 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
     super.dispose();
   }
 
+  void _loadSample() {
+    _i1.text = draftDefaults['i1']!;
+    _i2.text = draftDefaults['i2']!;
+    _r.text = draftDefaults['r']!;
+    _vpiSta.text = draftDefaults['vpiSta']!;
+    _vpiEle.text = draftDefaults['vpiEle']!;
+    _sta.text = draftDefaults['sta']!;
+    _calc();
+  }
+
   void _calc({bool notify = false}) {
     if (!mounted) return;
     final u = SettingsScope.read(context).lengthUnit;
@@ -1402,17 +1726,70 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
       setState(() => _res = null);
       return;
     }
-    setState(
-      () => _res = verticalCurve(
-        gradeIn: i1 / 100,
-        gradeOut: i2 / 100,
-        radius: u.toMeters(rRaw),
-        vpiStation: u.toMeters(_num(_vpiSta) ?? 0),
-        vpiElevation: u.toMeters(_num(_vpiEle) ?? 0),
+    final c = verticalCurve(
+      gradeIn: i1 / 100,
+      gradeOut: i2 / 100,
+      radius: u.toMeters(rRaw),
+      vpiStation: u.toMeters(_num(_vpiSta) ?? 0),
+      vpiElevation: u.toMeters(_num(_vpiEle) ?? 0),
+    );
+    setState(() => _res = c);
+    final bvc = LivePlotPointData(
+      x: u.fromMeters(c.bvcStation),
+      y: u.fromMeters(c.bvcElevation),
+      label: 'BVC',
+      emphasis: true,
+      draggable: false,
+    );
+    final vpi = LivePlotPointData(
+      x: u.fromMeters(c.vpiStation),
+      y: u.fromMeters(c.vpiElevation),
+      label: 'VPI',
+      draggable: false,
+    );
+    final evc = LivePlotPointData(
+      x: u.fromMeters(c.evcStation),
+      y: u.fromMeters(c.evcElevation),
+      label: 'EVC',
+      emphasis: true,
+      draggable: false,
+    );
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: _cvl(context, '竖曲线', 'Vertical Curve'),
+        sourceToolId: 'vertical_curve',
+        sourceLabel: _cvl(context, '竖曲线', 'Vertical Curve'),
+        surveyNorthUp: false,
+        unit: u.symbol,
+        points: [bvc, vpi, evc],
+        lines: [
+          LivePlotLineData(from: bvc, to: vpi, dashed: true),
+          LivePlotLineData(from: vpi, to: evc, dashed: true),
+        ],
+        paths: [
+          LivePlotPathData(
+            points: [
+              for (var i = 0; i <= 24; i++)
+                () {
+                  final s =
+                      c.bvcStation + (c.evcStation - c.bvcStation) * (i / 24.0);
+                  return LivePlotPointData(
+                    x: u.fromMeters(s),
+                    y: u.fromMeters(verticalElevationAt(curve: c, station: s)),
+                    label: '',
+                    draggable: false,
+                  );
+                }(),
+            ],
+          ),
+        ],
       ),
     );
     if (notify) {
-      SurveyToast.calcSuccess(context, '竖曲线要素计算成功');
+      SurveyToast.calcSuccess(
+        context,
+        _cvl(context, '竖曲线要素计算成功', 'Vertical curve calculated'),
+      );
     }
   }
 
@@ -1442,10 +1819,12 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
               ),
               const SizedBox(height: Insets.l),
               SectionHeader(
-                title: '竖曲线要素',
+                title: _cvl(context, '竖曲线要素', 'Vertical Curve Elements'),
                 actions: [
                   Pill(
-                    label: c.isCrest ? '凸形竖曲线' : '凹形竖曲线',
+                    label: c.isCrest
+                        ? _cvl(context, '凸形竖曲线', 'Crest Curve')
+                        : _cvl(context, '凹形竖曲线', 'Sag Curve'),
                     tone: c.isCrest ? PillTone.info : PillTone.success,
                   ),
                 ],
@@ -1454,47 +1833,47 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
               ResultGrid(
                 items: [
                   ResultTile(
-                    label: '切线长 T',
+                    label: _cvl(context, '切线长 T', 'Tangent T'),
                     value: fmt(u.fromMeters(c.tangent), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.tangent),
                     emphasis: true,
                   ),
                   ResultTile(
-                    label: '曲线长 L',
+                    label: _cvl(context, '曲线长 L', 'Curve Length L'),
                     value: fmt(u.fromMeters(c.curveLength), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.curveLength),
                     emphasis: true,
                   ),
                   ResultTile(
-                    label: '外距 E',
+                    label: _cvl(context, '外距 E', 'External E'),
                     value: fmt(u.fromMeters(c.external), lenDigits),
                     unit: u.symbol,
                     note: mNote(c.external),
                   ),
                   ResultTile(
-                    label: '坡度差 ω',
+                    label: _cvl(context, '坡度差 ω', 'Grade Change ω'),
                     value: fmt(c.gradeChange * 100, 3),
                     unit: '%',
                   ),
                   ResultTile(
-                    label: 'BVC 里程',
+                    label: _cvl(context, 'BVC 里程', 'BVC Station'),
                     value: fmt(u.fromMeters(c.bvcStation), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: 'BVC 高程',
+                    label: _cvl(context, 'BVC 高程', 'BVC Elevation'),
                     value: fmt(u.fromMeters(c.bvcElevation), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: 'EVC 里程',
+                    label: _cvl(context, 'EVC 里程', 'EVC Station'),
                     value: fmt(u.fromMeters(c.evcStation), lenDigits),
                     unit: u.symbol,
                   ),
                   ResultTile(
-                    label: 'EVC 高程',
+                    label: _cvl(context, 'EVC 高程', 'EVC Elevation'),
                     value: fmt(u.fromMeters(c.evcElevation), lenDigits),
                     unit: u.symbol,
                   ),
@@ -1504,13 +1883,21 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
           );
 
     return DetailScaffold(
-      title: '竖曲线',
-      subtitle: 'L = R·|ω|，T = L/2，E = T²/(2R)；坡度以 % 输入',
+      title: _cvl(context, '竖曲线', 'Vertical Curve'),
+      subtitle: _cvl(
+        context,
+        'L = R·|ω|，T = L/2，E = T²/(2R)；坡度以 % 输入',
+        'L = R·|ω|, T = L/2, E = T²/(2R); grades in %',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         buildTable: _exportTable,
         showUnitSelector: true,
         onUnitChanged: _calc,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           _calc();
@@ -1518,24 +1905,32 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
       ),
       sideVisual: sideVisual,
       children: [
-        PageTutorial(id: 'vertical_curve', workedSteps: [
-          if (c != null) ...[
-            'L = ${fmt(c.radius, 3)} × |${fmt(c.gradeChange, 6)}| = ${fmt(c.curveLength, 3)} m',
-            'T = ${fmt(c.curveLength, 3)} ÷ 2 = ${fmt(c.tangent, 3)} m',
+        PageTutorial(
+          id: 'vertical_curve',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (c != null) ...[
+              'L = ${fmt(c.radius, 3)} × |${fmt(c.gradeChange, 6)}| = ${fmt(c.curveLength, 3)} m',
+              'T = ${fmt(c.curveLength, 3)} ÷ 2 = ${fmt(c.tangent, 3)} m',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           icon: Icons.show_chart_outlined,
-          title: '设计参数',
-          caption: '输入前后坡度（%）与竖曲线半径、变坡点里程高程',
+          title: _cvl(context, '设计参数', 'Design Parameters'),
+          caption: _cvl(
+            context,
+            '输入前后坡度（%）与竖曲线半径、变坡点里程高程',
+            'Enter grades (%), radius R, and VPI station/elevation',
+          ),
           fields: [
             Row(
               children: [
                 Expanded(
                   child: NumberField(
                     controller: _i1,
-                    label: '前坡 i₁',
+                    label: _cvl(context, '前坡 i₁', 'Grade In i₁'),
                     prefixTag: 'i₁',
                     unit: '%',
                     allowNegative: true,
@@ -1546,7 +1941,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
                 Expanded(
                   child: NumberField(
                     controller: _i2,
-                    label: '后坡 i₂',
+                    label: _cvl(context, '后坡 i₂', 'Grade Out i₂'),
                     prefixTag: 'i₂',
                     unit: '%',
                     allowNegative: true,
@@ -1557,7 +1952,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
             ),
             NumberField(
               controller: _r,
-              label: '竖曲线半径 R',
+              label: _cvl(context, '竖曲线半径 R', 'Radius R'),
               prefixTag: 'R',
               lengthUnit: u,
               allowNegative: false,
@@ -1568,7 +1963,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
                 Expanded(
                   child: NumberField(
                     controller: _vpiSta,
-                    label: '变坡点里程',
+                    label: _cvl(context, '变坡点里程', 'VPI Station'),
                     prefixTag: 'K',
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
@@ -1578,7 +1973,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
                 Expanded(
                   child: NumberField(
                     controller: _vpiEle,
-                    label: '变坡点高程',
+                    label: _cvl(context, '变坡点高程', 'VPI Elevation'),
                     prefixTag: 'H',
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
@@ -1588,7 +1983,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
             ),
           ],
           action: PrimaryAction(
-            label: '计算要素',
+            label: _cvl(context, '计算要素', 'Compute Curve'),
             onPressed: () => _calc(notify: true),
           ),
         ),
@@ -1596,12 +1991,16 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
           InputCard(
             step: 2,
             icon: Icons.pin_drop_outlined,
-            title: '任意桩号设计高程',
-            caption: 'H = H_BVC + i₁·x + ω·x²/(2L)，范围外按切线延长',
+            title: _cvl(context, '任意桩号设计高程', 'Station Elevation Query'),
+            caption: _cvl(
+              context,
+              'H = H_BVC + i₁·x + ω·x²/(2L)，范围外按切线延长',
+              'H = H_BVC + i₁·x + ω·x²/(2L); tangent outside curve',
+            ),
             fields: [
               NumberField(
                 controller: _sta,
-                label: '桩号',
+                label: _cvl(context, '桩号', 'Station'),
                 prefixTag: 'K',
                 lengthUnit: u,
                 onChanged: (_) => setState(() {}),
@@ -1617,7 +2016,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
               child: Row(
                 children: [
                   Text(
-                    '设计高程',
+                    _cvl(context, '设计高程', 'Design Elevation'),
                     style: TextStyle(
                       fontSize: 13,
                       color: scheme.onSurfaceVariant,
@@ -1695,27 +2094,32 @@ class _RouteStakePageState extends State<RouteStakePage>
       };
 
   /// 支距解算（先按当前量级折算成米，输出也统一为米制，供渲染与导出共用）。
-  ({CurveOffset? off, double deflectDeg, String segment}) _solve([
-    LengthUnit u = LengthUnit.meter,
-  ]) {
+  ({CurveOffset? off, double deflectDeg, String segment}) _solve(
+    LengthUnit u, {
+    required bool isZh,
+  }) {
     final r = u.toMeters(_num(_r) ?? 0);
     final ls = u.toMeters(_num(_ls) ?? 0);
     final l = u.toMeters(_num(_l) ?? 0);
     if (r <= 0 || l < 0 || ls < 0) {
-      return (off: null, deflectDeg: 0, segment: '参数不合法');
+      return (
+        off: null,
+        deflectDeg: 0,
+        segment: isZh ? '参数不合法' : 'Invalid parameters',
+      );
     }
     if (ls <= 0) {
       return (
         off: circularCurveOffset(radius: r, arcLength: l),
         deflectDeg: (l / r) * 180 / math.pi,
-        segment: '圆曲线',
+        segment: isZh ? '圆曲线' : 'Circular Curve',
       );
     }
     if (l <= ls) {
       return (
         off: clothoidOffset(radius: r, transitionLength: ls, arcLength: l),
         deflectDeg: (l * l / (2 * r * ls)) * 180 / math.pi,
-        segment: '缓和曲线段',
+        segment: isZh ? '缓和曲线段' : 'Spiral Segment',
       );
     }
     final hy = clothoidOffset(radius: r, transitionLength: ls, arcLength: ls);
@@ -1728,52 +2132,137 @@ class _RouteStakePageState extends State<RouteStakePage>
         hy.y + r * math.cos(beta0) - r * math.cos(beta0 + phi),
       ),
       deflectDeg: (beta0 + phi) * 180 / math.pi,
-      segment: '圆曲线段',
+      segment: isZh ? '圆曲线段' : 'Circular Segment',
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pushLivePlot());
+  }
+
+  void _loadSample() {
+    _r.text = draftDefaults['r']!;
+    _ls.text = draftDefaults['ls']!;
+    _l.text = draftDefaults['l']!;
+    setState(() {});
+    _pushLivePlot();
+  }
+
+  void _pushLivePlot() {
+    if (!mounted) return;
+    final u = SettingsScope.read(context).lengthUnit;
+    final solved = _solve(u, isZh: SurveyStrings.of(context).languageCode == 'zh');
+    final off = solved.off;
+    if (off == null) return;
+    final ls = u.toMeters(_num(_ls) ?? 0);
+    final origin = LivePlotPointData(
+      x: 0,
+      y: 0,
+      label: ls <= 0
+          ? _cvl(context, 'ZY', 'ZY (PC)')
+          : _cvl(context, 'ZH', 'ZH (TS)'),
+      draggable: false,
+    );
+    final foot = LivePlotPointData(
+      x: u.fromMeters(off.x),
+      y: 0,
+      label: '',
+      draggable: false,
+    );
+    final target = LivePlotPointData(
+      x: u.fromMeters(off.x),
+      y: u.fromMeters(off.y),
+      label: 'P',
+      emphasis: true,
+      draggable: false,
+    );
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: _cvl(context, '线路支距放样', 'Route Offset Stakeout'),
+        sourceToolId: 'route_stake',
+        sourceLabel: _cvl(context, '线路支距放样', 'Route Stakeout'),
+        surveyNorthUp: false,
+        unit: u.symbol,
+        points: [origin, target],
+        lines: [
+          LivePlotLineData(from: origin, to: foot, dashed: true),
+          LivePlotLineData(from: foot, to: target, dashed: true),
+        ],
+      ),
     );
   }
 
   /// 导出：曲线参数 + 切线支距与偏角。
   SheetTable _exportTable() {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final s = SettingsScope.read(context);
     final u = s.lengthUnit;
-    final solved = _solve(u);
+    final solved = _solve(u, isZh: isZh);
     final off = solved.off;
     final rRaw = _num(_r);
     final rM = rRaw == null ? 0.0 : u.toMeters(rRaw);
     final ls = u.toMeters(_num(_ls) ?? 0);
     final l = u.toMeters(_num(_l) ?? 0);
     final base = SheetTable(
-      title: '线路支距放样',
+      title: isZh ? '线路支距放样' : 'Route Offset Stakeout',
       rows: <List<String>>[
-        <String>['量', '值', '单位'],
-        <String>['半径 R', _r.text.trim(), u.symbol],
-        <String>['缓和曲线长 ls', _ls.text.trim(), u.symbol],
-        <String>['距 ZH/ZY 曲线长 l', _l.text.trim(), u.symbol],
-        <String>['所在段落', solved.segment, ''],
-        <String>['切线支距 x', off == null ? '' : fmt(off.x, 3), 'm'],
-        <String>['法向支距 y', off == null ? '' : fmt(off.y, 3), 'm'],
         <String>[
-          '切线偏角',
+          isZh ? '量' : 'Quantity',
+          isZh ? '值' : 'Value',
+          isZh ? '单位' : 'Unit',
+        ],
+        <String>[isZh ? '半径 R' : 'Radius R', _r.text.trim(), u.symbol],
+        <String>[isZh ? '缓和曲线长 ls' : 'Spiral ls', _ls.text.trim(), u.symbol],
+        <String>[
+          isZh ? '距 ZH/ZY 曲线长 l' : 'Arc Length l',
+          _l.text.trim(),
+          u.symbol
+        ],
+        <String>[isZh ? '所在段落' : 'Segment', solved.segment, ''],
+        <String>[
+          isZh ? '切线支距 x' : 'Tangent Offset x',
+          off == null ? '' : fmt(off.x, 3),
+          'm'
+        ],
+        <String>[
+          isZh ? '法向支距 y' : 'Normal Offset y',
+          off == null ? '' : fmt(off.y, 3),
+          'm'
+        ],
+        <String>[
+          isZh ? '切线偏角' : 'Deflection Angle',
           off == null
               ? ''
               : fmtAngle(solved.deflectDeg, secDigits: s.angleSecDigits),
           ''
         ],
         <String>[
-          '弦长',
+          isZh ? '弦长' : 'Chord Length',
           off == null ? '' : fmt(math.sqrt(off.x * off.x + off.y * off.y), 3),
           'm'
         ],
       ],
-      notes: <String>[
-        '以 ZH(ZY) 为原点、切线为 x 轴；x 沿切线，y 垂直于切线。',
-        if (ls <= 0)
-          '无缓和曲线：x = R·sinφ，y = R·(1 − cosφ)，φ = l/R。'
-        else if (l <= ls)
-          '缓和段：x = l − l⁵/(40R²ls²)，y = l³/(6R·ls) − l⁷/(336R³ls³)。'
-        else
-          '越缓和段后以 HY 为圆心按圆弧外推（φ = (l − ls)/R，β₀ = ls/(2R)）。',
-      ],
+      notes: isZh
+          ? <String>[
+              '以 ZH(ZY) 为原点、切线为 x 轴；x 沿切线，y 垂直于切线。',
+              if (ls <= 0)
+                '无缓和曲线：x = R·sinφ，y = R·(1 − cosφ)，φ = l/R。'
+              else if (l <= ls)
+                '缓和段：x = l − l⁵/(40R²ls²)，y = l³/(6R·ls) − l⁷/(336R³ls³)。'
+              else
+                '越缓和段后以 HY 为圆心按圆弧外推（φ = (l − ls)/R，β₀ = ls/(2R)）。',
+            ]
+          : <String>[
+              'Origin at ZH (TS) / ZY (PC), tangent along +x, normal along +y.',
+              if (ls <= 0)
+                'Circular: x = R·sinφ, y = R·(1 − cosφ), φ = l/R.'
+              else if (l <= ls)
+                'Spiral: x = l − l⁵/(40R²ls²), y = l³/(6R·ls) − l⁷/(336R³ls³).'
+              else
+                'Circular arc beyond HY (SC): φ = (l − ls)/R, β₀ = ls/(2R).',
+            ],
     );
     if (off == null || rM <= 0) return base;
     return SheetTable(
@@ -1820,7 +2309,7 @@ class _RouteStakePageState extends State<RouteStakePage>
               curvePath: curvePts,
               showNorthArrow: false,
             ),
-            sketchTitle: '切线支距放样略图：',
+            sketchTitle: isZh ? '切线支距放样略图：' : 'Tangent Offset Sketch:',
           ),
         ];
       },
@@ -1910,20 +2399,21 @@ class _RouteStakePageState extends State<RouteStakePage>
         ),
       ],
       unit: u.symbol,
-      exportTitle: '线路支距放样',
+      exportTitle: _cvl(context, '线路支距放样', 'Route Offset Stakeout'),
       height: 230,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final s = SettingsScope.of(context);
     final u = s.lengthUnit;
     final lenDigits = u.displayDigits(3);
     final r = u.toMeters(_num(_r) ?? 0);
     final ls = u.toMeters(_num(_ls) ?? 0);
     final l = u.toMeters(_num(_l) ?? 0);
-    final solved = _solve(u);
+    final solved = _solve(u, isZh: isZh);
     final off = solved.off;
     String? mNote(double meters) =>
         u == LengthUnit.meter ? null : '= ${fmt(meters, 3)} m';
@@ -1935,12 +2425,12 @@ class _RouteStakePageState extends State<RouteStakePage>
             children: [
               _buildStakePlot(r, ls, l, off, u),
               const SizedBox(height: Insets.l),
-              const SectionHeader(title: '放样支距'),
+              SectionHeader(title: _cvl(context, '放样支距', 'Stakeout Offsets')),
               const SizedBox(height: Insets.s),
               ResultGrid(
                 items: [
                   ResultTile(
-                    label: '切线支距 x',
+                    label: _cvl(context, '切线支距 x', 'Tangent Offset x'),
                     value: fmt(u.fromMeters(off.x), lenDigits),
                     unit: u.symbol,
                     note: mNote(off.x),
@@ -1948,7 +2438,7 @@ class _RouteStakePageState extends State<RouteStakePage>
                     icon: Icons.east,
                   ),
                   ResultTile(
-                    label: '法向支距 y',
+                    label: _cvl(context, '法向支距 y', 'Normal Offset y'),
                     value: fmt(u.fromMeters(off.y), lenDigits),
                     unit: u.symbol,
                     note: mNote(off.y),
@@ -1956,15 +2446,19 @@ class _RouteStakePageState extends State<RouteStakePage>
                     icon: Icons.north,
                   ),
                   ResultTile(
-                    label: '切线偏角',
+                    label: _cvl(context, '切线偏角', 'Deflection Angle'),
                     value: fmtAngle(
                       solved.deflectDeg,
                       secDigits: s.angleSecDigits,
                     ),
-                    note: '自 ZH 切线方向起算',
+                    note: _cvl(
+                      context,
+                      '自 ZH 切线方向起算',
+                      'From ZH (TS) tangent',
+                    ),
                   ),
                   ResultTile(
-                    label: '弦长',
+                    label: _cvl(context, '弦长', 'Chord Length'),
                     value: fmt(
                       u.fromMeters(math.sqrt(off.x * off.x + off.y * off.y)),
                       lenDigits,
@@ -1973,7 +2467,7 @@ class _RouteStakePageState extends State<RouteStakePage>
                     note: mNote(math.sqrt(off.x * off.x + off.y * off.y)),
                   ),
                   ResultTile(
-                    label: '桩点段落',
+                    label: _cvl(context, '桩点段落', 'Segment'),
                     value: solved.segment,
                     icon: Icons.route,
                   ),
@@ -1983,55 +2477,92 @@ class _RouteStakePageState extends State<RouteStakePage>
           );
 
     return DetailScaffold(
-      title: '线路支距放样',
-      subtitle: '以 ZH(ZY) 为原点、切线为 x 轴，用支距法放出曲线中线点',
+      title: _cvl(context, '线路支距放样', 'Route Offset Stakeout'),
+      subtitle: _cvl(
+        context,
+        '以 ZH(ZY) 为原点、切线为 x 轴，用支距法放出曲线中线点',
+        'Origin at ZH (TS) / ZY (PC), tangent along +x',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         buildTable: _exportTable,
         showUnitSelector: true,
-        onUnitChanged: () => setState(() {}),
+        onUnitChanged: () {
+          setState(() {});
+          _pushLivePlot();
+        },
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           setState(() {});
+          _pushLivePlot();
         },
       ),
       sideVisual: sideVisual,
       children: [
-        PageTutorial(id: 'route_stake', workedSteps: [
-          if (off != null) ...[
-            's = ${fmt(l, 3)} m',
-            '(x, y) = (${fmt(off.x, 3)}, ${fmt(off.y, 3)}) m',
+        PageTutorial(
+          id: 'route_stake',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (off != null) ...[
+              's = ${fmt(l, 3)} m',
+              '(x, y) = (${fmt(off.x, 3)}, ${fmt(off.y, 3)}) m',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           icon: Icons.route_outlined,
-          title: '曲线参数',
-          caption: '无缓和曲线时 ls 填 0；输入距起点曲线长 l 即刻求解支距',
+          title: _cvl(context, '曲线参数', 'Curve Parameters'),
+          caption: _cvl(
+            context,
+            '无缓和曲线时 ls 填 0；输入距起点曲线长 l 即刻求解支距',
+            'Set ls = 0 for circular curve; enter arc length l from start',
+          ),
           fields: [
             NumberField(
               controller: _r,
-              label: '半径 R',
+              label: _cvl(context, '半径 R', 'Radius R'),
               prefixTag: 'R',
               lengthUnit: u,
               allowNegative: false,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _pushLivePlot();
+              },
             ),
             NumberField(
               controller: _ls,
-              label: '缓和曲线长 ls（无缓和填 0）',
+              label: _cvl(
+                context,
+                '缓和曲线长 ls（无缓和填 0）',
+                'Spiral Length ls (0 if none)',
+              ),
               prefixTag: 'ls',
               lengthUnit: u,
               allowNegative: false,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _pushLivePlot();
+              },
             ),
             NumberField(
               controller: _l,
-              label: '距 ZH/ZY 的曲线长',
+              label: _cvl(
+                context,
+                '距 ZH/ZY 的曲线长',
+                'Arc Length l from ZH (TS) / ZY (PC)',
+              ),
               prefixTag: 'l',
               lengthUnit: u,
               allowNegative: false,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _pushLivePlot();
+              },
             ),
           ],
         ),

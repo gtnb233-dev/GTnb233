@@ -22,12 +22,16 @@ void main() {
       SharedPreferences.setMockInitialValues({'glass_nav': glass});
       final settings = AppSettings();
       await settings.load();
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         SurveyApp(settings: settings, drafts: DraftStore()),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('工具库'));
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
 
       final barFinder = find.byType(SlidingBottomNav);
@@ -42,11 +46,12 @@ void main() {
       Offset atSlot(double slot) =>
           Offset(bar.left + bar.width * (slot + 0.5) / 5, bar.center.dy);
 
-      expect(selectedIndex(), 0);
-      expect(indicatorX(), closeTo(atSlot(0).dx, 1));
+      expect(selectedIndex(), 3);
+      expect(indicatorX(), closeTo(atSlot(3).dx, 1));
       final restingWidth = tester.getSize(indicator).width;
-      final drag = await tester.startGesture(atSlot(0));
-      await drag.moveTo(atSlot(0.5));
+      final drag = await tester.startGesture(atSlot(3));
+      await drag.moveTo(atSlot(2.5));
+      await drag.moveTo(atSlot(1.7));
       await drag.moveTo(atSlot(2.7));
       await tester.pump();
       expect(indicatorX(), closeTo(atSlot(2.7).dx, 1));
@@ -54,7 +59,7 @@ void main() {
         tester.getSize(indicator).width,
         glass ? greaterThan(restingWidth) : restingWidth,
       );
-      expect(selectedIndex(), 0);
+      expect(selectedIndex(), 3);
 
       await drag.up();
       await tester.pumpAndSettle();

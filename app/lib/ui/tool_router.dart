@@ -4,6 +4,7 @@ import 'workspace_page_route.dart';
 import '../nav/tools.dart';
 import '../state/settings.dart';
 import 'pages/tools/batch_tools.dart';
+import 'pages/tools/control_points_page.dart';
 import 'pages/tools/control_tools.dart';
 import 'pages/tools/convert_tools.dart';
 import 'pages/tools/coord_tools.dart';
@@ -51,6 +52,7 @@ Widget toolPage(ToolDef tool, {String? draftId}) {
     'leveling' => const LevelingPage(),
     'leveling4' => FourOrderLevelingPage(draftId: draftId),
     'precision' => const PrecisionPage(),
+    'control_points' => const ControlPointsPage(),
     // 线路与曲线
     'circular_curve' => const CircularCurvePage(),
     'clothoid' => const ClothoidPage(),

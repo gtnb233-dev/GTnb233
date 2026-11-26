@@ -8,6 +8,7 @@ import '../../../l10n/survey_strings.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -15,8 +16,12 @@ import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
+import 'control_points_page.dart';
 import 'intersection_table.dart';
 import 'resection_page.dart';
+
+String _l(BuildContext context, String zh, String en) =>
+    SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
 
 double? _num(TextEditingController c) {
   final t = c.text.trim();
@@ -106,7 +111,7 @@ class _InversePageState extends State<InversePage>
           u.symbol
         ],
         ['方位角 α', r == null ? '' : fmtAzimuth(r.azimuthDeg, secDigits: sd), ''],
-        ['象限角', r == null ? '' : _quadrantText(r.azimuthDeg), ''],
+        ['象限角', r == null ? '' : _localizedQuadrant(context, r.azimuthDeg, sd), ''],
       ],
       notes: const ['ΔX = XB − XA，ΔY = YB − YA；α 自北方向顺时针量取。'],
     );
@@ -143,9 +148,26 @@ class _InversePageState extends State<InversePage>
     );
   }
 
-  static String _quadrantText(double azDeg) {
-    final q = quadrantFromAzimuth(azDeg);
-    return 'R = ${q.rDeg.toStringAsFixed(4)}° ${q.label}';
+  static String _localizedQuadrant(
+      BuildContext context, double azDeg, int secDigits) {
+    if (SurveyStrings.of(context).languageCode == 'zh') {
+      return azimuthToQuadrant(azDeg, secDigits: secDigits);
+    }
+    final a = wrapDeg(azDeg);
+    if ((a - 0).abs() < 1e-9 || (a - 360).abs() < 1e-9) return 'N';
+    if ((a - 90).abs() < 1e-9) return 'E';
+    if ((a - 180).abs() < 1e-9) return 'S';
+    if ((a - 270).abs() < 1e-9) return 'W';
+    final q = quadrantFromAzimuth(a);
+    final prefix = switch (q.quadrant) {
+      Quadrant.northEast || Quadrant.northWest => 'N',
+      Quadrant.southEast || Quadrant.southWest => 'S',
+    };
+    final suffix = switch (q.quadrant) {
+      Quadrant.northEast || Quadrant.southEast => 'E',
+      Quadrant.northWest || Quadrant.southWest => 'W',
+    };
+    return '$prefix ${fmtAngle(q.rDeg, secDigits: secDigits)} $suffix';
   }
 
   @override
@@ -189,15 +211,50 @@ class _InversePageState extends State<InversePage>
       setState(() => _r = null);
       return;
     }
-    setState(
-      () => _r = inverse(
-        Point2(u.toMeters(ax), u.toMeters(ay)),
-        Point2(u.toMeters(bx), u.toMeters(by)),
+    final res = inverse(
+      Point2(u.toMeters(ax), u.toMeters(ay)),
+      Point2(u.toMeters(bx), u.toMeters(by)),
+    );
+    setState(() => _r = res);
+    final aPt = LivePlotPointData(x: ax, y: ay, label: 'A');
+    final bPt = LivePlotPointData(x: bx, y: by, label: 'B');
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: context.tr('坐标反算'),
+        sourceToolId: 'inverse',
+        sourceLabel: context.tr('坐标反算'),
+        points: [aPt, bPt],
+        lines: [
+          LivePlotLineData(
+            from: aPt,
+            to: bPt,
+            label: 'D=${fmt(u.fromMeters(res.distance), 2)}',
+          ),
+        ],
+        unit: u.symbol,
       ),
     );
     if (notify) {
-      SurveyToast.calcSuccess(context, '坐标反算计算成功');
+      SurveyToast.calcSuccess(context, context.tr('坐标反算计算成功'));
     }
+  }
+
+  Future<void> _pickInverseControlPoint(bool isA) async {
+    final cp = await showControlPointPicker(context);
+    if (cp == null || !mounted) return;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
+    final d = u.displayDigits(s.coordDigits);
+    final xStr = fmt(u.fromMeters(cp.x), d);
+    final yStr = fmt(u.fromMeters(cp.y), d);
+    if (isA) {
+      _ax.text = xStr;
+      _ay.text = yStr;
+    } else {
+      _bx.text = xStr;
+      _by.text = yStr;
+    }
+    _calc();
   }
 
   @override
@@ -216,6 +273,16 @@ class _InversePageState extends State<InversePage>
       toolbar: PageActions(
         pageId: draftPageId,
         showUnitSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         buildTable: _exportTable,
         onClear: () {
@@ -300,7 +367,7 @@ class _InversePageState extends State<InversePage>
                 ),
                 ResultTile(
                   label: '象限角',
-                  value: azimuthToQuadrant(r.azimuthDeg, secDigits: sd),
+                  value: _localizedQuadrant(context, r.azimuthDeg, sd),
                   copyable: true,
                 ),
               ],
@@ -309,14 +376,21 @@ class _InversePageState extends State<InversePage>
         ],
       ),
       children: [
-        PageTutorial(id: 'inverse', workedSteps: [
-          if (r != null) ...[
-            'ΔX = ${fmt(r.to.x, 3)} − ${fmt(r.from.x, 3)} = ${fmt(r.dx, 3)} m',
-            'ΔY = ${fmt(r.to.y, 3)} − ${fmt(r.from.y, 3)} = ${fmt(r.dy, 3)} m',
-            'D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
-            'α = atan2(${fmt(r.dy, 3)}, ${fmt(r.dx, 3)}) ⇒ ${fmtAngle(r.azimuthDeg)}',
+        PageTutorial(
+          id: 'inverse',
+          onLoadSample: () {
+            clearDraft();
+            _calc();
+          },
+          liveCalcBuilder: (ctx) => [
+            if (r != null) ...[
+              'ΔX = ${fmt(r.to.x, 3)} − ${fmt(r.from.x, 3)} = ${fmt(r.dx, 3)} m',
+              'ΔY = ${fmt(r.to.y, 3)} − ${fmt(r.from.y, 3)} = ${fmt(r.dy, 3)} m',
+              'D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
+              'α = atan2(${fmt(r.dy, 3)}, ${fmt(r.dx, 3)}) ⇒ ${fmtAngle(r.azimuthDeg)}',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           title: '已知两点坐标',
@@ -350,6 +424,12 @@ class _InversePageState extends State<InversePage>
                     onChanged: (_) => _calc(),
                   ),
                 ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickInverseControlPoint(true),
+                ),
               ],
             ),
             Row(
@@ -372,6 +452,12 @@ class _InversePageState extends State<InversePage>
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickInverseControlPoint(false),
                 ),
               ],
             ),
@@ -542,16 +628,45 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
       return;
     }
     _az = az;
-    setState(
-      () => _p = polarDeg(
-        Point2(u.toMeters(x), u.toMeters(y)),
-        az,
-        u.toMeters(d),
+    final p = polarDeg(
+      Point2(u.toMeters(x), u.toMeters(y)),
+      az,
+      u.toMeters(d),
+    );
+    setState(() => _p = p);
+    final stPt = LivePlotPointData(x: x, y: y, label: context.tr('测站'));
+    final pPt = LivePlotPointData(
+      x: u.fromMeters(p.x),
+      y: u.fromMeters(p.y),
+      label: 'P',
+      emphasis: true,
+    );
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: context.tr('坐标正算'),
+        sourceToolId: 'polar',
+        sourceLabel: context.tr('坐标正算'),
+        points: [stPt, pPt],
+        lines: [
+          LivePlotLineData(from: stPt, to: pPt, label: 'D=${fmt(d, 2)}'),
+        ],
+        unit: u.symbol,
       ),
     );
     if (notify) {
-      SurveyToast.calcSuccess(context, '坐标正算计算成功');
+      SurveyToast.calcSuccess(context, context.tr('坐标正算计算成功'));
     }
+  }
+
+  Future<void> _pickPolarControlPoint() async {
+    final cp = await showControlPointPicker(context);
+    if (cp == null || !mounted) return;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
+    final digits = u.displayDigits(s.coordDigits);
+    _x.text = fmt(u.fromMeters(cp.x), digits);
+    _y.text = fmt(u.fromMeters(cp.y), digits);
+    _calc();
   }
 
   @override
@@ -577,6 +692,16 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         pageId: draftPageId,
         showUnitSelector: true,
         showAngleSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
         buildTable: _exportTable,
@@ -659,12 +784,19 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         ],
       ),
       children: [
-        PageTutorial(id: 'polar', workedSteps: [
-          if (p != null) ...[
-            'Xₚ = X₀ + D cos(${fmtAngle(_az)}) = ${fmt(p.x, 3)} m',
-            'Yₚ = Y₀ + D sin(${fmtAngle(_az)}) = ${fmt(p.y, 3)} m',
+        PageTutorial(
+          id: 'polar',
+          onLoadSample: () {
+            clearDraft();
+            _calc();
+          },
+          liveCalcBuilder: (ctx) => [
+            if (p != null) ...[
+              'Xₚ = X₀ + D cos(${fmtAngle(_az)}) = ${fmt(p.x, 3)} m',
+              'Yₚ = Y₀ + D sin(${fmtAngle(_az)}) = ${fmt(p.y, 3)} m',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           title: '起算测站',
@@ -691,6 +823,12 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: _pickPolarControlPoint,
                 ),
               ],
             ),
@@ -915,16 +1053,62 @@ class _StakeoutPageState extends State<StakeoutPage>
       setState(() => _r = null);
       return;
     }
-    setState(
-      () => _r = stakeoutFromBacksight(
-        station: Point2(u.toMeters(sx), u.toMeters(sy)),
-        backsight: Point2(u.toMeters(bx), u.toMeters(by)),
-        target: Point2(u.toMeters(tx), u.toMeters(ty)),
+    final res = stakeoutFromBacksight(
+      station: Point2(u.toMeters(sx), u.toMeters(sy)),
+      backsight: Point2(u.toMeters(bx), u.toMeters(by)),
+      target: Point2(u.toMeters(tx), u.toMeters(ty)),
+    );
+    setState(() => _r = res);
+    final stPt = LivePlotPointData(x: sx, y: sy, label: context.tr('测站'));
+    final bsPt = LivePlotPointData(x: bx, y: by, label: context.tr('后视'));
+    final tgPt = LivePlotPointData(
+        x: tx, y: ty, label: context.tr('目标'), emphasis: true);
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: context.tr('放样要素'),
+        sourceToolId: 'stakeout',
+        sourceLabel: context.tr('放样要素'),
+        points: [stPt, bsPt, tgPt],
+        lines: [
+          LivePlotLineData(
+            from: stPt,
+            to: bsPt,
+            dashed: true,
+            label: context.tr('后视'),
+          ),
+          LivePlotLineData(
+            from: stPt,
+            to: tgPt,
+            label: 'D=${fmt(u.fromMeters(res.distance), 2)}',
+          ),
+        ],
+        unit: u.symbol,
       ),
     );
     if (notify) {
-      SurveyToast.calcSuccess(context, '放样要素计算成功');
+      SurveyToast.calcSuccess(context, context.tr('放样要素计算成功'));
     }
+  }
+
+  Future<void> _pickStakeoutControlPoint(String which) async {
+    final cp = await showControlPointPicker(context);
+    if (cp == null || !mounted) return;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
+    final d = u.displayDigits(s.coordDigits);
+    final xStr = fmt(u.fromMeters(cp.x), d);
+    final yStr = fmt(u.fromMeters(cp.y), d);
+    if (which == 's') {
+      _sx.text = xStr;
+      _sy.text = yStr;
+    } else if (which == 'b') {
+      _bx.text = xStr;
+      _by.text = yStr;
+    } else {
+      _tx.text = xStr;
+      _ty.text = yStr;
+    }
+    _calc();
   }
 
   @override
@@ -959,6 +1143,16 @@ class _StakeoutPageState extends State<StakeoutPage>
         pageId: draftPageId,
         showUnitSelector: true,
         showAngleSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
         buildTable: _exportTable,
@@ -1069,18 +1263,33 @@ class _StakeoutPageState extends State<StakeoutPage>
         ],
       ),
       children: [
-        PageTutorial(id: 'stakeout', workedSteps: [
-          if (r != null) ...[
-            'D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
-            'β = αₚ − αᵦ ⇒ ${fmtAngle(r.horizontalAngleDeg)}',
+        PageTutorial(
+          id: 'stakeout',
+          onLoadSample: () {
+            clearDraft();
+            _calc();
+          },
+          liveCalcBuilder: (ctx) => [
+            if (r != null) ...[
+              'D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
+              'β = αₚ − αᵦ ⇒ ${fmtAngle(r.horizontalAngleDeg)}',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           title: '测站与后视定向',
           caption: orientAz == null
-              ? '先确定测站与后视方向，作为水平角 β = 0° 基准；当前量级：${u.label} (${u.symbol})'
-              : '后视定向方位角 α₀ = ${fmtAzimuth(orientAz, secDigits: s.angleSecDigits)} · 当前量级：${u.label} (${u.symbol})',
+              ? _l(
+                  context,
+                  '先确定测站与后视方向，作为水平角 β = 0° 基准；当前量级：${u.label} (${u.symbol})',
+                  'Set station and backsight as β = 0° reference; unit: ${u.symbol}',
+                )
+              : _l(
+                  context,
+                  '后视定向方位角 α₀ = ${fmtAzimuth(orientAz, secDigits: s.angleSecDigits)} · 当前量级：${u.label} (${u.symbol})',
+                  'BS azimuth α₀ = ${fmtAzimuth(orientAz, secDigits: s.angleSecDigits)} · unit: ${u.symbol}',
+                ),
           fields: [
             Row(
               children: [
@@ -1102,6 +1311,12 @@ class _StakeoutPageState extends State<StakeoutPage>
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickStakeoutControlPoint('s'),
                 ),
               ],
             ),
@@ -1125,6 +1340,12 @@ class _StakeoutPageState extends State<StakeoutPage>
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickStakeoutControlPoint('b'),
                 ),
               ],
             ),
@@ -1154,6 +1375,12 @@ class _StakeoutPageState extends State<StakeoutPage>
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickStakeoutControlPoint('t'),
                 ),
               ],
             ),
@@ -1337,7 +1564,8 @@ class _IntersectionPageState extends State<IntersectionPage>
       setState(() {
         _table = null;
         _dist = null;
-        _error = '请填写 A、B 两点的 X/Y 坐标';
+        _error = _l(context, '请填写 A、B 两点的 X/Y 坐标',
+            'Please enter A and B X/Y coordinates');
       });
       return;
     }
@@ -1359,11 +1587,39 @@ class _IntersectionPageState extends State<IntersectionPage>
         _dist = null;
         _distPick = null;
         _error = table == null
-            ? '角度无效：交会角 γ = 180° − α − β 须大于 0.5°，且 α、β 不能取 90°'
+            ? _l(
+                context,
+                '角度无效：交会角 γ = 180° − α − β 须大于 0.5°，且 α、β 不能取 90°',
+                'Invalid angles: γ = 180° − α − β must be > 0.5°, and α, β ≠ 90°',
+              )
             : null;
       });
+      if (table != null) {
+        final aPt = LivePlotPointData(x: a.x, y: a.y, label: 'A');
+        final bPt = LivePlotPointData(x: b.x, y: b.y, label: 'B');
+        final pPt = LivePlotPointData(
+          x: u.fromMeters(table.xp),
+          y: u.fromMeters(table.yp),
+          label: 'P',
+          emphasis: true,
+        );
+        LivePlotScope.maybeRead(context)?.updateSnapshot(
+          LivePlotSnapshot(
+            title: context.tr('测角交会'),
+            sourceToolId: 'intersection',
+            sourceLabel: context.tr('测角交会'),
+            points: [aPt, bPt, pPt],
+            lines: [
+              LivePlotLineData(from: aPt, to: bPt),
+              LivePlotLineData(from: aPt, to: pPt),
+              LivePlotLineData(from: bPt, to: pPt),
+            ],
+            unit: u.symbol,
+          ),
+        );
+      }
       if (notify && table != null) {
-        SurveyToast.calcSuccess(context, '前方交会计算成功');
+        SurveyToast.calcSuccess(context, context.tr('前方交会计算成功'));
       }
     } else {
       final ap = _num(_ap), bp = _num(_bp);
@@ -1381,10 +1637,57 @@ class _IntersectionPageState extends State<IntersectionPage>
         _distPick = null;
         _error = null;
       });
+      if (dist != null && dist.ok && dist.solutions.isNotEmpty) {
+        final aPt = LivePlotPointData(x: a.x, y: a.y, label: 'A');
+        final bPt = LivePlotPointData(x: b.x, y: b.y, label: 'B');
+        final sols = [
+          for (var i = 0; i < dist.solutions.length; i++)
+            LivePlotPointData(
+              x: u.fromMeters(dist.solutions[i].x),
+              y: u.fromMeters(dist.solutions[i].y),
+              label: 'P${i + 1}',
+              emphasis: i == 0,
+            ),
+        ];
+        LivePlotScope.maybeRead(context)?.updateSnapshot(
+          LivePlotSnapshot(
+            title: context.tr('距离交会'),
+            sourceToolId: 'intersection',
+            sourceLabel: context.tr('距离交会'),
+            points: [aPt, bPt, ...sols],
+            lines: [
+              LivePlotLineData(from: aPt, to: bPt),
+              for (final sPt in sols) ...[
+                LivePlotLineData(from: aPt, to: sPt),
+                LivePlotLineData(from: bPt, to: sPt),
+              ],
+            ],
+            unit: u.symbol,
+          ),
+        );
+      }
       if (notify && dist != null) {
-        SurveyToast.calcSuccess(context, '距离交会计算成功');
+        SurveyToast.calcSuccess(context, context.tr('距离交会计算成功'));
       }
     }
+  }
+
+  Future<void> _pickIntersectionControlPoint(bool isA) async {
+    final cp = await showControlPointPicker(context);
+    if (cp == null || !mounted) return;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
+    final d = u.displayDigits(s.coordDigits);
+    final xStr = fmt(u.fromMeters(cp.x), d);
+    final yStr = fmt(u.fromMeters(cp.y), d);
+    if (isA) {
+      _ax.text = xStr;
+      _ay.text = yStr;
+    } else {
+      _bx.text = xStr;
+      _by.text = yStr;
+    }
+    _calc();
   }
 
   /// 图上的点：A、B 与待定点（测角 P 或距离 P1/P2，只读，随量级缩放与 A/B 同图）。
@@ -1588,16 +1891,25 @@ class _IntersectionPageState extends State<IntersectionPage>
   }
 
   /// 交会角超界时的提示语（30°–150° 之外精度差）。
-  String? _gammaHint(ForwardIntersectionTable t, AppSettings s) {
+  String? _gammaHint(
+      BuildContext context, ForwardIntersectionTable t, AppSettings s) {
     if (t.gammaDeg >= 30 && t.gammaDeg <= 150) return null;
     final angle = fmtAngle(t.gammaDeg, secDigits: s.angleSecDigits);
     if (t.gammaDeg < 30) {
-      return '交会角 γ = $angle，小于 30°：两条视线夹角太小，'
-          'P 点沿视线方向的误差会被放大，建议换图形强度更好的已知点，'
-          '或改用距离交会。';
+      return _l(
+        context,
+        '交会角 γ = $angle，小于 30°：两条视线夹角太小，'
+            'P 点沿视线方向的误差会被放大，建议换图形强度更好的已知点，'
+            '或改用距离交会。',
+        'Intersection angle γ = $angle (< 30°): sightlines are too narrow, amplifying error along the ray. Choose stronger control points or use distance intersection.',
+      );
     }
-    return '交会角 γ = $angle，大于 150°：交点贴近基线，'
-        '同样会放大横向误差，建议调整已知点。';
+    return _l(
+      context,
+      '交会角 γ = $angle，大于 150°：交点贴近基线，'
+          '同样会放大横向误差，建议调整已知点。',
+      'Intersection angle γ = $angle (> 150°): P is too close to the baseline, amplifying lateral error. Adjust control points.',
+    );
   }
 
   @override
@@ -1607,7 +1919,7 @@ class _IntersectionPageState extends State<IntersectionPage>
     final digits = u.displayDigits(s.coordDigits);
     final scheme = Theme.of(context).colorScheme;
     final t = _table;
-    final hint = t == null ? null : _gammaHint(t, s);
+    final hint = t == null ? null : _gammaHint(context, t, s);
     final abLenMeters =
         (_a != null && _b != null) ? u.toMeters(distance(_a!, _b!)) : null;
     final abLenDisp = abLenMeters == null ? null : u.fromMeters(abLenMeters);
@@ -1619,6 +1931,16 @@ class _IntersectionPageState extends State<IntersectionPage>
         pageId: draftPageId,
         showUnitSelector: true,
         showAngleSelector: _mode == 0,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
         buildTable: _exportTable,
@@ -1721,8 +2043,13 @@ class _IntersectionPageState extends State<IntersectionPage>
                   // 320dp + 1.3 倍字号时会把 Row 撑出 99px。数值放进 caption（左列可换行）。
                   SectionHeader(
                     title: '教材表格',
-                    caption: 'Xp = ${fmt(t.xp, s.coordDigits)} m，'
-                        'Yp = ${fmt(t.yp, s.coordDigits)} m（按米逐格对应，末行加粗）',
+                    caption: _l(
+                      context,
+                      'Xp = ${fmt(t.xp, s.coordDigits)} m，'
+                          'Yp = ${fmt(t.yp, s.coordDigits)} m（按米逐格对应，末行加粗）',
+                      'Xp = ${fmt(t.xp, s.coordDigits)} m, '
+                          'Yp = ${fmt(t.yp, s.coordDigits)} m (meter-aligned, last row bold)',
+                    ),
                   ),
                   const SizedBox(height: Insets.s),
                   SurfaceCard(
@@ -1808,16 +2135,20 @@ class _IntersectionPageState extends State<IntersectionPage>
             )
           : null,
       children: [
-        PageTutorial(id: 'intersection', workedSteps: [
-          if (_mode == 0 && t != null) ...[
-            'γ = 180° − ${fmtAngle(t.alphaDeg)} − ${fmtAngle(t.betaDeg)} = ${fmtAngle(t.gammaDeg)}',
-            'tan α + tan β ≈ ${fmt(t.tanAlphaPlusTanBeta, 8)}',
-            'P = (${fmt(t.xp, digits)}, ${fmt(t.yp, digits)}) ${u.symbol}',
+        PageTutorial(
+          id: 'intersection',
+          onLoadSample: _loadTextbook,
+          liveCalcBuilder: (ctx) => [
+            if (_mode == 0 && t != null) ...[
+              'γ = 180° − ${fmtAngle(t.alphaDeg)} − ${fmtAngle(t.betaDeg)} = ${fmtAngle(t.gammaDeg)}',
+              'tan α + tan β ≈ ${fmt(t.tanAlphaPlusTanBeta, 8)}',
+              'P = (${fmt(t.xp, digits)}, ${fmt(t.yp, digits)}) ${u.symbol}',
+            ],
+            if (_mode == 1 && _dist?.ok == true)
+              for (final (index, point) in _dist!.solutions.indexed)
+                'P${index + 1} = (${fmt(point.x, digits)}, ${fmt(point.y, digits)}) ${u.symbol}',
           ],
-          if (_mode == 1 && _dist?.ok == true)
-            for (final (index, point) in _dist!.solutions.indexed)
-              'P${index + 1} = (${fmt(point.x, digits)}, ${fmt(point.y, digits)}) ${u.symbol}',
-        ]),
+        ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<int>(
@@ -1851,8 +2182,13 @@ class _IntersectionPageState extends State<IntersectionPage>
           step: 1,
           title: '已知控制点 A、B',
           caption: abLenDisp == null
-              ? '当前量级：${u.label} (${u.symbol})'
-              : '基线长 AB = ${fmt(abLenDisp, digits)} ${u.symbol} · 量级：${u.label} (${u.symbol})',
+              ? _l(context, '当前量级：${u.label} (${u.symbol})',
+                  'Unit: ${u.symbol}')
+              : _l(
+                  context,
+                  '基线长 AB = ${fmt(abLenDisp, digits)} ${u.symbol} · 量级：${u.label} (${u.symbol})',
+                  'Baseline AB = ${fmt(abLenDisp, digits)} ${u.symbol} · Unit: ${u.symbol}',
+                ),
           trailing: TextButton(
             onPressed: _loadTextbook,
             child: const LocalText('教材算例'),
@@ -1879,6 +2215,12 @@ class _IntersectionPageState extends State<IntersectionPage>
                     onChanged: (_) => _calc(),
                   ),
                 ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickIntersectionControlPoint(true),
+                ),
               ],
             ),
             Row(
@@ -1901,6 +2243,12 @@ class _IntersectionPageState extends State<IntersectionPage>
                     lengthUnit: u,
                     onChanged: (_) => _calc(),
                   ),
+                ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickIntersectionControlPoint(false),
                 ),
               ],
             ),

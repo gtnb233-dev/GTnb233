@@ -4,6 +4,7 @@ library;
 export 'src/angle.dart';
 export 'src/area.dart';
 export 'src/curve.dart';
+export 'src/errors.dart';
 export 'src/expression.dart';
 export 'src/format.dart';
 export 'src/geodesy.dart';

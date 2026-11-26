@@ -159,6 +159,13 @@ class LevelingHandbookXlsx {
         'constant': kDoubleStaffConstantToleranceMm.toStringAsFixed(0),
       },
     );
+    final sightHeightNote = note(
+      '视线高 > {minSight} m（读数 > {minSightMm} mm）。',
+      {
+        'minSight': (kDoubleStaffMinSightHeightMm / 1000.0).toStringAsFixed(1),
+        'minSightMm': kDoubleStaffMinSightHeightMm.toStringAsFixed(0),
+      },
+    );
 
     void add(
       int r,
@@ -502,6 +509,7 @@ class LevelingHandbookXlsx {
     final handbookPrecautions = [
       note('起终点选用固定标志，转点使用尺垫，核对两尺常数 K。'),
       limitsNote,
+      sightHeightNote,
       if (sightToleranceM != null && faceToleranceMm != null)
         note('视线长度 ≤ {sight} m。经尺常数改正的红黑面高差之差 ≤ {faces} mm。', {
           'sight': sightToleranceM.toStringAsFixed(0),
@@ -652,6 +660,7 @@ class LevelingHandbookXlsx {
           '(13)(14) K + 黑 − 红 → (17) 检核差 → (18) 高差中数(m)。'),
       note('高差中数(m) = [(黑后 − 黑前) + (红后 − 红前 − (K后 − K前))] ÷ 2 ÷ 1000。'),
       limitsNote,
+      sightHeightNote,
       ...extraNotes,
     ];
     for (final n in notes) {

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'angle.dart';
+import 'errors.dart';
 import 'vec.dart';
 
 /// Three-point angular resection. Both directions turn clockwise at the
@@ -119,10 +120,15 @@ ForwardIntersectionResult? forwardIntersection({
 
 /// 距离交会：已知 A、B 及 AP、BP 距离，返回两个候选解（P 在 AB 左侧 / 右侧）。
 class DistanceIntersectionResult {
-  const DistanceIntersectionResult({required this.solutions, this.error});
+  const DistanceIntersectionResult({
+    required this.solutions,
+    this.error,
+    this.structuredError,
+  });
 
   final List<Point2> solutions;
   final String? error;
+  final SurveyStructuredError? structuredError;
 
   bool get ok => solutions.isNotEmpty;
 }
@@ -138,24 +144,40 @@ DistanceIntersectionResult distanceIntersection({
     return const DistanceIntersectionResult(
       solutions: [],
       error: '两已知点重合',
+      structuredError: SurveyStructuredError(
+        SurveyErrorCode.intersectionPointsCoincident,
+        '两已知点重合',
+      ),
     );
   }
   if (distanceAp <= 0 || distanceBp <= 0) {
     return const DistanceIntersectionResult(
       solutions: [],
       error: '距离必须大于 0',
+      structuredError: SurveyStructuredError(
+        SurveyErrorCode.intersectionDistanceNonPositive,
+        '距离必须大于 0',
+      ),
     );
   }
   if (distanceAp + distanceBp < c) {
     return const DistanceIntersectionResult(
       solutions: [],
       error: '两圆不相交：d1 + d2 小于基线长',
+      structuredError: SurveyStructuredError(
+        SurveyErrorCode.intersectionCirclesNoOverlapSum,
+        '两圆不相交：d1 + d2 小于基线长',
+      ),
     );
   }
   if ((distanceAp - distanceBp).abs() > c) {
     return const DistanceIntersectionResult(
       solutions: [],
       error: '两圆不相交：距离之差大于基线长',
+      structuredError: SurveyStructuredError(
+        SurveyErrorCode.intersectionCirclesNoOverlapDiff,
+        '两圆不相交：距离之差大于基线长',
+      ),
     );
   }
   final t =

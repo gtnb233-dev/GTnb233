@@ -545,7 +545,7 @@ class _NumberFieldState extends State<NumberField> {
       onSubmitted: widget.onSubmitted,
       decoration: InputDecoration(
         hintText: widget.hint ?? defaultHint,
-        errorText: invalid ? '请输入有效数值' : null,
+        errorText: invalid ? context.tr('请输入有效数值') : null,
         prefixIcon: prefix,
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 28),
         suffixIcon: suffix,
@@ -701,13 +701,15 @@ class _DataTextFieldState extends State<DataTextField> {
     final scheme = Theme.of(context).colorScheme;
     final text = widget.controller.text;
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).length;
+    final linesLabel = context.tr('{count} 行', {'count': lines});
     final badge = widget.countLabel?.call(text) ??
-        (widget.unit == null ? '$lines 行' : '$lines 行 · ${widget.unit}');
+        (widget.unit == null ? linesLabel : '$linesLabel · ${widget.unit}');
 
     final helperParts = <String>[
       if (widget.formatHint != null && widget.formatHint!.isNotEmpty)
-        '格式：${widget.formatHint!}',
-      if (widget.helper != null && widget.helper!.isNotEmpty) widget.helper!,
+        context.tr('格式：{hint}', {'hint': context.tr(widget.formatHint!)}),
+      if (widget.helper != null && widget.helper!.isNotEmpty)
+        context.tr(widget.helper!),
     ];
 
     return FieldShell(
@@ -720,7 +722,7 @@ class _DataTextFieldState extends State<DataTextField> {
           if (widget.showPasteClear) ...[
             const SizedBox(width: 4),
             Tooltip(
-              message: '从剪贴板粘贴',
+              message: context.tr('从剪贴板粘贴'),
               child: InkWell(
                 borderRadius: BorderRadius.circular(6),
                 onTap: _paste,
@@ -736,7 +738,7 @@ class _DataTextFieldState extends State<DataTextField> {
             ),
             if (text.trim().isNotEmpty)
               Tooltip(
-                message: '清空此框',
+                message: context.tr('清空此框'),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(6),
                   onTap: () {
@@ -908,13 +910,17 @@ class AngleFieldState extends State<AngleField> {
   late final FocusNode _decIntFocus;
   late final FocusNode _decFracFocus;
 
-  double? _value;
+  double? _radiansValue;
   String? _formatError;
   bool _syncingExternal = false;
   bool _syncingCells = false;
 
+  /// Canonical angle value in f64 radians; null if empty or invalid.
+  double? get radians => _radiansValue;
+
   /// 当前角度值（度）；输入为空或无法解析时为 null。
-  double? get value => _value;
+  double? get value =>
+      _radiansValue == null ? null : radToDeg(_radiansValue!);
 
   bool get _decimal => widget.mode == AngleInputMode.decimalDegrees;
   bool get _radians => widget.mode == AngleInputMode.radians;
@@ -948,6 +954,7 @@ class AngleFieldState extends State<AngleField> {
     _secCtrl.addListener(_onCellChanged);
     _decIntCtrl.addListener(_onCellChanged);
     _decFracCtrl.addListener(_onCellChanged);
+    _radCtrl.addListener(_onCellChanged);
 
     final init = widget.initialDegrees;
     if (init != null && _text.text.trim().isEmpty) {
@@ -968,11 +975,11 @@ class AngleFieldState extends State<AngleField> {
     }
     _controllerAngleModes[_text] = widget.mode;
     if (oldWidget.mode != widget.mode) {
-      final v = _value;
+      final rad = _radiansValue;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (v != null) {
-          setDegrees(v);
+        if (rad != null) {
+          _renderRadiansToUi(rad);
         } else {
           _pullFromExternal(notify: false);
         }
@@ -988,6 +995,7 @@ class AngleFieldState extends State<AngleField> {
     _secCtrl.removeListener(_onCellChanged);
     _decIntCtrl.removeListener(_onCellChanged);
     _decFracCtrl.removeListener(_onCellChanged);
+    _radCtrl.removeListener(_onCellChanged);
     _degCtrl.dispose();
     _minCtrl.dispose();
     _secCtrl.dispose();
@@ -1175,20 +1183,29 @@ class AngleFieldState extends State<AngleField> {
     }
     _writeDmsCells('', '', '');
     _writeDecCells('', '');
-    _radCtrl.clear();
-    _value = null;
+    _writeRadCell('');
+    _radiansValue = null;
     _formatError = null;
     _scheduleRefresh(notifyChanged: true);
   }
 
-  /// 以度为单位写入输入框。
-  void setDegrees(double deg) {
-    final extText = widget.mode.encodeDegrees(deg);
-    _value = deg;
+  /// 以弧度为单位写入输入框（单一真值来源）。
+  void setRadians(double rad, {bool notifyChanged = false}) {
+    _radiansValue = rad;
     _formatError = null;
+    _renderRadiansToUi(rad);
+    _scheduleRefresh(notifyChanged: notifyChanged);
+  }
+
+  /// 以度为单位写入输入框。
+  void setDegrees(double deg) => setRadians(degToRad(deg));
+
+  void _renderRadiansToUi(double rad) {
+    final deg = radToDeg(rad);
+    final extText = widget.mode.encodeDegrees(deg);
     _syncingExternal = true;
     try {
-      _text.text = extText;
+      if (_text.text != extText) _text.text = extText;
     } finally {
       _syncingExternal = false;
     }
@@ -1201,12 +1218,20 @@ class AngleFieldState extends State<AngleField> {
       final parts = _dmsPartsFor(deg);
       _writeDmsCells(parts.$1, parts.$2, parts.$3);
     }
-    _scheduleRefresh(notifyChanged: false);
+  }
+
+  void _writeRadCell(String value) {
+    _syncingCells = true;
+    try {
+      if (_radCtrl.text != value) _radCtrl.text = value;
+    } finally {
+      _syncingCells = false;
+    }
   }
 
   void _writeRadians(double degrees) {
     final value = AngleInputMode.radians.encodeDegrees(degrees);
-    if (_radCtrl.text != value) _radCtrl.text = value;
+    _writeRadCell(value);
   }
 
   void _onExternalTextChanged() {
@@ -1215,14 +1240,14 @@ class AngleFieldState extends State<AngleField> {
   }
 
   void _pullFromExternal({required bool notify}) {
-    final prevVal = _value;
+    final prevRad = _radiansValue;
     final prevErr = _formatError;
     final raw = _text.text.trim();
     if (raw.isEmpty || raw == '-' || raw == '.' || raw == '-.') {
-      _value = null;
+      _radiansValue = null;
       _formatError = null;
       if (_radians) {
-        if (_radCtrl.text != raw) _radCtrl.text = raw;
+        _writeRadCell(raw);
       } else if (_decimal) {
         _writeDecCells('', '');
       } else {
@@ -1231,7 +1256,7 @@ class AngleFieldState extends State<AngleField> {
     } else {
       try {
         final parsed = parseAngle(raw, mode: widget.mode);
-        _value = parsed;
+        _radiansValue = degToRad(parsed);
         _formatError = null;
         if (_radians) {
           _writeRadians(parsed);
@@ -1243,27 +1268,64 @@ class AngleFieldState extends State<AngleField> {
           _writeDmsCells(parts.$1, parts.$2, parts.$3);
         }
       } on FormatException catch (e) {
-        _value = null;
+        _radiansValue = null;
         _formatError = e.message.isNotEmpty
             ? e.message
-            : (_decimal ? '请输入有效十进制度' : '分/秒须小于 60，示例 90 30 30');
+            : (_radians
+                ? '请输入有效弧度'
+                : _decimal
+                    ? '请输入有效十进制度'
+                    : '分/秒须小于 60，示例 90 30 30');
       }
     }
-    if (prevVal != _value || prevErr != _formatError) {
-      _scheduleRefresh(notifyChanged: notify && prevVal != _value);
+    if (prevRad != _radiansValue || prevErr != _formatError) {
+      _scheduleRefresh(notifyChanged: notify && prevRad != _radiansValue);
     }
   }
 
   void _onCellChanged() {
     if (_syncingCells) return;
-    final prevVal = _value;
+    final prevRad = _radiansValue;
     final prevErr = _formatError;
+
+    if (_radians) {
+      final raw = _radCtrl.text.trim();
+      if (raw.isEmpty || raw == '-' || raw == '.' || raw == '-.') {
+        _radiansValue = null;
+        _formatError = null;
+        _syncingExternal = true;
+        try {
+          if (_text.text != raw) _text.text = raw;
+        } finally {
+          _syncingExternal = false;
+        }
+      } else {
+        try {
+          final deg = parseAngle(raw, mode: AngleInputMode.radians);
+          _radiansValue = degToRad(deg);
+          _formatError = null;
+          _syncingExternal = true;
+          try {
+            if (_text.text != raw) _text.text = raw;
+          } finally {
+            _syncingExternal = false;
+          }
+        } on FormatException {
+          _radiansValue = null;
+          _formatError = '请输入有效弧度';
+        }
+      }
+      if (prevRad != _radiansValue || prevErr != _formatError) {
+        _scheduleRefresh(notifyChanged: prevRad != _radiansValue);
+      }
+      return;
+    }
 
     if (_decimal) {
       final iRaw = _decIntCtrl.text.trim();
       final fRaw = _decFracCtrl.text.trim();
       if ((iRaw.isEmpty || iRaw == '-') && fRaw.isEmpty) {
-        _value = null;
+        _radiansValue = null;
         _formatError = null;
         _syncingExternal = true;
         try {
@@ -1279,7 +1341,7 @@ class AngleFieldState extends State<AngleField> {
             '${neg ? '-' : ''}$intPart${fRaw.isEmpty ? '' : '.$fRaw'}';
         final parsed = double.tryParse(combined);
         if (parsed == null || !parsed.isFinite) {
-          _value = null;
+          _radiansValue = null;
           _formatError = '请输入有效十进制度';
           _syncingExternal = true;
           try {
@@ -1288,7 +1350,7 @@ class AngleFieldState extends State<AngleField> {
             _syncingExternal = false;
           }
         } else {
-          _value = parsed;
+          _radiansValue = degToRad(parsed);
           _formatError = null;
           _syncingExternal = true;
           try {
@@ -1298,8 +1360,8 @@ class AngleFieldState extends State<AngleField> {
           }
         }
       }
-      if (prevVal != _value || prevErr != _formatError) {
-        _scheduleRefresh(notifyChanged: prevVal != _value);
+      if (prevRad != _radiansValue || prevErr != _formatError) {
+        _scheduleRefresh(notifyChanged: prevRad != _radiansValue);
       }
       return;
     }
@@ -1309,7 +1371,7 @@ class AngleFieldState extends State<AngleField> {
     final sRaw = _secCtrl.text.trim();
 
     if ((dRaw.isEmpty || dRaw == '-') && mRaw.isEmpty && sRaw.isEmpty) {
-      _value = null;
+      _radiansValue = null;
       _formatError = null;
       _syncingExternal = true;
       try {
@@ -1325,10 +1387,10 @@ class AngleFieldState extends State<AngleField> {
       final s = (sRaw.isEmpty || sRaw == '.') ? 0.0 : double.tryParse(sRaw);
 
       if (d == null || m == null || s == null || !s.isFinite) {
-        _value = null;
+        _radiansValue = null;
         _formatError = '请输入有效度分秒数字';
       } else if (m >= 60 || s >= 60) {
-        _value = null;
+        _radiansValue = null;
         _formatError = '分和秒须小于 60';
         _syncingExternal = true;
         try {
@@ -1338,7 +1400,7 @@ class AngleFieldState extends State<AngleField> {
         }
       } else {
         final val = (neg ? -1.0 : 1.0) * (d + m / 60.0 + s / 3600.0);
-        _value = val;
+        _radiansValue = degToRad(val);
         _formatError = null;
         final compact = fmtDmsCompact(val, secDigits: widget.secDigits);
         _syncingExternal = true;
@@ -1350,8 +1412,8 @@ class AngleFieldState extends State<AngleField> {
       }
     }
 
-    if (prevVal != _value || prevErr != _formatError) {
-      _scheduleRefresh(notifyChanged: prevVal != _value);
+    if (prevRad != _radiansValue || prevErr != _formatError) {
+      _scheduleRefresh(notifyChanged: prevRad != _radiansValue);
     }
   }
 
@@ -1361,13 +1423,13 @@ class AngleFieldState extends State<AngleField> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {});
-        if (notifyChanged) widget.onChanged?.call(_value);
+        if (notifyChanged) widget.onChanged?.call(value);
       });
     } else {
       if (mounted) setState(() {});
       if (notifyChanged) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) widget.onChanged?.call(_value);
+          if (mounted) widget.onChanged?.call(value);
         });
       }
     }
@@ -1375,19 +1437,21 @@ class AngleFieldState extends State<AngleField> {
 
   /// 输入框下方的实时解读：在度分秒与十进制间给出双向提示。
   String? _describe() {
-    final v = _value;
+    final v = value;
     final parts = <String>[
       if (widget.helper != null && widget.helper!.isNotEmpty)
         context.tr(widget.helper!),
       if (v != null)
-        _decimal
+        (_decimal || _radians)
             ? '= ${fmtAngle(v, secDigits: widget.secDigits)} (${fmtDmsCompact(v, secDigits: widget.secDigits)})'
             : '= ${fmtAngle(v, secDigits: widget.secDigits)}'
+      else if (_radians)
+        context.tr('按弧度数值填写，支持正负小数')
       else if (_decimal)
         context.tr('按 整数.小数 填写，空格或小数点自动跳格')
       else
         context.tr('按 度/分/秒 填写，空格或小数点自动跳格'),
-      if (v != null && _anyFocused) context.tr('空格或小数点跳格'),
+      if (v != null && _anyFocused && !_radians) context.tr('空格或小数点跳格'),
     ];
     return parts.isEmpty ? null : parts.join(' · ');
   }
@@ -1516,7 +1580,7 @@ class AngleFieldState extends State<AngleField> {
           Padding(
             padding: const EdgeInsets.only(left: 12),
             child: Text(
-              _formatError!,
+              context.tr(_formatError!),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w500,
@@ -1642,28 +1706,13 @@ class AngleFieldState extends State<AngleField> {
               controller: _radCtrl,
               focusNode: _radFocus,
               enabled: widget.enabled,
-              onChanged: (text) {
-                final previous = _value;
-                try {
-                  _value = parseAngle(text, mode: widget.mode);
-                  _formatError = null;
-                } on FormatException {
-                  _value = null;
-                  _formatError =
-                      text.trim().isEmpty ? null : context.tr('请输入有效弧度');
-                }
-                _syncingExternal = true;
-                try {
-                  _text.text = text;
-                } finally {
-                  _syncingExternal = false;
-                }
-                _scheduleRefresh(notifyChanged: previous != _value);
-              },
               keyboardType: const TextInputType.numberWithOptions(
                   decimal: true, signed: true),
-              decoration:
-                  InputDecoration(suffixText: 'rad', errorText: _formatError),
+              decoration: InputDecoration(
+                suffixText: 'rad',
+                errorText:
+                    _formatError == null ? null : context.tr(_formatError!),
+              ),
             )
           : _decimal
               ? _buildDecimalGroupedInput(context)

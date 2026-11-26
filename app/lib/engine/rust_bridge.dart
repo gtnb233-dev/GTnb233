@@ -131,9 +131,10 @@ typedef _LevelingNative = ffi.Void Function(
     ffi.Uint32,
     ffi.Double,
     ffi.Double,
+    ffi.Double,
     ffi.Double);
 typedef _LevelingCall = void Function(ffi.Pointer<ffi.Double>,
-    ffi.Pointer<_LevelingStationNative>, int, double, double, double);
+    ffi.Pointer<_LevelingStationNative>, int, double, double, double, double);
 
 /// Rust + Flutter 混合计算内核桥接层。
 ///
@@ -196,22 +197,25 @@ class SurveyHybridEngine {
     required double distanceLimit,
     required double sightLimit,
     required double heightLimit,
+    double minSightHeightMm = kDoubleStaffMinSightHeightMm,
   }) {
     final check = _levelingCheck;
-    if (check == null || observations.isEmpty) {
+    if (check == null || _nativeAbiVersion < 5 || observations.isEmpty) {
       return doubleStaffLeveling(observations,
               distanceDiffToleranceM: distanceLimit,
               sightLimitM: sightLimit,
+              minSightHeightMm: minSightHeightMm,
               heightDifferenceLimitMm: heightLimit)
           .stations;
     }
-    final input = calloc<ffi.Double>(observations.length * 8);
+    const stride = 14;
+    final input = calloc<ffi.Double>(observations.length * stride);
     final output = calloc<_LevelingStationNative>(observations.length);
     try {
-      final data = input.asTypedList(observations.length * 8);
+      final data = input.asTypedList(observations.length * stride);
       for (var index = 0; index < observations.length; index++) {
         final o = observations[index];
-        final offset = index * 8;
+        final offset = index * stride;
         data.setAll(offset, [
           o.backDirectM ?? (o.backUpper - o.backLower).abs() * .1,
           o.frontDirectM ?? (o.frontUpper - o.frontLower).abs() * .1,
@@ -221,14 +225,21 @@ class SurveyHybridEngine {
           o.frontRed,
           o.kBack,
           o.kFront,
+          o.backUpper,
+          o.backLower,
+          o.frontUpper,
+          o.frontLower,
+          o.backDirectM != null ? 1.0 : 0.0,
+          o.frontDirectM != null ? 1.0 : 0.0,
         ]);
       }
       check(input, output, observations.length, distanceLimit, sightLimit,
-          heightLimit);
+          heightLimit, minSightHeightMm);
       return List.generate(observations.length, (index) {
         final station = output[index];
         final v = station.values;
         bool ok(int bit) => station.issues & (1 << bit) == 0;
+        final cumWarning = (station.issues & (1 << 7)) != 0;
         return DoubleStaffStationResult(
           index: index + 1,
           backDistanceM: v[0],
@@ -244,7 +255,9 @@ class SurveyHybridEngine {
           frontConstantOk: ok(1),
           distanceOk: ok(2),
           cumulativeOk: ok(3),
+          cumStadiaWarning: cumWarning,
           sightOk: ok(4),
+          sightHeightOk: ok(6),
           heightDifferenceOk: ok(5),
         );
       });
@@ -259,8 +272,8 @@ class SurveyHybridEngine {
   bool get isNativeLoaded => _backend == ComputeBackend.rustFfi;
 
   String get backendLabel => isNativeLoaded
-      ? 'Rust FFI v$_nativeAbiVersion (原生加速)'
-      : 'SurveyCore · Rust FFI 就绪 (Dart 等价模式)';
+      ? 'Rust FFI v$_nativeAbiVersion'
+      : 'SurveyCore (Dart)';
 
   void _probeNative() {
     try {
@@ -294,7 +307,7 @@ class SurveyHybridEngine {
           _freeDxf = lib.lookupFunction<ffi.Void Function(ffi.Pointer<Utf8>),
               void Function(ffi.Pointer<Utf8>)>('survey_string_free');
         }
-        if (ver >= 3) {
+        if (ver >= 5) {
           _levelingCheck = lib.lookupFunction<_LevelingNative, _LevelingCall>(
               'survey_leveling_check');
         }

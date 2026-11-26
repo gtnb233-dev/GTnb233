@@ -380,7 +380,9 @@ class _StepChip extends StatelessWidget {
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
           Text(
-            step.detail == null ? step.label : '${step.label} · ${step.detail}',
+            step.detail == null
+                ? context.tr(step.label)
+                : '${context.tr(step.label)} · ${context.tr(step.detail!)}',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,

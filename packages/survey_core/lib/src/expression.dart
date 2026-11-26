@@ -1,13 +1,29 @@
 import 'dart:math' as math;
 
+import 'errors.dart';
+
 /// 三角函数输入单位。
 enum TrigUnit { degrees, radians }
 
 /// 表达式解析 / 求值错误。
-class FormulaException implements Exception {
-  FormulaException(this.message);
+class FormulaException implements Exception, SurveyStructuredError {
+  FormulaException(
+    this.message, {
+    this.code = SurveyErrorCode.formulaParseError,
+    this.args = const <String, Object>{},
+  });
 
+  @override
   final String message;
+
+  @override
+  final SurveyErrorCode code;
+
+  @override
+  final Map<String, Object> args;
+
+  @override
+  String get defaultMessage => message;
 
   @override
   String toString() => message;
@@ -45,11 +61,21 @@ class ExpressionEvaluator {
     final value = parser._parseExpression();
     parser._skipSpaces();
     if (parser._pos < src.length) {
-      throw FormulaException('第 ${parser._pos + 1} 个字符处存在无法解析的内容：'
-          '“${src.substring(parser._pos)}”');
+      throw FormulaException(
+        '第 ${parser._pos + 1} 个字符处存在无法解析的内容：“${src.substring(parser._pos)}”',
+        code: SurveyErrorCode.formulaParseError,
+        args: {
+          'pos': parser._pos + 1,
+          'trailing': src.substring(parser._pos),
+        },
+      );
     }
     if (value.isNaN || value.isInfinite) {
-      throw FormulaException('计算结果无效（$value）');
+      throw FormulaException(
+        '计算结果无效（$value）',
+        code: SurveyErrorCode.formulaInvalidResult,
+        args: {'value': value.toString()},
+      );
     }
     return value;
   }
@@ -106,7 +132,12 @@ class ExpressionEvaluator {
       } else if (t == '/') {
         _pos++;
         final d = _parseUnary();
-        if (d == 0) throw FormulaException('除数为 0');
+        if (d == 0) {
+          throw FormulaException(
+            '除数为 0',
+            code: SurveyErrorCode.formulaDivisionByZero,
+          );
+        }
         value /= d;
       } else {
         return value;
@@ -139,11 +170,21 @@ class ExpressionEvaluator {
 
   double _parsePrimary() {
     final t = _peekToken();
-    if (t == null) throw FormulaException('表达式不完整');
+    if (t == null) {
+      throw FormulaException(
+        '表达式不完整',
+        code: SurveyErrorCode.formulaIncomplete,
+      );
+    }
     if (t == '(') {
       _pos++;
       final v = _parseExpression();
-      if (_peekToken() != ')') throw FormulaException('缺少右括号');
+      if (_peekToken() != ')') {
+        throw FormulaException(
+          '缺少右括号',
+          code: SurveyErrorCode.formulaMissingRightParen,
+        );
+      }
       _pos++;
       return v;
     }
@@ -151,7 +192,11 @@ class ExpressionEvaluator {
     final isDigit = code >= 48 && code <= 57;
     if (isDigit || t == '.') return _parseNumber();
     if (_isIdentStart(t)) return _parseIdentifier();
-    throw FormulaException('无法识别的字符 “$t”');
+    throw FormulaException(
+      '无法识别的字符 “$t”',
+      code: SurveyErrorCode.formulaUnexpectedChar,
+      args: {'char': t},
+    );
   }
 
   static bool _isIdentStart(String c) {
@@ -184,7 +229,13 @@ class ExpressionEvaluator {
     }
     final text = _source.substring(start, _pos);
     final v = double.tryParse(text);
-    if (v == null) throw FormulaException('无效数字 “$text”');
+    if (v == null) {
+      throw FormulaException(
+        '无效数字 “$text”',
+        code: SurveyErrorCode.formulaInvalidNumber,
+        args: {'text': text},
+      );
+    }
     return v;
   }
 
@@ -205,7 +256,13 @@ class ExpressionEvaluator {
           args.add(_parseExpression());
         }
       }
-      if (_peekToken() != ')') throw FormulaException('函数 $name 缺少右括号');
+      if (_peekToken() != ')') {
+        throw FormulaException(
+          '函数 $name 缺少右括号',
+          code: SurveyErrorCode.formulaFunctionMissingRightParen,
+          args: {'name': name},
+        );
+      }
       _pos++;
       return _applyFunction(lower, args, name);
     }
@@ -221,7 +278,11 @@ class ExpressionEvaluator {
     }
     final v = _variables[name] ?? _variables[lower];
     if (v == null) {
-      throw FormulaException('未知变量 “$name”');
+      throw FormulaException(
+        '未知变量 “$name”',
+        code: SurveyErrorCode.formulaUnknownVariable,
+        args: {'name': name},
+      );
     }
     return v;
   }
@@ -231,7 +292,13 @@ class ExpressionEvaluator {
 
   double _applyFunction(String name, List<double> args, String raw) {
     double at(int i) {
-      if (i >= args.length) throw FormulaException('函数 $raw 参数不足');
+      if (i >= args.length) {
+        throw FormulaException(
+          '函数 $raw 参数不足',
+          code: SurveyErrorCode.formulaInsufficientArgs,
+          args: {'name': raw},
+        );
+      }
       return args[i];
     }
 
@@ -252,7 +319,12 @@ class ExpressionEvaluator {
         return math.atan2(at(0), at(1));
       case 'sqrt':
         final v = at(0);
-        if (v < 0) throw FormulaException('sqrt 的参数不能为负数');
+        if (v < 0) {
+          throw FormulaException(
+            'sqrt 的参数不能为负数',
+            code: SurveyErrorCode.formulaNegativeSqrt,
+          );
+        }
         return math.sqrt(v);
       case 'cbrt':
         return math.pow(at(0), 1 / 3).toDouble();
@@ -274,10 +346,22 @@ class ExpressionEvaluator {
       case 'ceil':
         return at(0).ceilToDouble();
       case 'min':
-        if (args.isEmpty) throw FormulaException('函数 $raw 参数不足');
+        if (args.isEmpty) {
+          throw FormulaException(
+            '函数 $raw 参数不足',
+            code: SurveyErrorCode.formulaInsufficientArgs,
+            args: {'name': raw},
+          );
+        }
         return args.reduce(math.min);
       case 'max':
-        if (args.isEmpty) throw FormulaException('函数 $raw 参数不足');
+        if (args.isEmpty) {
+          throw FormulaException(
+            '函数 $raw 参数不足',
+            code: SurveyErrorCode.formulaInsufficientArgs,
+            args: {'name': raw},
+          );
+        }
         return args.reduce(math.max);
       case 'pow':
         return math.pow(at(0), at(1)).toDouble();
@@ -294,6 +378,10 @@ class ExpressionEvaluator {
         final v = (at(0) + 180) % 360;
         return (v < 0 ? v + 360 : v) - 180;
     }
-    throw FormulaException('未知函数 “$raw”');
+    throw FormulaException(
+      '未知函数 “$raw”',
+      code: SurveyErrorCode.formulaUnknownFunction,
+      args: {'name': raw},
+    );
   }
 }

@@ -12,6 +12,7 @@ library;
 import 'dart:math' as math;
 
 import 'angle.dart';
+import 'errors.dart';
 import 'vec.dart';
 
 /// 参考椭球：长半轴 a 与扁率倒数 1/f。
@@ -65,7 +66,12 @@ const Ellipsoid kWgs84 = Ellipsoid('WGS84', 6378137.0, 298.257223563);
 /// [zoneWidth] 只支持 3 或 6，其他值抛 [ArgumentError]。经度超 [-180, 180] 抛错。
 int gaussZoneNumber(double lonDeg, {int zoneWidth = 3}) {
   if (!lonDeg.isFinite || lonDeg.abs() > 180) {
-    throw ArgumentError.value(lonDeg, 'lonDeg', '经度超出 [-180, 180]');
+    throw SurveyArgumentError.value(
+      lonDeg,
+      'lonDeg',
+      SurveyErrorCode.projectionLonOutOfRange,
+      '经度超出 [-180, 180]',
+    );
   }
   switch (zoneWidth) {
     case 3:
@@ -73,7 +79,12 @@ int gaussZoneNumber(double lonDeg, {int zoneWidth = 3}) {
     case 6:
       return ((lonDeg + 3.0) / 6.0).ceil();
     default:
-      throw ArgumentError.value(zoneWidth, 'zoneWidth', '只支持 3° 或 6° 带');
+      throw SurveyArgumentError.value(
+        zoneWidth,
+        'zoneWidth',
+        SurveyErrorCode.projectionZoneWidthInvalid,
+        '只支持 3° 或 6° 带',
+      );
   }
 }
 
@@ -114,7 +125,12 @@ _ArcCoefficients _arcCoefficients(double e2) {
 /// 系数含 e² 到 e⁸ 项，与「按子午圈曲率半径 M 积分」等价到亚毫米。
 double meridianArcLength(double latDeg, {Ellipsoid ellipsoid = kCgcs2000}) {
   if (!latDeg.isFinite || latDeg.abs() > 90) {
-    throw ArgumentError.value(latDeg, 'latDeg', '纬度超出 [-90, 90]');
+    throw SurveyArgumentError.value(
+      latDeg,
+      'latDeg',
+      SurveyErrorCode.projectionLatOutOfRange,
+      '纬度超出 [-90, 90]',
+    );
   }
   final c = _arcCoefficients(ellipsoid.e2);
   final b = latDeg * deg2rad;
@@ -163,10 +179,20 @@ class LatLon {
 
 void _checkLatLon(double latDeg, double lonDeg) {
   if (!latDeg.isFinite || latDeg.abs() > 84) {
-    throw ArgumentError.value(latDeg, 'latDeg', '纬度超出高斯投影范围 |B| ≤ 84°');
+    throw SurveyArgumentError.value(
+      latDeg,
+      'latDeg',
+      SurveyErrorCode.projectionGaussLatOutOfRange,
+      '纬度超出高斯投影范围 |B| ≤ 84°',
+    );
   }
   if (!lonDeg.isFinite || lonDeg.abs() > 180) {
-    throw ArgumentError.value(lonDeg, 'lonDeg', '经度超出 [-180, 180]');
+    throw SurveyArgumentError.value(
+      lonDeg,
+      'lonDeg',
+      SurveyErrorCode.projectionLonOutOfRange,
+      '经度超出 [-180, 180]',
+    );
   }
 }
 
@@ -248,12 +274,16 @@ LatLon gaussInverse({
   double falseEasting = 500000,
 }) {
   if (!x.isFinite || !y.isFinite) {
-    throw ArgumentError('平面坐标必须为有限数');
+    throw SurveyArgumentError(
+      SurveyErrorCode.projectionCoordNotFinite,
+      '平面坐标必须为有限数',
+    );
   }
   if (!centralMeridianDeg.isFinite || centralMeridianDeg.abs() > 180) {
-    throw ArgumentError.value(
+    throw SurveyArgumentError.value(
       centralMeridianDeg,
       'centralMeridianDeg',
+      SurveyErrorCode.projectionLonOutOfRange,
       '中央子午线经度超出 [-180, 180]',
     );
   }
@@ -312,7 +342,12 @@ LatLon gaussInverse({
           y7;
   final latDeg = radToDeg(b);
   if (!latDeg.isFinite || latDeg.abs() > 84) {
-    throw ArgumentError.value(x, 'x', '反算纬度超出 |B| ≤ 84°');
+    throw SurveyArgumentError.value(
+      x,
+      'x',
+      SurveyErrorCode.projectionInverseLatOutOfRange,
+      '反算纬度超出 |B| ≤ 84°',
+    );
   }
   final lonRaw = centralMeridianDeg + radToDeg(l);
   return LatLon(latDeg, _wrapLon(lonRaw));

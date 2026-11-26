@@ -1,4 +1,5 @@
-import 'package:file_selector/file_selector.dart';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import '../workspace_page_route.dart';
@@ -6,7 +7,9 @@ import 'package:survey_core/survey_core.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
+import '../../platform/native_bridge_contract.dart';
 import '../../state/drafts.dart';
+import '../../state/live_plot_controller.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
 import '../tool_router.dart';
@@ -17,6 +20,8 @@ import 'live_plot.dart';
 import 'outline_symbol.dart';
 import 'overlays.dart';
 import 'workspace_points.dart';
+
+export 'workspace_points.dart' show WorkspaceLivePlotPanel;
 
 String draftTitle(BuildContext context, DraftStore? store, String id) =>
     store?.value(id, '_title') ??
@@ -283,13 +288,17 @@ Future<void> showCoordinatePresets(BuildContext context) async {
 
 Future<void> _importPoints(BuildContext context) async {
   try {
-    final file = await openFile(acceptedTypeGroups: const [
-      XTypeGroup(label: 'DXF / CSV', extensions: ['dxf', 'csv']),
-    ]);
-    if (file == null || !context.mounted) return;
-    if (await file.length() > 16 * 1024 * 1024) throw const FormatException();
+    final path = await NativeFilesBridge.pickOpenFile(
+      filterLabel: 'DXF / CSV',
+      extensions: const ['dxf', 'csv'],
+    );
+    if (path == null || path.isEmpty || !context.mounted) return;
+    final file = File(path);
+    if (!await file.exists() || await file.length() > 16 * 1024 * 1024) {
+      throw const FormatException();
+    }
     final source = await file.readAsString();
-    final isDxf = file.name.toLowerCase().endsWith('.dxf');
+    final isDxf = path.toLowerCase().endsWith('.dxf');
     final points = decodeWorkspacePoints(source, isDxf);
     if (!context.mounted) return;
     final store = DraftScope.read(context);
@@ -335,7 +344,29 @@ Future<void> _importPoints(BuildContext context) async {
       for (final p in points.values) p.label: '${p.x},${p.y}',
     });
     await store.flushPage(workspacePointsKey);
-    if (context.mounted) await showWorkspacePlot(context);
+    if (context.mounted) {
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: context.tr('导入点位'),
+          sourceToolId: 'import',
+          sourceLabel: isDxf ? 'DXF' : 'CSV',
+          sourceKind: LivePlotSourceKind.importedFile,
+          points: [
+            for (final p in points.values)
+              LivePlotPointData(
+                x: p.x,
+                y: p.y,
+                label: p.label,
+                draggable: false,
+              ),
+          ],
+          surveyNorthUp: true,
+          unit: 'm',
+        ),
+        sourceKind: LivePlotSourceKind.importedFile,
+      );
+      await showWorkspacePlot(context);
+    }
   } on Exception {
     if (context.mounted) {
       SurveyToast.show(context, '无法导入，请检查 DXF / CSV 文件格式',
@@ -346,18 +377,16 @@ Future<void> _importPoints(BuildContext context) async {
 
 Future<void> showWorkspacePlot(BuildContext context,
     {String? selected, (double, double)? coordinate}) {
-  final points = readWorkspacePoints(DraftScope.maybeRead(context));
-  if (coordinate != null) {
-    var id = 'X/Y';
-    while (points.containsKey(id)) {
-      id += '′';
-    }
-    points[id] = PlotPoint(
-        x: coordinate.$1, y: coordinate.$2, label: id, draggable: false);
-    selected = id;
+  final controller = LivePlotScope.of(context);
+  if (controller.current == null || controller.current!.isEmpty) {
+    controller.loadLatestAvailable(
+        preferredKind: LivePlotSourceKind.activeDraft);
   }
-  return workspacePanel<void>(context, '实时坐标图',
-      WorkspacePointPlot(points: points.values.toList(), selected: selected));
+  return workspacePanel<void>(
+    context,
+    '实时坐标图',
+    WorkspaceLivePlotPanel(selectedLabel: selected, coordinate: coordinate),
+  );
 }
 
 class WorkspaceCommandsEnabled extends InheritedWidget {

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'angle.dart';
+import 'errors.dart';
 import 'vec.dart';
 
 /// 坐标闭合差的分配口径。
@@ -103,6 +104,28 @@ class TraverseResult {
 
   bool get angleOk => angleMisclosureSec.abs() <= angleLimitSec;
   bool get linearOk => relativeDenominator >= relativeLimitDenominator;
+
+  List<SurveyStructuredError> get structuredIssues {
+    final out = <SurveyStructuredError>[];
+    if (!angleOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.traverseAngleMisclosureExceeded,
+        '角度闭合差超限',
+        {'misclosure': angleMisclosureSec, 'limit': angleLimitSec},
+      ));
+    }
+    if (!linearOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.traverseLinearMisclosureExceeded,
+        '全长相对闭合差超限',
+        {
+          'denominator': relativeDenominator,
+          'limitDenominator': relativeLimitDenominator,
+        },
+      ));
+    }
+    return out;
+  }
 }
 
 /// 闭合导线的角度口径判定结果。

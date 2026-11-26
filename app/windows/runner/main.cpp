@@ -60,7 +60,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   Win32Window::Point origin(origin_x, origin_y);
   Win32Window::Size size(target_w, target_h);
-  if (!window.Create(L"工程测量", origin, size)) {
+  if (!window.Create(L"Survey Pro", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

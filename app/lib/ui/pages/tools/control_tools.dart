@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
@@ -8,6 +9,7 @@ import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
 import '../../../l10n/survey_strings.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
@@ -17,8 +19,12 @@ import '../../widgets/point_names_dialog.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
 import 'angle_convention_ui.dart';
+import 'control_points_page.dart';
 import 'double_face_leveling.dart';
 import 'traverse_table.dart';
+
+String _l(BuildContext context, String zh, String en) =>
+    SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
 
 double? _num(TextEditingController c) => double.tryParse(c.text.trim());
 
@@ -72,6 +78,8 @@ class _TraversePageState extends State<TraversePage>
   final _endAzCtrl = TextEditingController(text: '90deg');
   AngleInputMode? _tableAngleMode;
   int? _selectedTraversePoint;
+  Uint8List? _sketchPngBytes;
+  int _sketchRenderSeq = 0;
 
   @override
   void didChangeDependencies() {
@@ -151,6 +159,7 @@ class _TraversePageState extends State<TraversePage>
             observedAnglesDeg: angles,
             coordDigits: s.coordDigits,
             secDigits: s.angleSecDigits,
+            tr: context.tr,
           ),
         ),
     ];
@@ -172,22 +181,40 @@ class _TraversePageState extends State<TraversePage>
                   angleConventionLabel: _forcedConvention?.label,
                   coordDigits: s.coordDigits,
                   secDigits: s.angleSecDigits,
+                  sketchPngBytes: _sketchPngBytes,
                 ),
               ]
           : null,
       notes: <String>[
-        if (r != null) traverseJudgementText(r),
+        if (r != null) traverseJudgementText(r, tr: context.tr),
         if (r != null)
-          'Σβ实测 = ${fmtAngle(r.angleSum, secDigits: 1)}，'
-              '理论 = ${fmtAngle(r.expectedAngleSum, secDigits: 1)}；'
-              'fβ = ${fmt(r.angleMisclosureSec, 1)}″（限差 ±${fmt(r.angleLimitSec, 1)}″）',
+          _l(
+            context,
+            'Σβ实测 = ${fmtAngle(r.angleSum, secDigits: 1)}，'
+                '理论 = ${fmtAngle(r.expectedAngleSum, secDigits: 1)}；'
+                'fβ = ${fmt(r.angleMisclosureSec, 1)}″（限差 ±${fmt(r.angleLimitSec, 1)}″）',
+            'Σβ obs = ${fmtAngle(r.angleSum, secDigits: 1)}, '
+                'theo = ${fmtAngle(r.expectedAngleSum, secDigits: 1)}; '
+                'fβ = ${fmt(r.angleMisclosureSec, 1)}″ (limit ±${fmt(r.angleLimitSec, 1)}″)',
+          ),
         if (r != null)
-          'fx = ${fmt(r.fx * 1000, 1)} mm，fy = ${fmt(r.fy * 1000, 1)} mm，'
-              'f = ${fmt(r.linearMisclosure * 1000, 1)} mm，'
-              '相对闭合差 ${formattableRelative(r)}（限值 1/${r.relativeLimitDenominator}）',
-        '改正数 vΔx/vΔy = 改正后增量 − 原增量；改正后列即平差后坐标增量。',
-        '角度改正按角数平均分配，坐标闭合差按'
-            '${_distribution == MisclosureDistribution.byLength ? '边长' : '坐标增量'}成比例分配。',
+          _l(
+            context,
+            'fx = ${fmt(r.fx * 1000, 1)} mm，fy = ${fmt(r.fy * 1000, 1)} mm，'
+                'f = ${fmt(r.linearMisclosure * 1000, 1)} mm，'
+                '相对闭合差 ${formattableRelative(r)}（限值 1/${r.relativeLimitDenominator}）',
+            'fx = ${fmt(r.fx * 1000, 1)} mm, fy = ${fmt(r.fy * 1000, 1)} mm, '
+                'f = ${fmt(r.linearMisclosure * 1000, 1)} mm, '
+                'K = ${formattableRelative(r)} (limit 1/${r.relativeLimitDenominator})',
+          ),
+        context.tr('改正数 vΔx/vΔy = 改正后增量 − 原增量；改正后列即平差后坐标增量。'),
+        _l(
+          context,
+          '角度改正按角数平均分配，坐标闭合差按'
+              '${_distribution == MisclosureDistribution.byLength ? '边长' : '坐标增量'}成比例分配。',
+          'Angular misclosure distributed equally; coordinate misclosure distributed '
+              '${_distribution == MisclosureDistribution.byLength ? 'by length' : 'by ΔX/ΔY'}.',
+        ),
       ],
     );
   }
@@ -245,7 +272,8 @@ class _TraversePageState extends State<TraversePage>
       pointNames: [
         for (var i = 1; i <= otherCount; i++) _traversePointName(i),
       ],
-      stationLabelBuilder: (i, _) => '导线点 ${i + 1}',
+      stationLabelBuilder: (i, _) =>
+          _l(context, '导线点 ${i + 1}', 'Point ${i + 1}'),
       presets: [
         PointNamePreset(
           label: '导线点 J1, J2…',
@@ -308,14 +336,17 @@ class _TraversePageState extends State<TraversePage>
     if (sx == null || sy == null) {
       setState(() {
         _r = null;
-        _error = '请填写起点坐标';
+        _sketchPngBytes = null;
+        _error = _l(context, '请填写起点坐标', 'Please enter start coordinates');
       });
       return;
     }
     if (angles.isEmpty || dists.isEmpty) {
       setState(() {
         _r = null;
-        _error = '请至少输入一个转折角与一条边长';
+        _sketchPngBytes = null;
+        _error = _l(context, '请至少输入一个转折角与一条边长',
+            'Enter at least one angle and one distance');
       });
       return;
     }
@@ -323,9 +354,18 @@ class _TraversePageState extends State<TraversePage>
     if (dists.length != expectedEdges) {
       setState(() {
         _r = null;
+        _sketchPngBytes = null;
         _error = _closed
-            ? '闭合导线需 ${angles.length} 条边长（角数=边数），当前 ${dists.length} 条'
-            : '附合导线需 $expectedEdges 条边长（边数=角数+1），当前 ${dists.length} 条';
+            ? _l(
+                context,
+                '闭合导线需 ${angles.length} 条边长（角数=边数），当前 ${dists.length} 条',
+                'Closed traverse needs ${angles.length} sides (angles = sides), got ${dists.length}',
+              )
+            : _l(
+                context,
+                '附合导线需 $expectedEdges 条边长（边数=角数+1），当前 ${dists.length} 条',
+                'Connecting traverse needs $expectedEdges sides (angles + 1), got ${dists.length}',
+              );
       });
       return;
     }
@@ -336,7 +376,9 @@ class _TraversePageState extends State<TraversePage>
       if (ex == null || ey == null) {
         setState(() {
           _r = null;
-          _error = '附合导线需填写终点坐标';
+          _sketchPngBytes = null;
+          _error = _l(context, '附合导线需填写终点坐标',
+              'Connecting traverse requires end coordinates');
         });
         return;
       }
@@ -363,11 +405,69 @@ class _TraversePageState extends State<TraversePage>
     );
     setState(() {
       _r = r;
-      _error = r == null ? '参数不合法，无法平差' : null;
+      _error = r == null
+          ? _l(context, '参数不合法，无法平差', 'Invalid parameters; cannot adjust')
+          : null;
     });
-    if (notify && r != null) {
-      SurveyToast.calcSuccess(context, '导线平差计算成功');
+    if (r != null) {
+      final pts = traverseAdjustedPoints(
+        start: Point2(u.toMeters(sx), u.toMeters(sy)),
+        result: r,
+      );
+      final plotPts = <LivePlotPointData>[
+        for (var i = 0; i < pts.length; i++)
+          LivePlotPointData(
+            x: u.fromMeters(pts[i].x),
+            y: u.fromMeters(pts[i].y),
+            label: _traversePointName(i),
+            emphasis: i == 0 || i == pts.length - 1,
+          ),
+      ];
+      final snap = LivePlotSnapshot(
+        title: context.tr('导线平差'),
+        sourceToolId: 'traverse',
+        sourceLabel: context.tr('导线平差'),
+        points: plotPts,
+        lines: [
+          for (var i = 0; i + 1 < plotPts.length; i++)
+            LivePlotLineData(from: plotPts[i], to: plotPts[i + 1]),
+          if (_closed && plotPts.length > 2)
+            LivePlotLineData(from: plotPts.last, to: plotPts.first),
+        ],
+        unit: u.symbol,
+      );
+      LivePlotScope.maybeRead(context)?.updateSnapshot(snap);
+      final seq = ++_sketchRenderSeq;
+      final trFn = SurveyStrings.of(context).translate;
+      LivePlot.renderSnapshotPng(snap, translate: trFn).then((bytes) {
+        if (mounted && seq == _sketchRenderSeq) {
+          _sketchPngBytes = bytes;
+        }
+      }).catchError((_) {});
+    } else {
+      _sketchPngBytes = null;
     }
+    if (notify && r != null) {
+      SurveyToast.calcSuccess(context, context.tr('导线平差计算成功'));
+    }
+  }
+
+  Future<void> _pickTraverseControlPoint(bool isStart) async {
+    final cp = await showControlPointPicker(context);
+    if (cp == null || !mounted) return;
+    final s = SettingsScope.read(context);
+    final u = s.lengthUnit;
+    final d = u.displayDigits(s.coordDigits);
+    final xStr = fmt(u.fromMeters(cp.x), d);
+    final yStr = fmt(u.fromMeters(cp.y), d);
+    if (isStart) {
+      _sx.text = xStr;
+      _sy.text = yStr;
+    } else {
+      _ex.text = xStr;
+      _ey.text = yStr;
+    }
+    _calc();
   }
 
   Future<void> _showTraverseAssessment(TraverseResult result) async {
@@ -481,7 +581,23 @@ class _TraversePageState extends State<TraversePage>
   }
 
   /// 「观测数据」卡片说明：随左角/右角、闭合/附合、分配口径切换。
-  String _observationCaption() {
+  String _observationCaption(BuildContext context) {
+    if (SurveyStrings.of(context).languageCode != 'zh') {
+      final formula = _leftAngles
+          ? 'Formula: α_next = α_prev + β_left + 180°. '
+          : 'Formula: α_next = α_prev − β_right + 180°. ';
+      final distribution = _distribution == MisclosureDistribution.byLength
+          ? 'Distribution: v = −f·D/ΣD (by length).'
+          : 'Distribution: vx = −fx·|Δx|/Σ|Δx|, vy similarly (by ΔX/ΔY).';
+      if (!_closed) {
+        return 'Connecting traverse: angles + 1 = sides; azimuth check via '
+            '${_leftAngles ? 'left' : 'right'} angles. $formula$distribution';
+      }
+      final closedRule = _leftAngles
+          ? 'Angular misclosure checked by interior angle sum; left angles must be interior. '
+          : 'Angular misclosure auto-checked between interior/exterior angle sums. ';
+      return 'Closed traverse: angles = sides. $closedRule$formula$distribution';
+    }
     final formula = _leftAngles
         ? '推算公式：α前 = α后 + β左 + 180°（结果超 360° 减 360°）'
         : '推算公式：α前 = α后 − β右 + 180°（结果小于 0° 加 360°）';
@@ -573,6 +689,16 @@ class _TraversePageState extends State<TraversePage>
         buildTable: _exportTable,
         showUnitSelector: true,
         showAngleSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
         extra: [
@@ -594,8 +720,13 @@ class _TraversePageState extends State<TraversePage>
           _calc();
         },
       ),
-      subtitle: '${_leftAngles ? '按左角' : '按右角'}推算，角度闭合差按角数平均改正，'
-          '坐标闭合差${_distribution == MisclosureDistribution.byLength ? '按边长' : '按坐标增量'}比例分配',
+      subtitle: _l(
+        context,
+        '${_leftAngles ? '按左角' : '按右角'}推算，角度闭合差按角数平均改正，'
+            '坐标闭合差${_distribution == MisclosureDistribution.byLength ? '按边长' : '按坐标增量'}比例分配',
+        'Computed via ${_leftAngles ? 'left angles' : 'right angles'}; angular misclosure distributed equally, '
+            'coordinate misclosure ${_distribution == MisclosureDistribution.byLength ? 'by side length' : 'by ΔX/ΔY'}',
+      ),
       sideVisual: r == null
           ? null
           : Column(
@@ -808,6 +939,7 @@ class _TraversePageState extends State<TraversePage>
                         observedAnglesDeg: angles,
                         coordDigits: s.coordDigits,
                         secDigits: s.angleSecDigits,
+                        tr: context.tr,
                       ),
                     ),
                     columnWidths: kTraverseTableWidths,
@@ -819,14 +951,18 @@ class _TraversePageState extends State<TraversePage>
               ],
             ),
       children: [
-        PageTutorial(id: 'traverse', workedSteps: [
-          if (r != null) ...[
-            'fᵦ = [${fmt(r.angleSum, 7)}° − ${fmt(r.expectedAngleSum, 7)}°] × 3600 = ${fmt(r.angleMisclosureSec, 1)}″',
-            'fₛ = √[${fmt(r.fx, 6)}² + ${fmt(r.fy, 6)}²] = ${fmt(r.linearMisclosure, 6)} m',
-            if (r.linearMisclosure > 0 && r.relativeDenominator.isFinite)
-              'K = ${fmt(r.totalLength, 3)} ÷ ${fmt(r.linearMisclosure, 6)} ≈ ${fmt(r.relativeDenominator, 0)}',
+        PageTutorial(
+          id: 'traverse',
+          onLoadSample: _loadTextbook,
+          liveCalcBuilder: (ctx) => [
+            if (r != null) ...[
+              'fᵦ = [${fmt(r.angleSum, 7)}° − ${fmt(r.expectedAngleSum, 7)}°] × 3600 = ${fmt(r.angleMisclosureSec, 1)}″',
+              'fₛ = √[${fmt(r.fx, 6)}² + ${fmt(r.fy, 6)}²] = ${fmt(r.linearMisclosure, 6)} m',
+              if (r.linearMisclosure > 0 && r.relativeDenominator.isFinite)
+                'K = ${fmt(r.totalLength, 3)} ÷ ${fmt(r.linearMisclosure, 6)} ≈ ${fmt(r.relativeDenominator, 0)}',
+            ],
           ],
-        ]),
+        ),
         Row(
           children: [
             Expanded(
@@ -873,6 +1009,12 @@ class _TraversePageState extends State<TraversePage>
                     onChanged: (_) => _calc(),
                   ),
                 ),
+                const SizedBox(width: Insets.xs),
+                IconButton(
+                  tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                  icon: const Icon(Icons.place_outlined, size: 18),
+                  onPressed: () => _pickTraverseControlPoint(true),
+                ),
               ],
             ),
             AngleField(
@@ -888,7 +1030,11 @@ class _TraversePageState extends State<TraversePage>
               final curAz = _startAzKey.currentState?.value ??
                   _tryParseAngle(_startAzCtrl.text, s.angleMode);
               return FieldShell(
-                label: '起始方位角快捷选择（可选角 · 起点红线朝正北 0°）',
+                label: _l(
+                  context,
+                  '起始方位角快捷选择（可选角 · 起点红线朝正北 0°）',
+                  'Start azimuth preset (red line = North 0°)',
+                ),
                 child: Wrap(
                   spacing: Insets.xs,
                   runSpacing: Insets.xs,
@@ -936,6 +1082,12 @@ class _TraversePageState extends State<TraversePage>
                       onChanged: (_) => _calc(),
                     ),
                   ),
+                  const SizedBox(width: Insets.xs),
+                  IconButton(
+                    tooltip: _l(context, '从控制点库选择', 'Pick from control points'),
+                    icon: const Icon(Icons.place_outlined, size: 18),
+                    onPressed: () => _pickTraverseControlPoint(false),
+                  ),
                 ],
               ),
               AngleField(
@@ -954,7 +1106,7 @@ class _TraversePageState extends State<TraversePage>
           step: 2,
           icon: Icons.polyline_outlined,
           title: '观测数据',
-          caption: _observationCaption(),
+          caption: _observationCaption(context),
           fields: [
             FieldShell(
               label: '转折角类型',
@@ -1019,7 +1171,11 @@ class _TraversePageState extends State<TraversePage>
               ),
             FieldShell(
               label: '角度闭合差限差',
-              helper: '按限差 ±${_angleLimitCoef.toStringAsFixed(0)}″√n 判定测角精度等级',
+              helper: _l(
+              context,
+              '按限差 ±${_angleLimitCoef.toStringAsFixed(0)}″√n 判定测角精度等级',
+              'Check angular misclosure against ±${_angleLimitCoef.toStringAsFixed(0)}″√n',
+            ),
               child: Wrap(
                 spacing: Insets.xs,
                 runSpacing: Insets.xs,
@@ -1075,18 +1231,34 @@ class _TraversePageState extends State<TraversePage>
               ),
             ),
             TableInputSheet(
-              label: '导线观测表（转折角 + 边长）',
+              label: _l(
+                context,
+                '导线观测表（转折角 + 边长）',
+                'Traverse Observations (Angles & Distances)',
+              ),
               unit: '${s.angleMode.symbol} · ${u.symbol}',
               helper: _closed
-                  ? '闭合导线：边数 = 转折角数；支持 90 30 15、90.30.15 或 90.3015'
-                  : '附合导线：边数 = 转折角数 + 1（末行转折角自动置灰）',
+                  ? _l(
+                      context,
+                      '闭合导线：边数 = 转折角数；支持 90 30 15、90.30.15 或 90.3015',
+                      'Closed traverse: sides = angles; supports 90 30 15, 90.30.15 or 90.3015',
+                    )
+                  : _l(
+                      context,
+                      '附合导线：边数 = 转折角数 + 1（末行转折角自动置灰）',
+                      'Connecting traverse: sides = angles + 1 (last angle disabled)',
+                    ),
               addLabel: '添加测站',
               minRows: 2,
               syncKey: '$_closed|${s.angleMode.name}|${u.name}',
               controllers: [_angles, _distances],
-              countLabelBuilder: () =>
-                  '${_parseAngles(_angles.text, s.angleMode).length} 角 · '
-                  '${parseNumberList(_distances.text).length} 边',
+              countLabelBuilder: () => _l(
+                context,
+                '${_parseAngles(_angles.text, s.angleMode).length} 角 · '
+                    '${parseNumberList(_distances.text).length} 边',
+                '${_parseAngles(_angles.text, s.angleMode).length} ang · '
+                    '${parseNumberList(_distances.text).length} side',
+              ),
               columns: [
                 TableInputColumn(
                   title: '${context.tr('转折角')} β (${s.angleMode.symbol})',
@@ -1101,7 +1273,8 @@ class _TraversePageState extends State<TraversePage>
                   isCellEnabled: (row, count) => _closed || row < count - 1,
                 ),
                 TableInputColumn(
-                  title: '边长 D (${u.symbol})',
+                  title: _l(context, '边长 D (${u.symbol})',
+                      'Length D (${u.symbol})'),
                   kind: TableCellKind.number,
                   width: 112,
                   flex: 5,
@@ -1162,11 +1335,16 @@ class _TraversePageState extends State<TraversePage>
                   const SizedBox(height: Insets.s),
                   DataTextField(
                     controller: _distances,
-                    label: '边长（每行一个，${u.symbol}）',
+                    label: _l(context, '边长（每行一个，${u.symbol}）',
+                        'Side lengths (one per line, ${u.symbol})'),
                     unit: u.symbol,
                     formatHint: _closed ? '闭合导线边数 = 转折角数' : '附合导线边数 = 转折角数 + 1',
                     hint: u == LengthUnit.meter ? '100.000' : '10000',
-                    countLabel: (t) => '${parseNumberList(t).length} 边',
+                    countLabel: (t) => _l(
+                      context,
+                      '${parseNumberList(t).length} 边',
+                      '${parseNumberList(t).length} sides',
+                    ),
                     minLines: 3,
                     maxLines: 5,
                     onChanged: (_) => _calc(),
@@ -1222,7 +1400,7 @@ class _TraverseJudgement extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  traverseJudgementText(r),
+                  traverseJudgementText(r, tr: context.tr),
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -1436,14 +1614,24 @@ class _LevelingPageState extends State<LevelingPage>
           : null,
       notes: <String>[
         if (r != null)
-          '${_closed ? '闭合' : '附合'}水准：Σh观测 = ${fmt(r.sumDifference, 3)} m，'
-              '理论 = ${fmt(r.theoreticalDifference, 3)} m，'
-              '闭合差 = ${fmt(r.misclosureMm, 1)} mm'
-              '（限差 ±${fmt(r.limitMm, 1)} mm）',
+          _l(
+            context,
+            '${_closed ? '闭合' : '附合'}水准：Σh观测 = ${fmt(r.sumDifference, 3)} m，'
+                '理论 = ${fmt(r.theoreticalDifference, 3)} m，'
+                '闭合差 = ${fmt(r.misclosureMm, 1)} mm'
+                '（限差 ±${fmt(r.limitMm, 1)} mm）',
+            '${_closed ? 'Closed' : 'Connecting'} leveling: Σh obs = ${fmt(r.sumDifference, 3)} m, '
+                'theo = ${fmt(r.theoreticalDifference, 3)} m, '
+                'fh = ${fmt(r.misclosureMm, 1)} mm '
+                '(limit ±${fmt(r.limitMm, 1)} mm)',
+          ),
         if (r != null)
-          '${r.ok ? '判定：合格' : '判定：超限'}；'
-              '改正数按测段距离成比例分配（mm）。',
-        '高程 = 起点高程 + Σ(观测高差 + 改正数)；末行为终点合计。',
+          _l(
+            context,
+            '${r.ok ? '判定：合格' : '判定：超限'}；改正数按测段距离成比例分配（mm）。',
+            '${r.ok ? 'Pass' : 'Exceeds limit'}; corrections distributed by segment distance (mm).',
+          ),
+        context.tr('高程 = 起点高程 + Σ(观测高差 + 改正数)；末行为终点合计。'),
       ],
     );
   }
@@ -1490,7 +1678,8 @@ class _LevelingPageState extends State<LevelingPage>
                       : 'BM2')
                   : 'TP$i'),
       ],
-      stationLabelBuilder: (i, prev) => '第 ${i + 1} 段（$prev →）',
+      stationLabelBuilder: (i, prev) =>
+          _l(context, '第 ${i + 1} 段（$prev →）', 'Segment ${i + 1} ($prev →)'),
       isClosed: _closed,
     );
     if (res == null || !mounted) return;
@@ -1531,7 +1720,11 @@ class _LevelingPageState extends State<LevelingPage>
     if (diffsRaw.isEmpty || diffsRaw.length != km.length) {
       setState(() {
         _r = null;
-        _error = '高差与距离条数需一致（当前 ${diffsRaw.length} / ${km.length}）';
+        _error = _l(
+          context,
+          '高差与距离条数需一致（当前 ${diffsRaw.length} / ${km.length}）',
+          'Differences and distances count mismatch (${diffsRaw.length} / ${km.length})',
+        );
       });
       return;
     }
@@ -1559,8 +1752,39 @@ class _LevelingPageState extends State<LevelingPage>
       _lastKm = km;
       _error = null;
     });
+    if (r.elevations.isNotEmpty) {
+      var cumDistM = 0.0;
+      final pts = <LivePlotPointData>[
+        LivePlotPointData(x: 0, y: r.elevations.first, label: _levelingPointName(0, r.elevations.length), emphasis: true),
+        for (var i = 0; i < km.length && i + 1 < r.elevations.length; i++) ...[
+          () {
+            cumDistM += km[i] * 1000.0;
+            return LivePlotPointData(
+              x: cumDistM,
+              y: r.elevations[i + 1],
+              label: _levelingPointName(i + 1, r.elevations.length),
+              emphasis: i + 1 == r.elevations.length - 1,
+            );
+          }(),
+        ],
+      ];
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: context.tr('水准平差'),
+          sourceToolId: 'leveling',
+          sourceLabel: context.tr('水准平差'),
+          points: pts,
+          lines: [
+            for (var i = 0; i + 1 < pts.length; i++)
+              LivePlotLineData(from: pts[i], to: pts[i + 1]),
+          ],
+          surveyNorthUp: false,
+          unit: 'm',
+        ),
+      );
+    }
     if (notify) {
-      SurveyToast.calcSuccess(context, '水准平差计算成功');
+      SurveyToast.calcSuccess(context, context.tr('水准平差计算成功'));
     }
   }
 
@@ -1640,6 +1864,16 @@ class _LevelingPageState extends State<LevelingPage>
         confirmClear: true,
         buildTable: _exportTable,
         showUnitSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         extra: [
           ActionChip(
@@ -1680,7 +1914,8 @@ class _LevelingPageState extends State<LevelingPage>
                   value: r.misclosureMm,
                   limit: r.limitMm,
                   valueText: '${fmt(r.misclosureMm, 1)} mm',
-                  limitText: '限差 ±${fmt(r.limitMm, 1)} mm',
+                  limitText: _l(context, '限差 ±${fmt(r.limitMm, 1)} mm',
+                      'Limit ±${fmt(r.limitMm, 1)} mm'),
                   ok: r.ok,
                 ),
                 const SizedBox(height: Insets.m),
@@ -1730,8 +1965,12 @@ class _LevelingPageState extends State<LevelingPage>
                   SurveyAlert(
                     tone: AlertTone.warning,
                     title: '水准闭合差超限',
-                    message: '实测闭合差 fh = ${fmt(r.misclosureMm, 1)} mm，'
-                        '超出限差 ±${fmt(r.limitMm, 1)} mm，请核查观测高差与距离。',
+                    message: _l(
+                      context,
+                      '实测闭合差 fh = ${fmt(r.misclosureMm, 1)} mm，'
+                          '超出限差 ±${fmt(r.limitMm, 1)} mm，请核查观测高差与距离。',
+                      'Observed fh = ${fmt(r.misclosureMm, 1)} mm exceeds limit ±${fmt(r.limitMm, 1)} mm. Check height diffs and distances.',
+                    ),
                   ),
                 ],
               ],
@@ -1762,12 +2001,19 @@ class _LevelingPageState extends State<LevelingPage>
               ],
             ),
       children: [
-        PageTutorial(id: 'leveling', workedSteps: [
-          if (r != null) ...[
-            'fₕ = [${fmt(r.sumDifference, 4)} − ${fmt(r.theoreticalDifference, 4)}] × 1000 = ${fmt(r.misclosureMm, 1)} mm',
-            'Σv = −fₕ = ${fmt(-r.misclosureMm, 1)} mm',
+        PageTutorial(
+          id: 'leveling',
+          onLoadSample: () {
+            clearDraft();
+            _calc();
+          },
+          liveCalcBuilder: (ctx) => [
+            if (r != null) ...[
+              'fₕ = [${fmt(r.sumDifference, 4)} − ${fmt(r.theoreticalDifference, 4)}] × 1000 = ${fmt(r.misclosureMm, 1)} mm',
+              'Σv = −fₕ = ${fmt(-r.misclosureMm, 1)} mm',
+            ],
           ],
-        ]),
+        ),
         _modeSwitch(),
         const SizedBox(height: Insets.m),
         Row(
@@ -1824,7 +2070,11 @@ class _LevelingPageState extends State<LevelingPage>
               label: '限差系数',
               unit: 'mm/√km',
               allowNegative: false,
-              helper: '三等 ±12√L · 四等 ±20√L · 图根 ±40√L（mm）',
+              helper: _l(
+                context,
+                '三等 ±12√L · 四等 ±20√L · 图根 ±40√L（mm）',
+                '3rd ±12√L · 4th ±20√L · Mapping ±40√L (mm)',
+              ),
               onChanged: (_) => _calc(),
             ),
             Wrap(
@@ -1832,19 +2082,19 @@ class _LevelingPageState extends State<LevelingPage>
               runSpacing: Insets.xs,
               children: [
                 for (final preset in const [
-                  ('三等 ±12√L', '12'),
-                  ('四等 ±20√L', '20'),
-                  ('图根 ±40√L', '40'),
+                  ('三等 ±12√L', '3rd ±12√L', '12'),
+                  ('四等 ±20√L', '4th ±20√L', '20'),
+                  ('图根 ±40√L', 'Mapping ±40√L', '40'),
                 ])
                   ChoiceChip(
                     label: Text(
-                      preset.$1,
+                      _l(context, preset.$1, preset.$2),
                       style: const TextStyle(fontSize: 11.5),
                     ),
-                    selected: curCoef == preset.$2,
+                    selected: curCoef == preset.$3,
                     visualDensity: VisualDensity.compact,
                     onSelected: (_) {
-                      _coef.text = preset.$2;
+                      _coef.text = preset.$3;
                       _calc();
                     },
                   ),
@@ -1859,24 +2109,38 @@ class _LevelingPageState extends State<LevelingPage>
           caption: '高差与测段长度按顺序一一对应',
           fields: [
             TableInputSheet(
-              label: '测段观测表（高差 + 距离）',
+              label: _l(
+                context,
+                '测段观测表（高差 + 距离）',
+                'Segment Observations (Δh & Length)',
+              ),
               unit: '${u.symbol} · km',
-              helper: '每行对应一个测段；高差正升负降，测段长单位 km（用于配赋与 √L 限差）',
+              helper: _l(
+                context,
+                '每行对应一个测段；高差正升负降，测段长单位 km（用于配赋与 √L 限差）',
+                'One segment per row; + for rise, − for fall; length in km',
+              ),
               addLabel: '添加测段',
               syncKey: u,
               controllers: [_diffs, _km],
-              countLabelBuilder: () =>
-                  '${parseNumberList(_diffs.text).length} 段',
+              countLabelBuilder: () {
+                final count = parseNumberList(_diffs.text).length;
+                return _l(context, '$count 段', '$count seg');
+              },
               columns: [
                 TableInputColumn(
-                  title: '高差 h (${u.symbol})',
+                  title: _l(
+                    context,
+                    '高差 h (${u.symbol})',
+                    'Diff h (${u.symbol})',
+                  ),
                   kind: TableCellKind.number,
                   width: 120,
                   flex: 5,
                   hint: u == LengthUnit.meter ? '1.234' : '123.4',
                 ),
-                const TableInputColumn(
-                  title: '长度 L (km)',
+                TableInputColumn(
+                  title: _l(context, '长度 L (km)', 'Length L (km)'),
                   kind: TableCellKind.number,
                   width: 112,
                   flex: 5,
@@ -2083,8 +2347,28 @@ class _PrecisionPageState extends State<PrecisionPage>
     setState(() {
       _r = res;
     });
+    if (res != null) {
+      final pts = <LivePlotPointData>[
+        for (var i = 0; i < v.length; i++)
+          LivePlotPointData(x: (i + 1).toDouble(), y: v[i], label: 'v${i + 1}'),
+      ];
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: context.tr('精度评定'),
+          sourceToolId: 'precision',
+          sourceLabel: context.tr('精度评定'),
+          points: pts,
+          lines: [
+            for (var i = 0; i + 1 < pts.length; i++)
+              LivePlotLineData(from: pts[i], to: pts[i + 1]),
+          ],
+          surveyNorthUp: false,
+          unit: SettingsScope.read(context).lengthUnit.symbol,
+        ),
+      );
+    }
     if (notify && res != null) {
-      SurveyToast.calcSuccess(context, '精度评定计算成功');
+      SurveyToast.calcSuccess(context, context.tr('精度评定计算成功'));
     }
   }
 
@@ -2100,6 +2384,16 @@ class _PrecisionPageState extends State<PrecisionPage>
         confirmClear: true,
         buildTable: _exportTable,
         showUnitSelector: true,
+        canUndo: canUndo,
+        canRedo: canRedo,
+        onUndo: () {
+          undoDraft();
+          _calc();
+        },
+        onRedo: () {
+          redoDraft();
+          _calc();
+        },
         onUnitChanged: _calc,
         onClear: () {
           clearDraft();
@@ -2118,17 +2412,25 @@ class _PrecisionPageState extends State<PrecisionPage>
           caption: '每行一个值，可填残差，也可填观测值（自动去均值）',
           fields: [
             TableInputSheet(
-              label: '残差 v 列表',
+              label: _l(context, '残差 v 列表', 'Residual v List'),
               unit: u.symbol,
-              helper: '每格填一项残差（当前单位 ${u.symbol}），也可右上切换文本批量粘贴',
+              helper: _l(
+                context,
+                '每格填一项残差（当前单位 ${u.symbol}），也可右上切换文本批量粘贴',
+                'Enter one residual per row (${u.symbol}), or switch to text paste',
+              ),
               addLabel: '添加残差',
               syncKey: u,
               controllers: [_residuals],
-              countLabelBuilder: () =>
-                  '${parseNumberList(_residuals.text).length} 项',
+              countLabelBuilder: () => _l(
+                context,
+                '${parseNumberList(_residuals.text).length} 项',
+                '${parseNumberList(_residuals.text).length} items',
+              ),
               columns: [
                 TableInputColumn(
-                  title: '残差 v (${u.symbol})',
+                  title: _l(context, '残差 v (${u.symbol})',
+                      'Residual v (${u.symbol})'),
                   kind: TableCellKind.number,
                   width: 180,
                   flex: 1,

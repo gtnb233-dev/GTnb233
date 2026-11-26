@@ -6,14 +6,19 @@ import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
 import '../../../l10n/survey_strings.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
+import 'control_points_page.dart';
 import 'tin_workspace.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
+
+String _el(BuildContext context, String zh, String en) =>
+    SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
 
 double? _num(TextEditingController c) => double.tryParse(c.text.trim());
 
@@ -53,10 +58,14 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
   SheetTable _exportTable() {
     final s = SettingsScope.read(context);
     final u = s.lengthUnit;
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
+    final coordCols = isZh
+        ? const ['点号', 'X', 'Y']
+        : const ['Point', 'X', 'Y'];
     final base = SheetTable(
-      title: '面积计算',
+      title: isZh ? '面积计算' : 'Polygon Area & Perimeter',
       rows: <List<String>>[
-        _areaCoordColumns,
+        coordCols,
         for (final p in _pts)
           <String>[
             p.label,
@@ -66,16 +75,28 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
       ],
       notes: <String>[
         if (_pts.length >= 3)
-          '当前输入量级：${u.label} (${u.symbol})；下述导出成果均已折算为标准米制（m / m² / 亩）。',
+          isZh
+              ? '当前输入量级：${u.label} (${u.symbol})；下述导出成果均已折算为标准米制（m / m² / 亩）。'
+              : 'Input unit: ${u.symbol}; exported results below are in metric (m / m² / ha).',
         if (_pts.length >= 3)
-          '面积 S = ${fmt(_area, 3)} m²（${fmt(squareMetersToMu(_area), 4)} 亩）',
-        if (_pts.length >= 3) '周长 = ${fmt(_perimeter, 3)} m',
+          isZh
+              ? '面积 S = ${fmt(_area, 3)} m²（${fmt(squareMetersToMu(_area), 4)} 亩）'
+              : 'Area S = ${fmt(_area, 3)} m² (${fmt(_area / 10000, 4)} ha)',
+        if (_pts.length >= 3)
+          isZh
+              ? '周长 = ${fmt(_perimeter, 3)} m'
+              : 'Perimeter = ${fmt(_perimeter, 3)} m',
         if (_centroid != null)
-          '重心 X/Y = ${fmt(_centroid!.x, s.coordDigits)} / '
-              '${fmt(_centroid!.y, s.coordDigits)} m',
-        '公式：2S = Σ(xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ)（鞋带公式，首尾自动闭合）。',
+          isZh
+              ? '重心 X/Y = ${fmt(_centroid!.x, s.coordDigits)} / '
+                  '${fmt(_centroid!.y, s.coordDigits)} m'
+              : 'Centroid X/Y = ${fmt(_centroid!.x, s.coordDigits)} / '
+                  '${fmt(_centroid!.y, s.coordDigits)} m',
+        isZh
+            ? '公式：2S = Σ(xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ)（鞋带公式，首尾自动闭合）。'
+            : 'Formula: 2S = Σ(xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ) (shoelace formula, auto-closed).',
         for (var i = 0; i < _pts.length; i++)
-          if (_pts.length > 1) _edgeNote(i, s.angleSecDigits),
+          if (_pts.length > 1) _edgeNote(i, s.angleSecDigits, isZh: isZh),
       ],
     );
     if (_pts.length < 3) return base;
@@ -95,17 +116,20 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
             showNorthArrow: true,
             surveyNorthUp: true,
           ),
-          sketchTitle: '闭合多边形略图：',
+          sketchTitle: isZh ? '闭合多边形略图：' : 'Closed Polygon Sketch:',
         ),
       ],
     );
   }
 
-  String _edgeNote(int i, int secDigits) {
+  String _edgeNote(int i, int secDigits, {required bool isZh}) {
     final next = (i + 1) % _pts.length;
     final r = inverse(_pts[i].point, _pts[next].point);
-    return '${_pts[i].label}→${_pts[next].label}：边长 ${fmt(r.distance, 3)} m，'
-        '方位角 ${fmtAzimuth(r.azimuthDeg, secDigits: secDigits)}';
+    return isZh
+        ? '${_pts[i].label}→${_pts[next].label}：边长 ${fmt(r.distance, 3)} m，'
+            '方位角 ${fmtAzimuth(r.azimuthDeg, secDigits: secDigits)}'
+        : '${_pts[i].label}→${_pts[next].label}: Dist ${fmt(r.distance, 3)} m, '
+            'Azimuth ${fmtAzimuth(r.azimuthDeg, secDigits: secDigits)}';
   }
 
   List<ParsedPoint> _pts = const [];
@@ -155,6 +179,19 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
     _calc();
   }
 
+  Future<void> _pickControlPoint() async {
+    final pt = await showControlPointPicker(context);
+    if (pt == null || !mounted) return;
+    final u = SettingsScope.read(context).lengthUnit;
+    final digits = u.displayDigits(3);
+    final x = u.fromMeters(pt.x).toStringAsFixed(digits);
+    final y = u.fromMeters(pt.y).toStringAsFixed(digits);
+    final line = '${pt.name}, $x, $y';
+    final cur = _points.text.trimRight();
+    _points.text = cur.isEmpty ? line : '$cur\n$line';
+    _calc();
+  }
+
   void _calc({bool notify = false}) {
     if (!mounted) return;
     final u = SettingsScope.read(context).lengthUnit;
@@ -169,7 +206,11 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
     if (pts.length < 3) {
       setState(() {
         _pts = pts;
-        _error = '至少需要 3 个点，每行格式「点名, X, Y」或「X Y」';
+        _error = _el(
+          context,
+          '至少需要 3 个点，每行格式「点名, X, Y」或「X Y」',
+          'At least 3 vertices required (one per line: "Name, X, Y" or "X Y")',
+        );
         _area = 0;
         _perimeter = 0;
         _centroid = null;
@@ -177,15 +218,49 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
       return;
     }
     final poly = pts.map((e) => e.point).toList();
+    final area = polygonArea(poly);
+    final perimeter = polygonPerimeter(poly);
+    final centroid = polygonCentroid(poly);
     setState(() {
       _pts = pts;
-      _area = polygonArea(poly);
-      _perimeter = polygonPerimeter(poly);
-      _centroid = polygonCentroid(poly);
+      _area = area;
+      _perimeter = perimeter;
+      _centroid = centroid;
       _error = null;
     });
+    final snapPts = [
+      for (final p in pts)
+        LivePlotPointData(
+          x: u.fromMeters(p.point.x),
+          y: u.fromMeters(p.point.y),
+          label: p.label,
+        ),
+    ];
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: _el(context, '面积计算', 'Polygon Area'),
+        sourceToolId: 'area',
+        sourceLabel: _el(context, '面积计算', 'Polygon Area'),
+        surveyNorthUp: true,
+        unit: u.symbol,
+        points: [
+          ...snapPts,
+          LivePlotPointData(
+            x: u.fromMeters(centroid.x),
+            y: u.fromMeters(centroid.y),
+            label: _el(context, '重心', 'Centroid'),
+            emphasis: true,
+            draggable: false,
+          ),
+        ],
+        polygons: [LivePlotPolygonData(points: snapPts)],
+      ),
+    );
     if (notify) {
-      SurveyToast.calcSuccess(context, '面积与周长计算成功');
+      SurveyToast.calcSuccess(
+        context,
+        _el(context, '面积与周长计算成功', 'Area & perimeter calculated'),
+      );
     }
   }
 
@@ -220,6 +295,10 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
     final scheme = Theme.of(context).colorScheme;
     final coordDigits = u.displayDigits(s.coordDigits);
     final lenDigits = u.displayDigits(3);
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
+    final coordCols = isZh ? _areaCoordColumns : const ['Point', 'X', 'Y'];
+    final edgeCols =
+        isZh ? _areaEdgeColumns : const ['Edge', 'Length (m)', 'Azimuth'];
     final plotPoints = <PlotPoint>[
       for (final p in _pts)
         PlotPoint(
@@ -231,7 +310,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
         PlotPoint(
           x: u.fromMeters(_centroid!.x),
           y: u.fromMeters(_centroid!.y),
-          label: '重心',
+          label: _el(context, '重心', 'Centroid'),
           color: scheme.secondary,
           emphasis: true,
           draggable: false,
@@ -276,28 +355,34 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
           draggable: true,
           onPointDrag: _onDrag,
           onPointDragEnd: (_) => _calc(),
-          exportTitle: '面积计算',
+          exportTitle: _el(context, '面积计算', 'Polygon Area'),
           height: 270,
-          emptyHint: '输入至少 3 个顶点后显示多边形（顶点可拖动）',
+          emptyHint: _el(
+            context,
+            '输入至少 3 个顶点后显示多边形（顶点可拖动）',
+            'Enter at least 3 vertices to display polygon (draggable)',
+          ),
         ),
         if (_error == null && _pts.length >= 3) ...[
           const SizedBox(height: Insets.l),
-          const SectionHeader(title: '面积与周长'),
+          SectionHeader(title: _el(context, '面积与周长', 'Area & Perimeter')),
           const SizedBox(height: Insets.s),
           ResultGrid(
             items: [
               ResultTile(
-                label: '面积 S',
+                label: _el(context, '面积 S', 'Area S'),
                 value: fmt(u.areaFromSqMeters(_area), 3),
                 unit: u.areaSymbol,
                 emphasis: true,
                 icon: Icons.crop_square,
                 note: u == LengthUnit.meter
-                    ? '${fmt(squareMetersToMu(_area), 4)} 亩'
+                    ? (isZh
+                        ? '${fmt(squareMetersToMu(_area), 4)} 亩'
+                        : '${fmt(_area / 10000, 4)} ha')
                     : '= ${fmt(_area, 3)} m²',
               ),
               ResultTile(
-                label: '周长',
+                label: _el(context, '周长', 'Perimeter'),
                 value: fmt(u.fromMeters(_perimeter), lenDigits),
                 unit: u.symbol,
                 emphasis: true,
@@ -306,24 +391,26 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
                     u == LengthUnit.meter ? null : '= ${fmt(_perimeter, 3)} m',
               ),
               ResultTile(
-                label: '顶点数',
+                label: _el(context, '顶点数', 'Vertices'),
                 value: '${_pts.length}',
                 icon: Icons.place_outlined,
               ),
               ResultTile(
-                label: '面积（亩）',
-                value: fmt(squareMetersToMu(_area), 4),
-                unit: '亩',
+                label: isZh ? '面积（亩）' : 'Area (ha)',
+                value: isZh
+                    ? fmt(squareMetersToMu(_area), 4)
+                    : fmt(_area / 10000, 4),
+                unit: isZh ? '亩' : 'ha',
               ),
               if (_centroid != null)
                 ResultTile(
-                  label: '重心 X',
+                  label: _el(context, '重心 X', 'Centroid X'),
                   value: fmt(u.fromMeters(_centroid!.x), coordDigits),
                   unit: u.symbol,
                 ),
               if (_centroid != null)
                 ResultTile(
-                  label: '重心 Y',
+                  label: _el(context, '重心 Y', 'Centroid Y'),
                   value: fmt(u.fromMeters(_centroid!.y), coordDigits),
                   unit: u.symbol,
                 ),
@@ -338,37 +425,53 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SectionHeader(
-                title: '顶点坐标',
-                caption: '单位 m（标准导出），按录入顺序',
+                title: _el(context, '顶点坐标', 'Vertex Coordinates'),
+                caption: _el(
+                  context,
+                  '单位 m（标准导出），按录入顺序',
+                  'In meters (standard export), in input order',
+                ),
                 actions: [
                   ExportCsvButton(
-                    columns: _areaCoordColumns,
+                    columns: coordCols,
                     rows: _coordRows(s.coordDigits),
-                    tooltip: '复制顶点坐标 CSV（点号/X/Y）',
+                    tooltip: _el(
+                      context,
+                      '复制顶点坐标 CSV（点号/X/Y）',
+                      'Copy vertex coordinates CSV (Point/X/Y)',
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: Insets.s),
               DataSheet(
-                columns: _areaCoordColumns,
+                columns: coordCols,
                 widths: const [1.2, 1.1, 1.1],
                 rows: _coordRows(s.coordDigits),
               ),
               const SizedBox(height: Insets.l),
               SectionHeader(
-                title: '边长与方位角',
-                caption: '按顶点顺序逐边反算，末边回到首点',
+                title: _el(context, '边长与方位角', 'Side Lengths & Azimuths'),
+                caption: _el(
+                  context,
+                  '按顶点顺序逐边反算，末边回到首点',
+                  'Inverse along polygon edges in order, closing to first vertex',
+                ),
                 actions: [
                   ExportCsvButton(
-                    columns: _areaEdgeColumns,
+                    columns: edgeCols,
                     rows: _edgeRows(s.angleSecDigits),
-                    tooltip: '复制边长方位角 CSV（边/边长/方位角）',
+                    tooltip: _el(
+                      context,
+                      '复制边长方位角 CSV（边/边长/方位角）',
+                      'Copy edge lengths & azimuths CSV',
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: Insets.s),
               DataSheet(
-                columns: _areaEdgeColumns,
+                columns: edgeCols,
                 widths: const [1.4, 1.0, 1.2],
                 rows: _edgeRows(s.angleSecDigits),
               ),
@@ -377,14 +480,22 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
         : null;
 
     return DetailScaffold(
-      title: '面积计算',
-      subtitle: '按坐标解析法（鞋带公式）计算多边形面积与周长',
+      title: _el(context, '面积计算', 'Polygon Area'),
+      subtitle: _el(
+        context,
+        '按坐标解析法（鞋带公式）计算多边形面积与周长',
+        'Polygon area & perimeter via shoelace formula',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         confirmClear: true,
         buildTable: _exportTable,
         showUnitSelector: true,
         onUnitChanged: _calc,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           _calc();
@@ -393,35 +504,61 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
       sideVisual: sideVisual,
       bottomSection: bottomTables,
       children: [
-        PageTutorial(id: 'area', workedSteps: [
-          if (_pts.length >= 3) ...[
-            'S = ½ |Σ(XᵢYᵢ₊₁ − Xᵢ₊₁Yᵢ)| = ${fmt(_area, 3)} m²',
-            'P = ΣDᵢ = ${fmt(_perimeter, 3)} m',
+        PageTutorial(
+          id: 'area',
+          onLoadSample: _loadRectSample,
+          liveCalcBuilder: (ctx) => [
+            if (_pts.length >= 3) ...[
+              'S = ½ |Σ(XᵢYᵢ₊₁ − Xᵢ₊₁Yᵢ)| = ${fmt(_area, 3)} m²',
+              'P = ΣDᵢ = ${fmt(_perimeter, 3)} m',
+            ],
           ],
-        ]),
+        ),
         InputCard(
           step: 1,
           icon: Icons.crop_square_outlined,
-          title: '顶点坐标',
-          caption: '每行一个点：点名, X, Y（点名可省略）；无需重复首点闭合',
-          trailing: TextButton(
-            onPressed: _loadRectSample,
-            child: const LocalText('矩形示例'),
+          title: _el(context, '顶点坐标', 'Vertex Coordinates'),
+          caption: _el(
+            context,
+            '每行一个点：点名, X, Y（点名可省略）；无需重复首点闭合',
+            'One point per line: Name, X, Y (name optional); auto-closed',
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton.icon(
+                onPressed: _pickControlPoint,
+                icon: const Icon(Icons.my_location_outlined, size: 16),
+                label: Text(_el(context, '选控制点', 'Pick Point')),
+              ),
+              TextButton(
+                onPressed: _loadRectSample,
+                child: Text(_el(context, '矩形示例', 'Sample')),
+              ),
+            ],
           ),
           fields: [
             TableInputSheet(
-              label: '顶点坐标表',
+              label: _el(context, '顶点坐标表', 'Vertex Coordinate Table'),
               unit: u.symbol,
-              helper: '按顺/逆时针填入顶点，首尾自动闭合（新增行自动递增点名）',
-              addLabel: '添加顶点',
+              helper: _el(
+                context,
+                '按顺/逆时针填入顶点，首尾自动闭合（新增行自动递增点名）',
+                'Enter vertices in order; auto-closed',
+              ),
+              addLabel: _el(context, '添加顶点', 'Add Vertex'),
               minRows: 3,
               showRowIndex: false,
               syncKey: u,
               controllers: [_points],
-              countLabelBuilder: () => '${parsePoints(_points.text).length} 点',
+              countLabelBuilder: () => _el(
+                context,
+                '${parsePoints(_points.text).length} 点',
+                '${parsePoints(_points.text).length} pts',
+              ),
               columns: [
-                const TableInputColumn(
-                  title: '点名',
+                TableInputColumn(
+                  title: _el(context, '点名', 'Name'),
                   kind: TableCellKind.text,
                   width: 74,
                   flex: 4,
@@ -451,11 +588,19 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
                   [serializePointTableRows(rows, fallbackPrefix: 'P')],
               textFallbackBuilder: (context) => DataTextField(
                 controller: _points,
-                label: '坐标列表',
+                label: _el(context, '坐标列表', 'Coordinate List'),
                 unit: u.symbol,
-                formatHint: '格式：点名, X, Y（支持空格或逗号分隔）',
+                formatHint: _el(
+                  context,
+                  '格式：点名, X, Y（支持空格或逗号分隔）',
+                  'Format: Name, X, Y (space or comma separated)',
+                ),
                 hint: 'A, 1000.000, 2000.000',
-                countLabel: (t) => '${parsePoints(t).length} 点',
+                countLabel: (t) => _el(
+                  context,
+                  '${parsePoints(t).length} 点',
+                  '${parsePoints(t).length} pts',
+                ),
                 minLines: 5,
                 maxLines: 8,
                 onChanged: (_) => _calc(),
@@ -464,7 +609,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
             ),
           ],
           action: PrimaryAction(
-            label: '计算面积',
+            label: _el(context, '计算面积', 'Compute Area'),
             onPressed: () => _calc(notify: true),
           ),
         ),
@@ -473,7 +618,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
             padding: const EdgeInsets.only(top: Insets.m),
             child: SurveyAlert(
               tone: AlertTone.error,
-              title: '输入格式提示',
+              title: _el(context, '输入格式提示', 'Input Format Error'),
               message: _error!,
             ),
           ),
@@ -535,31 +680,62 @@ class _EarthworkPageState extends State<EarthworkPage>
         'heights': _heightsDefault,
       };
 
+  void _loadSample() {
+    if (_mode == 0) {
+      _areas.text = _areasDefault;
+      _spacings.text = _spacingsDefault;
+    } else if (_mode == 1) {
+      _cell.text = '10';
+      _heights.text = _heightsDefault;
+    }
+    _calc();
+  }
+
   /// 导出：按当前模式给断面表或方格网逐格明细。
   SheetTable _exportTable() {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final sec = _sec;
     final grid = _grid;
+    final secCols = isZh
+        ? _sectionCsvColumns
+        : const ['Seg', 'Area 1', 'Area 2', 'Spacing', 'Volume'];
+    final gridCols = isZh
+        ? _gridCsvColumns
+        : const ['Row', 'Col', 'Corners', 'Split', 'Cut', 'Fill'];
     final rows = <List<String>>[
-      if (_mode == 0) _sectionCsvColumns else _gridCsvColumns,
+      if (_mode == 0) secCols else gridCols,
       if (_mode == 0 && sec != null)
-        ..._sectionRows(sec, _lastAreas, _lastSpacings)
+        ..._sectionRows(sec, _lastAreas, _lastSpacings, isZh: isZh)
       else if (_mode == 1 && grid != null)
-        ..._gridRows(grid),
+        ..._gridRows(grid, isZh: isZh),
     ];
     return SheetTable(
-      title: _mode == 0 ? '土方计算（平均断面法）' : '土方计算（方格网法）',
+      title: _mode == 0
+          ? (isZh ? '土方计算（平均断面法）' : 'Earthwork (Average End Area)')
+          : (isZh ? '土方计算（方格网法）' : 'Earthwork (Grid Method)'),
       rows: rows,
       notes: <String>[
         if (_mode == 0)
-          'V = Σ (Aᵢ + Aᵢ₊₁)/2 · Lᵢ（平均断面法，适用于道路土方）。'
+          (isZh
+              ? 'V = Σ (Aᵢ + Aᵢ₊₁)/2 · Lᵢ（平均断面法，适用于道路土方）。'
+              : 'V = Σ (Aᵢ + Aᵢ₊₁)/2 · Lᵢ (average end area method for corridors).')
         else
-          '四角棱柱法：V = Σ 四角施工高度之和/4 × 格网面积；跨挖填零线的格按三角形/梯形细分。',
+          (isZh
+              ? '四角棱柱法：V = Σ 四角施工高度之和/4 × 格网面积；跨挖填零线的格按三角形/梯形细分。'
+              : '4-corner prism method; cells crossing cut/fill zero line are subdivided.'),
         if (_mode == 0 && sec != null)
-          '总土方量 = ${fmt(sec.total, 2)} m³，路线长度 = ${fmt(sec.totalLength, 2)} m',
+          (isZh
+              ? '总土方量 = ${fmt(sec.total, 2)} m³，路线长度 = ${fmt(sec.totalLength, 2)} m'
+              : 'Total volume = ${fmt(sec.total, 2)} m³, Total length = ${fmt(sec.totalLength, 2)} m'),
         if (_mode == 1 && grid != null)
-          '挖方 = ${fmt(grid.cut, 2)} m³，填方 = ${fmt(grid.fill, 2)} m³，'
-              '净方量 = ${fmt(grid.net, 2)} m³',
-        '正值记挖方、负值记填方。',
+          (isZh
+              ? '挖方 = ${fmt(grid.cut, 2)} m³，填方 = ${fmt(grid.fill, 2)} m³，'
+                  '净方量 = ${fmt(grid.net, 2)} m³'
+              : 'Cut = ${fmt(grid.cut, 2)} m³, Fill = ${fmt(grid.fill, 2)} m³, '
+                  'Net = ${fmt(grid.net, 2)} m³'),
+        isZh
+            ? '正值记挖方、负值记填方。'
+            : 'Positive values indicate cut; negative values indicate fill.',
       ],
     );
   }
@@ -581,7 +757,7 @@ class _EarthworkPageState extends State<EarthworkPage>
   }
 
   void _calc({bool notify = false}) {
-    if (!mounted) return;
+    if (!mounted || _mode == 2) return;
     final u = SettingsScope.read(context).lengthUnit;
     final kLen = u.toMeters(1);
     final kArea = kLen * kLen;
@@ -591,20 +767,49 @@ class _EarthworkPageState extends State<EarthworkPage>
       if (aRaw.length < 2 || dRaw.isEmpty || aRaw.length != dRaw.length + 1) {
         setState(() {
           _sec = null;
-          _error = '断面数需比间距数多 1（当前 ${aRaw.length} 个面积 / ${dRaw.length} 个间距）';
+          _error = _el(
+            context,
+            '断面数需比间距数多 1（当前 ${aRaw.length} 个面积 / ${dRaw.length} 个间距）',
+            'Section count must exceed spacing count by 1 (${aRaw.length} areas / ${dRaw.length} spacings)',
+          );
         });
         return;
       }
       final a = [for (final v in aRaw) v * kArea];
       final d = [for (final v in dRaw) u.toMeters(v)];
+      final sec = volumeBySections(areas: a, spacings: d);
       setState(() {
-        _sec = volumeBySections(areas: a, spacings: d);
+        _sec = sec;
         _lastAreas = a;
         _lastSpacings = d;
         _error = null;
       });
+      var dist = 0.0;
+      final pts = <LivePlotPointData>[];
+      for (var i = 0; i < a.length; i++) {
+        pts.add(LivePlotPointData(
+          x: u.fromMeters(dist),
+          y: u.areaFromSqMeters(a[i]),
+          label: 'S${i + 1}',
+        ));
+        if (i < d.length) dist += d[i];
+      }
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: _el(context, '土方计算（平均断面法）', 'Earthwork (Average End Area)'),
+          sourceToolId: 'earthwork',
+          sourceLabel: _el(context, '平均断面法', 'Average End Area'),
+          surveyNorthUp: false,
+          unit: u.symbol,
+          points: pts,
+          paths: [LivePlotPathData(points: pts)],
+        ),
+      );
       if (notify) {
-        SurveyToast.calcSuccess(context, '断面法土方计算成功');
+        SurveyToast.calcSuccess(
+          context,
+          _el(context, '断面法土方计算成功', 'Section volume calculated'),
+        );
       }
     } else {
       final cellRaw = _num(_cell);
@@ -615,7 +820,11 @@ class _EarthworkPageState extends State<EarthworkPage>
           hRaw.first.length < 2) {
         setState(() {
           _grid = null;
-          _error = '请填写格网边长与至少 2×2 的高程矩阵';
+          _error = _el(
+            context,
+            '请填写格网边长与至少 2×2 的高程矩阵',
+            'Enter grid cell size and at least a 2×2 elevation matrix',
+          );
         });
         return;
       }
@@ -624,7 +833,11 @@ class _EarthworkPageState extends State<EarthworkPage>
       if (hRaw.any((row) => row.length != cols)) {
         setState(() {
           _grid = null;
-          _error = '高程矩阵每行列数需一致（首行 $cols 列），请检查缺列的行';
+          _error = _el(
+            context,
+            '高程矩阵每行列数需一致（首行 $cols 列），请检查缺列的行',
+            'All rows must have $cols columns',
+          );
         });
         return;
       }
@@ -632,12 +845,35 @@ class _EarthworkPageState extends State<EarthworkPage>
       final h = <List<double>>[
         for (final row in hRaw) [for (final v in row) u.toMeters(v)],
       ];
+      final grid = volumeByGrid(cellSize: cell, heights: h);
       setState(() {
-        _grid = volumeByGrid(cellSize: cell, heights: h);
+        _grid = grid;
         _error = null;
       });
+      final pts = <LivePlotPointData>[
+        for (var r = 0; r < h.length; r++)
+          for (var c = 0; c < cols; c++)
+            LivePlotPointData(
+              x: c * cellRaw,
+              y: -r * cellRaw,
+              label: _signedNumber(hRaw[r][c]),
+            ),
+      ];
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: _el(context, '土方计算（方格网法）', 'Earthwork (Grid Method)'),
+          sourceToolId: 'earthwork',
+          sourceLabel: _el(context, '方格网法', 'Grid Method'),
+          surveyNorthUp: false,
+          unit: u.symbol,
+          points: pts,
+        ),
+      );
       if (notify) {
-        SurveyToast.calcSuccess(context, '方格网土方计算成功');
+        SurveyToast.calcSuccess(
+          context,
+          _el(context, '方格网土方计算成功', 'Grid volume calculated'),
+        );
       }
     }
   }
@@ -651,11 +887,19 @@ class _EarthworkPageState extends State<EarthworkPage>
     final grid = _grid;
     final volDigits = 2;
     final lenDigits = u.displayDigits(2);
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
+    final secCols = isZh
+        ? _sectionCsvColumns
+        : const ['Seg', 'Area 1', 'Area 2', 'Spacing', 'Volume'];
+    final gridCols = isZh
+        ? _gridCsvColumns
+        : const ['Row', 'Col', 'Corners', 'Split', 'Cut', 'Fill'];
     final sectionRows = _mode == 0 && sec != null
-        ? _sectionRows(sec, _lastAreas, _lastSpacings)
+        ? _sectionRows(sec, _lastAreas, _lastSpacings, isZh: isZh)
         : const <List<String>>[];
-    final gridRows =
-        _mode == 1 && grid != null ? _gridRows(grid) : const <List<String>>[];
+    final gridRows = _mode == 1 && grid != null
+        ? _gridRows(grid, isZh: isZh)
+        : const <List<String>>[];
     final Widget? sideVisual = (_mode == 0 && _sec != null)
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -666,12 +910,12 @@ class _EarthworkPageState extends State<EarthworkPage>
                 result: _sec!,
               ),
               const SizedBox(height: Insets.l),
-              const SectionHeader(title: '土方量'),
+              SectionHeader(title: _el(context, '土方量', 'Earthwork Volume')),
               const SizedBox(height: Insets.s),
               ResultGrid(
                 items: [
                   ResultTile(
-                    label: '总土方量',
+                    label: _el(context, '总土方量', 'Total Volume'),
                     value: fmt(u.volumeFromCubicMeters(_sec!.total), volDigits),
                     unit: u.volumeSymbol,
                     note: u == LengthUnit.meter
@@ -681,7 +925,7 @@ class _EarthworkPageState extends State<EarthworkPage>
                     icon: Icons.landscape_outlined,
                   ),
                   ResultTile(
-                    label: '路线长度',
+                    label: _el(context, '路线长度', 'Total Length'),
                     value: fmt(u.fromMeters(_sec!.totalLength), lenDigits),
                     unit: u.symbol,
                     note: u == LengthUnit.meter
@@ -689,7 +933,7 @@ class _EarthworkPageState extends State<EarthworkPage>
                         : '= ${fmt(_sec!.totalLength, 2)} m',
                   ),
                   ResultTile(
-                    label: '断面段数',
+                    label: _el(context, '断面段数', 'Segments'),
                     value: '${_sec!.volumes.length}',
                   ),
                 ],
@@ -702,15 +946,19 @@ class _EarthworkPageState extends State<EarthworkPage>
                 children: [
                   EarthworkGridChart(grid: _grid!),
                   const SizedBox(height: Insets.l),
-                  const SectionHeader(
-                    title: '土方量',
-                    caption: '四角棱柱法；跨挖填零线的格子按三角形/梯形细分，正值挖、负值填',
+                  SectionHeader(
+                    title: _el(context, '土方量', 'Earthwork Volume'),
+                    caption: _el(
+                      context,
+                      '四角棱柱法；跨挖填零线的格子按三角形/梯形细分，正值挖、负值填',
+                      '4-corner prism method; zero-line cells subdivided (+ cut, - fill)',
+                    ),
                   ),
                   const SizedBox(height: Insets.s),
                   ResultGrid(
                     items: [
                       ResultTile(
-                        label: '挖方',
+                        label: _el(context, '挖方', 'Cut'),
                         value: fmt(
                           u.volumeFromCubicMeters(_grid!.cut),
                           volDigits,
@@ -723,7 +971,7 @@ class _EarthworkPageState extends State<EarthworkPage>
                         icon: Icons.arrow_upward,
                       ),
                       ResultTile(
-                        label: '填方',
+                        label: _el(context, '填方', 'Fill'),
                         value: fmt(
                           u.volumeFromCubicMeters(_grid!.fill),
                           volDigits,
@@ -736,7 +984,7 @@ class _EarthworkPageState extends State<EarthworkPage>
                         icon: Icons.arrow_downward,
                       ),
                       ResultTile(
-                        label: '净方量',
+                        label: _el(context, '净方量', 'Net'),
                         value: fmt(
                           u.volumeFromCubicMeters(_grid!.net),
                           volDigits,
@@ -747,7 +995,10 @@ class _EarthworkPageState extends State<EarthworkPage>
                             : '= ${fmt(_grid!.net, 2)} m³',
                         icon: Icons.balance,
                       ),
-                      ResultTile(label: '格数', value: '${_grid!.cells.length}'),
+                      ResultTile(
+                        label: _el(context, '格数', 'Cells'),
+                        value: '${_grid!.cells.length}',
+                      ),
                     ],
                   ),
                 ],
@@ -759,19 +1010,27 @@ class _EarthworkPageState extends State<EarthworkPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SectionHeader(
-                title: '断面成果',
-                caption: '末行为总计（总长 / 总方量）',
+                title: _el(context, '断面成果', 'Section Results'),
+                caption: _el(
+                  context,
+                  '末行为总计（总长 / 总方量）',
+                  'Last row shows total length & volume',
+                ),
                 actions: [
                   ExportCsvButton(
-                    columns: _sectionCsvColumns,
+                    columns: secCols,
                     rows: sectionRows,
-                    tooltip: '复制平均断面法 CSV（段号/前后断面面积/间距/段方量 + 总计）',
+                    tooltip: _el(
+                      context,
+                      '复制平均断面法 CSV（段号/前后断面面积/间距/段方量 + 总计）',
+                      'Copy average end area CSV',
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: Insets.s),
               DataSheet(
-                columns: _sectionCsvColumns,
+                columns: secCols,
                 widths: const [0.6, 1.2, 1.2, 0.9, 1.0],
                 rows: sectionRows,
                 highlightRows: {sectionRows.length - 1},
@@ -783,13 +1042,21 @@ class _EarthworkPageState extends State<EarthworkPage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SectionHeader(
-                    title: '逐格明细',
-                    caption: '四角施工高度取 core 回填值；格数多时表格内部滚动',
+                    title: _el(context, '逐格明细', 'Cell Breakdown'),
+                    caption: _el(
+                      context,
+                      '四角施工高度取 core 回填值；格数多时表格内部滚动',
+                      'Corner cut/fill heights; table scrolls internally',
+                    ),
                     actions: [
                       ExportCsvButton(
-                        columns: _gridCsvColumns,
+                        columns: gridCols,
                         rows: gridRows,
-                        tooltip: '复制方格网逐格明细 CSV（行/列/四角高度/跨零线/挖方/填方）',
+                        tooltip: _el(
+                          context,
+                          '复制方格网逐格明细 CSV（行/列/四角高度/跨零线/挖方/填方）',
+                          'Copy grid cell breakdown CSV',
+                        ),
                       ),
                     ],
                   ),
@@ -797,7 +1064,11 @@ class _EarthworkPageState extends State<EarthworkPage>
                     padding: const EdgeInsets.only(
                         top: Insets.s, bottom: Insets.xxs),
                     child: Text(
-                      '其中 ${_grid!.splitCellCount} 格跨挖填零线，已按三角形/梯形细分',
+                      _el(
+                        context,
+                        '其中 ${_grid!.splitCellCount} 格跨挖填零线，已按三角形/梯形细分',
+                        '${_grid!.splitCellCount} cells cross the zero line and were subdivided',
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -806,7 +1077,7 @@ class _EarthworkPageState extends State<EarthworkPage>
                     ),
                   ),
                   DataSheet(
-                    columns: _gridCsvColumns,
+                    columns: gridCols,
                     widths: const [0.5, 0.5, 2.2, 0.7, 1.0, 1.0],
                     rows: gridRows,
                     maxHeight: 280,
@@ -817,7 +1088,7 @@ class _EarthworkPageState extends State<EarthworkPage>
             : null;
 
     return DetailScaffold(
-      title: '土方计算',
+      title: _el(context, '土方计算', 'Earthwork Volume'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).push(WorkspacePageRoute<void>(
@@ -825,13 +1096,21 @@ class _EarthworkPageState extends State<EarthworkPage>
           child: const Text('TIN'),
         )
       ],
-      subtitle: '平均断面法（道路）与方格网法（场地）',
+      subtitle: _el(
+        context,
+        '平均断面法（道路）、方格网法（场地）与 TIN 三角网',
+        'Average end area, grid method, and TIN triangulated earthwork',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         confirmClear: true,
-        buildTable: _exportTable,
+        buildTable: _mode == 2 ? null : _exportTable,
         showUnitSelector: true,
         onUnitChanged: _calc,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           _calc();
@@ -840,58 +1119,98 @@ class _EarthworkPageState extends State<EarthworkPage>
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
-        PageTutorial(id: 'earthwork', workedSteps: [
-          if (_mode == 0 && sec != null)
-            'V = Σ[(Aᵢ + Aᵢ₊₁) ÷ 2 × Dᵢ] = ${fmt(sec.total, 3)} m³',
-          if (_mode != 0 && grid != null)
-            'ΔV = ${fmt(grid.cut, 3)} − ${fmt(grid.fill, 3)} = ${fmt(grid.net, 3)} m³',
-        ]),
+        PageTutorial(
+          id: _mode == 2 ? 'tin' : 'earthwork',
+          onLoadSample: _mode == 2 ? null : _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (_mode == 0 && sec != null)
+              'V = Σ[(Aᵢ + Aᵢ₊₁) ÷ 2 × Dᵢ] = ${fmt(sec.total, 3)} m³',
+            if (_mode == 1 && grid != null)
+              'ΔV = ${fmt(grid.cut, 3)} − ${fmt(grid.fill, 3)} = ${fmt(grid.net, 3)} m³',
+          ],
+        ),
         Row(
           children: [
             Expanded(
-              child: SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 0, label: LocalText('平均断面法')),
-                  ButtonSegment(value: 1, label: LocalText('方格网法')),
-                ],
-                selected: {_mode},
-                onSelectionChanged: (v) => setState(() {
-                  _mode = v.first;
-                  _calc();
-                }),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                      value: 0,
+                      label: Text(_el(context, '平均断面法', 'Average End Area')),
+                    ),
+                    ButtonSegment(
+                      value: 1,
+                      label: Text(_el(context, '方格网法', 'Grid Method')),
+                    ),
+                    ButtonSegment(
+                      value: 2,
+                      label: Text(_el(context, 'TIN 三角网土方', 'TIN Earthwork')),
+                    ),
+                  ],
+                  selected: {_mode},
+                  onSelectionChanged: (v) => setState(() {
+                    _mode = v.first;
+                    _calc();
+                  }),
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: Insets.m),
-        if (_mode == 0)
+        if (_mode == 2)
+          const TinWorkspaceView(embedded: true)
+        else if (_mode == 0)
           InputCard(
             step: 1,
             icon: Icons.layers_outlined,
-            title: '断面数据',
-            caption: 'V = Σ (A₁ + A₂)/2 · L（面积 ${u.areaSymbol}，间距 ${u.symbol}）',
+            title: _el(context, '断面数据', 'Section Data'),
+            caption: _el(
+              context,
+              'V = Σ (A₁ + A₂)/2 · L（面积 ${u.areaSymbol}，间距 ${u.symbol}）',
+              'V = Σ (A₁ + A₂)/2 · L (Area ${u.areaSymbol}, Spacing ${u.symbol})',
+            ),
             fields: [
               TableInputSheet(
-                label: '断面面积与间距表',
+                label: _el(context, '断面面积与间距表', 'Section Areas & Spacings'),
                 unit: '${u.areaSymbol} · ${u.symbol}',
-                helper: '按里程顺序填写；末行断面向下一断面间距自动置灰',
-                addLabel: '添加断面',
+                helper: _el(
+                  context,
+                  '按里程顺序填写；末行断面向下一断面间距自动置灰',
+                  'Enter in chainage order; last row spacing is disabled',
+                ),
+                addLabel: _el(context, '添加断面', 'Add Section'),
                 minRows: 2,
                 syncKey: u,
                 controllers: [_areas, _spacings],
-                countLabelBuilder: () =>
-                    '${parseNumberList(_areas.text).length} 断面 · '
-                    '${parseNumberList(_spacings.text).length} 段',
+                countLabelBuilder: () => _el(
+                  context,
+                  '${parseNumberList(_areas.text).length} 断面 · '
+                      '${parseNumberList(_spacings.text).length} 段',
+                  '${parseNumberList(_areas.text).length} sections · '
+                      '${parseNumberList(_spacings.text).length} segs',
+                ),
                 columns: [
                   TableInputColumn(
-                    title: '断面积 (${u.areaSymbol})',
+                    title: _el(
+                      context,
+                      '断面积 (${u.areaSymbol})',
+                      'Area (${u.areaSymbol})',
+                    ),
                     kind: TableCellKind.number,
                     width: 118,
                     flex: 5,
                     hint: '12.5',
                   ),
                   TableInputColumn(
-                    title: '至下一断面距 (${u.symbol})',
+                    title: _el(
+                      context,
+                      '至下一断面距 (${u.symbol})',
+                      'Spacing (${u.symbol})',
+                    ),
                     kind: TableCellKind.number,
                     width: 130,
                     flex: 5,
@@ -933,11 +1252,19 @@ class _EarthworkPageState extends State<EarthworkPage>
                   children: [
                     DataTextField(
                       controller: _areas,
-                      label: '各断面面积（每行一个）',
+                      label: _el(context, '各断面面积（每行一个）', 'Section Areas (one per line)'),
                       unit: u.areaSymbol,
-                      formatHint: '按里程顺序录入（断面积比间距多 1 个）',
+                      formatHint: _el(
+                        context,
+                        '按里程顺序录入（断面积比间距多 1 个）',
+                        'In chainage order (1 more area than spacings)',
+                      ),
                       hint: '12.5\n18.3',
-                      countLabel: (t) => '${parseNumberList(t).length} 个',
+                      countLabel: (t) => _el(
+                        context,
+                        '${parseNumberList(t).length} 个',
+                        '${parseNumberList(t).length} items',
+                      ),
                       minLines: 3,
                       maxLines: 5,
                       onChanged: (_) => _calc(),
@@ -945,11 +1272,15 @@ class _EarthworkPageState extends State<EarthworkPage>
                     const SizedBox(height: Insets.s),
                     DataTextField(
                       controller: _spacings,
-                      label: '相邻断面间距（每行一个）',
+                      label: _el(context, '相邻断面间距（每行一个）', 'Spacings (one per line)'),
                       unit: u.symbol,
-                      formatHint: '支持换行或逗号分隔',
+                      formatHint: _el(context, '支持换行或逗号分隔', 'Newline or comma separated'),
                       hint: u == LengthUnit.meter ? '20\n20' : '2000\n2000',
-                      countLabel: (t) => '${parseNumberList(t).length} 段',
+                      countLabel: (t) => _el(
+                        context,
+                        '${parseNumberList(t).length} 段',
+                        '${parseNumberList(t).length} segs',
+                      ),
                       minLines: 3,
                       maxLines: 5,
                       onChanged: (_) => _calc(),
@@ -960,7 +1291,7 @@ class _EarthworkPageState extends State<EarthworkPage>
               ),
             ],
             action: PrimaryAction(
-              label: '计算土方',
+              label: _el(context, '计算土方', 'Compute Volume'),
               onPressed: () => _calc(notify: true),
             ),
           )
@@ -968,12 +1299,16 @@ class _EarthworkPageState extends State<EarthworkPage>
           InputCard(
             step: 1,
             icon: Icons.grid_on_outlined,
-            title: '格网数据',
-            caption: '按角点网格填高差（正值挖方、负值填方），也可切换文本粘贴矩阵',
+            title: _el(context, '格网数据', 'Grid Data'),
+            caption: _el(
+              context,
+              '按角点网格填高差（正值挖方、负值填方），也可切换文本粘贴矩阵',
+              'Enter corner cut/fill heights (+ cut, - fill)',
+            ),
             fields: [
               NumberField(
                 controller: _cell,
-                label: '格网边长',
+                label: _el(context, '格网边长', 'Grid Cell Size'),
                 prefixTag: 'a',
                 lengthUnit: u,
                 allowNegative: false,
@@ -981,24 +1316,48 @@ class _EarthworkPageState extends State<EarthworkPage>
               ),
               MatrixTableInput(
                 controller: _heights,
-                label: '角点施工高差矩阵（${u.symbol}）',
+                label: _el(
+                  context,
+                  '角点施工高差矩阵（${u.symbol}）',
+                  'Corner Height Matrix (${u.symbol})',
+                ),
                 unit: u.symbol,
-                helper: '每排格点填一排单元格（正挖负填，支持 + 行 / + 列增减方格）',
+                helper: _el(
+                  context,
+                  '每排格点填一排单元格（正挖负填，支持 + 行 / + 列增减方格）',
+                  'One row per grid line (+ cut, - fill)',
+                ),
                 countLabel: (t) {
                   final m = parseNumberMatrix(t);
-                  if (m.isEmpty) return '0 行';
-                  return '${m.length}×${m.first.length} 点';
+                  if (m.isEmpty) return _el(context, '0 行', '0 rows');
+                  return _el(
+                    context,
+                    '${m.length}×${m.first.length} 点',
+                    '${m.length}×${m.first.length} pts',
+                  );
                 },
                 textFallbackBuilder: (context) => DataTextField(
                   controller: _heights,
-                  label: '高差矩阵（${u.symbol}）',
+                  label: _el(
+                    context,
+                    '高差矩阵（${u.symbol}）',
+                    'Height Matrix (${u.symbol})',
+                  ),
                   unit: u.symbol,
-                  formatHint: '每行列数需一致（正挖负填，空格分隔列）',
+                  formatHint: _el(
+                    context,
+                    '每行列数需一致（正挖负填，空格分隔列）',
+                    'Equal columns per row (space separated)',
+                  ),
                   hint: '+0.35  +0.62\n-0.22  -0.48',
                   countLabel: (t) {
                     final m = parseNumberMatrix(t);
-                    if (m.isEmpty) return '0 行';
-                    return '${m.length}×${m.first.length} 点';
+                    if (m.isEmpty) return _el(context, '0 行', '0 rows');
+                    return _el(
+                      context,
+                      '${m.length}×${m.first.length} 点',
+                      '${m.length}×${m.first.length} pts',
+                    );
                   },
                   minLines: 4,
                   maxLines: 7,
@@ -1008,16 +1367,16 @@ class _EarthworkPageState extends State<EarthworkPage>
               ),
             ],
             action: PrimaryAction(
-              label: '计算土方',
+              label: _el(context, '计算土方', 'Compute Volume'),
               onPressed: () => _calc(notify: true),
             ),
           ),
-        if (_error != null)
+        if (_mode != 2 && _error != null)
           Padding(
             padding: const EdgeInsets.only(top: Insets.m),
             child: SurveyAlert(
               tone: AlertTone.error,
-              title: '土方输入提示',
+              title: _el(context, '土方输入提示', 'Earthwork Input Error'),
               message: _error!,
             ),
           ),
@@ -1047,8 +1406,9 @@ const List<String> _gridCsvColumns = [
 List<List<String>> _sectionRows(
   SectionVolumeResult sec,
   List<double> areas,
-  List<double> spacings,
-) {
+  List<double> spacings, {
+  bool isZh = true,
+}) {
   final rows = <List<String>>[];
   for (var i = 0; i < sec.volumes.length; i++) {
     rows.add([
@@ -1059,26 +1419,39 @@ List<List<String>> _sectionRows(
       fmt(sec.volumes[i], 2),
     ]);
   }
-  rows.add(['合计', '', '', fmt(sec.totalLength, 2), fmt(sec.total, 2)]);
+  rows.add([
+    isZh ? '合计' : 'Total',
+    '',
+    '',
+    fmt(sec.totalLength, 2),
+    fmt(sec.total, 2),
+  ]);
   return rows;
 }
 
 /// 方格网逐格明细行：四角施工高度直接取 core 回填的 [GridCellVolume.corners]，
 /// 顺序 h0=(r,c)、h1=(r,c+1)、h2=(r+1,c)、h3=(r+1,c+1)，带 +/- 号；
 /// 「跨零线」列标记该格是否跨挖填零线、由 core 按三角形/梯形细分计算。
-List<List<String>> _gridRows(GridVolumeResult grid) {
+List<List<String>> _gridRows(GridVolumeResult grid, {bool isZh = true}) {
   final rows = <List<String>>[];
   for (final cell in grid.cells) {
     rows.add([
       '${cell.row + 1}',
       '${cell.col + 1}',
       _cornersText(cell.corners),
-      cell.split ? '是' : '',
+      cell.split ? (isZh ? '是' : 'Yes') : '',
       fmt(cell.cut, 2),
       fmt(cell.fill, 2),
     ]);
   }
-  rows.add(['合计', '', '', '', fmt(grid.cut, 2), fmt(grid.fill, 2)]);
+  rows.add([
+    isZh ? '合计' : 'Total',
+    '',
+    '',
+    '',
+    fmt(grid.cut, 2),
+    fmt(grid.fill, 2),
+  ]);
   return rows;
 }
 

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../../export/export_service.dart';
 import '../../l10n/survey_strings.dart';
+import '../../state/live_plot_controller.dart';
 import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
 import 'overlays.dart';
@@ -457,6 +458,134 @@ class LivePlot extends StatefulWidget {
   /// 抬起时回调一次：页面在这里触发重算（避免每帧 setState 算全部结果）。
   final void Function(int index)? onPointDragEnd;
 
+  /// Offscreen 2x-3x PNG renderer for [LivePlotSnapshot] (e.g. XLSX embedding).
+  static Future<Uint8List?> renderSnapshotPng(
+    LivePlotSnapshot snap, {
+    double width = 900,
+    double height = 600,
+    double pixelRatio = 2.0,
+    Brightness brightness = Brightness.light,
+    String Function(String)? translate,
+  }) async {
+    if (snap.isEmpty) return null;
+    PlotPoint toPlotPoint(LivePlotPointData p) => PlotPoint(
+          x: p.x,
+          y: p.y,
+          label: p.label,
+          color: p.color,
+          emphasis: p.emphasis,
+          draggable: p.draggable,
+        );
+
+    final pts = [for (final p in snap.points) toPlotPoint(p)];
+    final lines = [
+      for (final l in snap.lines)
+        PlotLine(
+          from: toPlotPoint(l.from),
+          to: toPlotPoint(l.to),
+          label: l.label,
+          color: l.color,
+          dashed: l.dashed,
+        ),
+    ];
+    final polys = [
+      for (final g in snap.polygons)
+        PlotPolygon(
+          points: [for (final p in g.points) toPlotPoint(p)],
+          fillColor: g.fillColor,
+          strokeColor: g.strokeColor,
+          strokeWidth: g.strokeWidth,
+        ),
+    ];
+    final arcs = [
+      for (final a in snap.arcs)
+        PlotArc(
+          centerX: a.centerX,
+          centerY: a.centerY,
+          startRad: a.startRad,
+          sweepRad: a.sweepRad,
+          radiusPx: a.radiusPx,
+          label: a.label,
+          color: a.color,
+        ),
+    ];
+    final arrows = [
+      for (final a in snap.arrows)
+        PlotArrow(
+          from: toPlotPoint(a.from),
+          to: toPlotPoint(a.to),
+          color: a.color,
+          label: a.label,
+          dashed: a.dashed,
+        ),
+    ];
+    final paths = [
+      for (final p in snap.paths)
+        PlotPath(
+          points: [for (final pt in p.points) toPlotPoint(pt)],
+          color: p.color,
+          strokeWidth: p.strokeWidth,
+          dashed: p.dashed,
+          label: p.label,
+        ),
+    ];
+    final labels = [
+      for (final l in snap.labels)
+        PlotLabel(x: l.x, y: l.y, text: l.text, color: l.color),
+    ];
+
+    if (pts.isEmpty &&
+        lines.isEmpty &&
+        polys.isEmpty &&
+        arrows.isEmpty &&
+        paths.isEmpty) {
+      return null;
+    }
+
+    final range = fitPlotRange(
+      pts,
+      lines: lines,
+      polygons: polys,
+      arrows: arrows,
+      paths: paths,
+    );
+    final scheme = ColorScheme.fromSeed(
+      seedColor: IosColors.blue(brightness),
+      brightness: brightness,
+    );
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.scale(pixelRatio);
+    final painter = _PlotPainter(
+      range: range,
+      points: pts,
+      lines: lines,
+      polygons: polys,
+      arcs: arcs,
+      arrows: arrows,
+      paths: paths,
+      labels: labels,
+      scheme: scheme,
+      showGrid: true,
+      showNorth: true,
+      showScaleBar: true,
+      showCanvasOverlays: true,
+      surveyNorthUp: snap.surveyNorthUp,
+      unit: snap.unit,
+      translate: translate,
+    );
+    painter.paint(canvas, Size(width, height));
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (width * pixelRatio).round(),
+      (height * pixelRatio).round(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    picture.dispose();
+    return byteData?.buffer.asUint8List();
+  }
+
   @override
   State<LivePlot> createState() => _LivePlotState();
 }
@@ -622,20 +751,26 @@ class _LivePlotState extends State<LivePlot>
       if (res.path == null) {
         SurveyToast.error(
           context,
-          '图形导出失败：${res.error ?? "未知错误"}',
+          context.tr(
+            '图形导出失败：{error}',
+            {'error': res.error ?? context.tr('未知错误')},
+          ),
         );
         return;
       }
       SurveyToast.success(
         context,
-        '已保存图形 PNG：${res.path}',
+        context.tr('已保存图形 PNG：{path}', {'path': res.path!}),
         duration: const Duration(seconds: 4),
         actionLabel: Platform.isWindows ? '打开文件夹' : null,
         onAction: () => ExportService.openFolder(res.path!),
       );
     } catch (e) {
       if (mounted) {
-        SurveyToast.error(context, '图形导出失败：$e');
+        SurveyToast.error(
+          context,
+          context.tr('图形导出失败：{error}', {'error': e.toString()}),
+        );
       }
     } finally {
       if (mounted) setState(() => _exportingPng = false);
@@ -653,17 +788,9 @@ class _LivePlotState extends State<LivePlot>
         color: isDark ? IosColors.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(Radii.card),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : scheme.outlineVariant.withValues(alpha: 0.45),
+          color: IosColors.separator(scheme.brightness),
+          width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: _empty
@@ -881,6 +1008,8 @@ class _LivePlotState extends State<LivePlot>
                                     showCanvasOverlays: _exportingPng,
                                     surveyNorthUp: widget.surveyNorthUp,
                                     unit: widget.unit,
+                                    translate:
+                                        SurveyStrings.of(context).translate,
                                     fontFamily: DefaultTextStyle.of(context)
                                         .style
                                         .fontFamily,
@@ -1085,7 +1214,7 @@ class _LivePlotState extends State<LivePlot>
       final p = widget.points[_hoverIndex!];
       final x = (_dragIndex == _hoverIndex && _dragX != null) ? _dragX! : p.x;
       final y = (_dragIndex == _hoverIndex && _dragY != null) ? _dragY! : p.y;
-      final tag = p.label.isEmpty ? context.tr('点') : p.label;
+      final tag = p.label.isEmpty ? context.tr('点') : context.tr(p.label);
       return widget.surveyNorthUp
           ? '$tag · ${_engineeringCoordinates(x, y)}'
           : '$tag · X=${x.toStringAsFixed(2)}  Y=${y.toStringAsFixed(2)}';
@@ -1284,6 +1413,7 @@ class _PlotPainter extends CustomPainter {
     this.showCanvasOverlays = false,
     this.surveyNorthUp = false,
     required this.unit,
+    this.translate,
     this.fontFamily,
     this.fontFamilyFallback,
     this.selectedIndex,
@@ -1319,8 +1449,11 @@ class _PlotPainter extends CustomPainter {
   final bool showCanvasOverlays;
   final bool surveyNorthUp;
   final String unit;
+  final String Function(String)? translate;
   final String? fontFamily;
   final List<String>? fontFamilyFallback;
+
+  String _tr(String text) => translate?.call(text) ?? text;
 
   double _sx(double x, double y, Size size, double scale) => surveyNorthUp
       ? size.width / 2 + (y - range.centerY) * scale
@@ -1507,7 +1640,7 @@ class _PlotPainter extends CustomPainter {
         final mid = p.points[p.points.length ~/ 2];
         _drawText(
           canvas,
-          label,
+          _tr(label),
           Offset(_sx(mid.x, mid.y, size, scale),
               _sy(mid.x, mid.y, size, scale) - 10),
           p.color ?? scheme.primary,
@@ -1550,7 +1683,7 @@ class _PlotPainter extends CustomPainter {
             : Offset(-dir.dy, dir.dx) / dir.distance;
         _drawText(
           canvas,
-          label,
+          _tr(label),
           mid + normal * 9 + const Offset(-2, -8),
           scheme.onSurfaceVariant,
           fontSize: 10.5,
@@ -1600,7 +1733,7 @@ class _PlotPainter extends CustomPainter {
             );
         _drawText(
           canvas,
-          label,
+          _tr(label),
           textPos,
           color,
           fontSize: 10,
@@ -1654,7 +1787,7 @@ class _PlotPainter extends CustomPainter {
         final mid = Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
         _drawText(
           canvas,
-          label,
+          _tr(label),
           mid + const Offset(0, -10),
           color,
           fontSize: 10,
@@ -1741,7 +1874,7 @@ class _PlotPainter extends CustomPainter {
       if (p.label.isNotEmpty) {
         _drawText(
           canvas,
-          p.label,
+          _tr(p.label),
           center + const Offset(8, -7),
           p.emphasis || selected ? scheme.primary : scheme.onSurface,
           fontSize: 11,
@@ -1755,7 +1888,7 @@ class _PlotPainter extends CustomPainter {
   void _paintFreeLabel(Canvas canvas, Size size, double scale, PlotLabel l) {
     _drawText(
       canvas,
-      l.text,
+      _tr(l.text),
       Offset(_sx(l.x, l.y, size, scale), _sy(l.x, l.y, size, scale)),
       l.color ?? scheme.onSurfaceVariant,
       fontSize: 10.5,

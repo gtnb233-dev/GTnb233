@@ -51,6 +51,7 @@ void main() {
 
   testWidgets('外观分区：三个风格、两个开关、六个种子都在', (tester) async {
     await _pump(tester);
+    await _tap(tester, find.byKey(const ValueKey('settings-advanced-appearance')));
 
     for (final style in UiStyle.values) {
       expect(find.text(style.label), findsOneWidget);
@@ -66,6 +67,7 @@ void main() {
 
   testWidgets('点 Miuix 写回设置，液态玻璃默认开启并可关闭', (tester) async {
     final settings = await _pump(tester);
+    await _tap(tester, find.byKey(const ValueKey('settings-advanced-appearance')));
 
     await _tap(tester, find.text('Miuix'));
     expect(settings.uiStyle, UiStyle.miuix);
@@ -82,6 +84,7 @@ void main() {
 
   testWidgets('莫奈关闭时种子不可点，打开后能选玫红', (tester) async {
     final settings = await _pump(tester);
+    await _tap(tester, find.byKey(const ValueKey('settings-advanced-appearance')));
 
     for (final chip in tester.widgetList<FilterChip>(find.byType(FilterChip))) {
       expect(chip.onSelected, isNull, reason: '莫奈关闭时种子应该置灰');

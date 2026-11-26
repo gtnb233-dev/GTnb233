@@ -163,13 +163,14 @@ void main() {
     final french = table.localizeLabels(const SurveyStrings('fr').translate);
     expect(french.title, 'Carnet de terrain');
     expect(french.rows.first, ['N° du point', 'Altitude']);
-    expect(french.rows.last, table.rows.last);
-    expect(french.notes, table.notes);
+    expect(french.rows.last, ['N° du point', '001.020']);
+    expect(french.notes, ['N° du point']);
     final sheet = french.formSheetsBuilder!().single;
     expect(sheet.sheetName, 'Carnet de terrain');
-    expect(sheet.cells.map((c) => c.value), ['N° du point', '点号', '001.020']);
+    expect(sheet.cells.map((c) => c.value), ['N° du point', 'N° du point', '001.020']);
     expect(sheet.cells.last.forceString, isTrue);
-    expect(sheet.colWidths, {0: 15.0, 1: 10.0});
+    expect(sheet.colWidths[0], 15.0);
+    expect(sheet.colWidths[1], 10.0);
     expect(sheet.landscape, isTrue);
     expect(ExportService.toCsv(french), contains('N° du point,Altitude'));
     expect(const SurveyStrings('es').translate('闭合差'), 'Error de cierre');

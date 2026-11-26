@@ -372,69 +372,87 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
                       borderRadius: BorderRadius.circular(Radii.pill),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Insets.m + 2,
-                            vertical: Insets.s + 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: bg,
-                            borderRadius: BorderRadius.circular(Radii.pill),
-                            border: Border.all(
-                              color: accent.withValues(
-                                alpha: isDark ? 0.45 : 0.3,
+                        child: Stack(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Insets.m + 2,
+                                vertical: Insets.s + 2,
                               ),
-                              width: 0.5,
+                              decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius:
+                                    BorderRadius.circular(Radii.pill),
+                                border: Border.all(
+                                  color: accent.withValues(
+                                    alpha: isDark ? 0.45 : 0.3,
+                                  ),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(icon, size: 18, color: accent),
+                                  const SizedBox(width: Insets.s),
+                                  Flexible(
+                                    child: Text(
+                                      context.tr(widget.message),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: scheme.onSurface,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                  if (widget.actionLabel != null &&
+                                      widget.onAction != null) ...[
+                                    const SizedBox(width: Insets.s),
+                                    TextButton(
+                                      onPressed: () {
+                                        widget.onDismissed();
+                                        widget.onAction!.call();
+                                      },
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: accent,
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Text(
+                                        context.tr(widget.actionLabel!),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(icon, size: 18, color: accent),
-                              const SizedBox(width: Insets.s),
-                              Flexible(
-                                child: Text(
-                                  context.tr(widget.message),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: scheme.onSurface,
-                                    height: 1.35,
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 1,
+                              child: IgnorePointer(
+                                child: ColoredBox(
+                                  color: Colors.white.withValues(
+                                    alpha: isDark ? 0.14 : 0.72,
                                   ),
                                 ),
                               ),
-                              if (widget.actionLabel != null &&
-                                  widget.onAction != null) ...[
-                                const SizedBox(width: Insets.s),
-                                TextButton(
-                                  onPressed: () {
-                                    widget.onDismissed();
-                                    widget.onAction!.call();
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: accent,
-                                    visualDensity: VisualDensity.compact,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: Text(
-                                    context.tr(widget.actionLabel!),
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -557,7 +575,7 @@ class SurveyAlert extends StatelessWidget {
                 if (closable) ...[
                   const SizedBox(width: Insets.xs),
                   IconButton(
-                    tooltip: '关闭提示',
+                    tooltip: context.tr('关闭提示'),
                     onPressed: onClose,
                     icon: const Icon(Icons.close_rounded, size: 16),
                     visualDensity: VisualDensity.compact,
@@ -706,7 +724,7 @@ abstract final class SurveyModal {
                               ),
                             ),
                             IconButton(
-                              tooltip: '关闭',
+                              tooltip: context.tr('关闭'),
                               onPressed: () => Navigator.of(dialogCtx).pop(),
                               icon: const Icon(Icons.close_rounded, size: 18),
                               visualDensity: VisualDensity.compact,

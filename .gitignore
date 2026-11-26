@@ -22,6 +22,7 @@ app/windows/flutter/ephemeral/
 # 本机构建脚本产物
 tools/stubs/**/pubspec.lock
 _sdk/
+rust/survey_rust_core/target/
 
 # 本机签名、认证和环境配置
 key.properties

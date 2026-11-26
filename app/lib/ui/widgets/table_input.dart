@@ -624,7 +624,10 @@ class _TableInputSheetState extends State<TableInputSheet> {
       _pullFromControllers();
       widget.onChanged?.call();
       if (mounted) {
-        SurveyToast.success(context, '已从剪贴板导入 ${_rows.length} 行数据');
+        SurveyToast.success(
+          context,
+          context.tr('已从剪贴板导入 {count} 行数据', {'count': _rows.length}),
+        );
       }
     }
   }
@@ -654,7 +657,8 @@ class _TableInputSheetState extends State<TableInputSheet> {
     final hairline =
         scheme.outlineVariant.withValues(alpha: isDark ? 0.55 : 0.7);
     final headerBg = scheme.onSurface.withValues(alpha: isDark ? 0.045 : 0.03);
-    final countText = widget.countLabelBuilder?.call() ?? '${_rows.length} 行';
+    final countText = widget.countLabelBuilder?.call() ??
+        context.tr('{count} 行', {'count': _rows.length});
     final hasAnyInput = _rows.any(
       (r) => r.cells.asMap().entries.any(
             (e) =>
@@ -1351,7 +1355,13 @@ class _MatrixTableInputState extends State<MatrixTableInput> {
     _pullFromExternal();
     widget.onChanged?.call(widget.controller.text);
     if (mounted) {
-      SurveyToast.success(context, '已导入 ${_grid.length}×$_cols 格网矩阵');
+      SurveyToast.success(
+        context,
+        context.tr('已导入 {rows}×{cols} 格网矩阵', {
+          'rows': _grid.length,
+          'cols': _cols,
+        }),
+      );
     }
   }
 
@@ -1526,7 +1536,7 @@ class _MatrixTableInputState extends State<MatrixTableInput> {
                                     vertical: 7,
                                   ),
                                   child: Text(
-                                    '排\\列',
+                                    context.tr('排\\列'),
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -1817,8 +1827,8 @@ class _ModeTogglePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          item('表格', false),
-          item('文本', true),
+          item(context.tr('表格'), false),
+          item(context.tr('文本'), true),
         ],
       ),
     );

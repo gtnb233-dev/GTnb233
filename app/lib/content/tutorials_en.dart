@@ -212,7 +212,7 @@ const _englishTutorials = <String, Tutorial>{
     ],
     steps: [
       'Enter intersection chainage, deflection angle and radius.',
-      'Read the calculated elements and the beginning, midpoint and end chainages.'
+      'Read the calculated elements and key stations: ZY (PC), QZ (MC), and YZ (PT).'
     ],
     example: [('α / R', '40° / 300 m'), ('T / L', '109.19 m / 209.44 m')],
     notes: [
@@ -231,7 +231,7 @@ const _englishTutorials = <String, Tutorial>{
     ],
     steps: [
       'Enter the radius, transition length and total deflection angle.',
-      'Review the shifted alignment, arc length and key chainages.'
+      'Review the shifted alignment, arc length, and key stations: ZH (TS), HY (SC), QZ (MC), YH (CS), and HZ (ST).'
     ],
     example: [('R / l', '300 m / 60 m'), ('p / m', '≈ 0.50 m / 29.99 m')],
     notes: [
@@ -406,6 +406,29 @@ const _englishTutorials = <String, Tutorial>{
     example: [('Input', '100*sin(36.86989765)'), ('Result', '≈ 60')],
     notes: [
       'Direct trigonometric functions take decimal degrees on this page. Inverse trigonometric functions return radians. Use deg(…) to convert them to degrees.'
+    ],
+  ),
+  'control_points': Tutorial(
+    title: 'Control point library',
+    summary:
+        'Manage persistent project control points (Point ID, Northing X, Easting Y, Elevation H, group, and notes) with CSV/DXF batch import and one-tap picker integration.',
+    formulas: [
+      'Standard CSV: Name, X (Northing), Y (Easting), H (Elevation), Group, Note',
+      'CASS CSV: Name, Code, Y (Easting), X (Northing), H (Elevation)'
+    ],
+    steps: [
+      'Add individual control points or batch-import CSV / DXF coordinate files.',
+      'Filter by group or search keyword, with real-time duplicate-name warnings.',
+      'Tap "Project to LivePlot" to inspect the control network (North X up, East Y right).',
+      'Pick stored control points directly inside inverse, polar, stakeout, intersection, traverse, and levelling tools.'
+    ],
+    example: [
+      ('Control point', 'K1: X=3054120.450, Y=523410.120, H=845.320'),
+      ('Export', 'Standard CSV and CASS exchange format')
+    ],
+    notes: [
+      'Surveying convention is enforced throughout: X is Northing and Y is Easting.',
+      'CASS files place Easting (Y) before Northing (X); the importer maps columns accordingly.'
     ],
   ),
 };

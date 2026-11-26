@@ -1,48 +1,34 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/native_bridge_contract.dart';
 import 'ui_style.dart';
 
-/// 莫奈（Material You）取色与系统窗口外观桥接。
+/// Material You accent color & native window appearance bridge.
 ///
-/// Android 12+ 通过 MainActivity 暴露的系统通道读 `android.R.color.system_accent1_*`
-/// （壁纸强调色），Windows 通过 Win32 runner 读 DWM `AccentColor` 并同步标题栏深浅色；
-/// 取不到时自动回落到手选种子色。
+/// Android 12+ reads `android.R.color.system_accent1_*` via [NativeWindowBridge],
+/// Windows reads DWM `AccentColor` and syncs titlebar brightness; falls back to
+/// the user-selected [MonetSeed] when unavailable.
 class Monet {
   Monet._();
 
-  static const MethodChannel _channel = MethodChannel('survey/theme');
-
-  /// 系统强调色；取不到返回 null（不抛异常，调用方直接回落）。
+  /// System accent color; returns `null` when unavailable.
   static Future<Color?> systemAccent() async {
     if (defaultTargetPlatform != TargetPlatform.android &&
         defaultTargetPlatform != TargetPlatform.windows) {
       return null;
     }
-    try {
-      final value = await _channel.invokeMethod<Object?>('accentColor');
-      if (value is int) return Color(value);
-      return null;
-    } on MissingPluginException {
-      return null;
-    } on PlatformException {
-      return null;
-    }
+    final value = await NativeWindowBridge.accentColor();
+    return value != null ? Color(value) : null;
   }
 
-  /// 通知 Windows 原生窗口同步切换标题栏深/浅色模式。
+  /// Syncs Windows native window dark/light decoration with Flutter's theme.
   static Future<void> setWindowBrightness(bool isDark) async {
     if (defaultTargetPlatform != TargetPlatform.windows) return;
-    try {
-      await _channel.invokeMethod<void>('setWindowBrightness', isDark);
-    } on MissingPluginException {
-      // 测试环境或非 Windows 宿主无原生实现，直接忽略。
-    } on PlatformException {
-      // 忽略旧版系统不兼容情况。
-    }
+    await NativeWindowBridge.setWindowBrightness(isDark);
   }
 
-  /// 当前设置对应的种子色。[systemAccentColor] 只在 Android 12+ 有值。
+  /// Resolves the active seed color from [seed] and optional [systemAccentColor].
   static Color resolveSeed(MonetSeed seed, Color? systemAccentColor) {
     if (seed == MonetSeed.auto) return systemAccentColor ?? seed.fallback;
     return seed.fallback;

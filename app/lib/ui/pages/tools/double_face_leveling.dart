@@ -144,6 +144,14 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
     return (inlineFrom: inlineFrom, inlineTo: inlineTo, values: out);
   }
 
+  String _l(BuildContext context, String zh, String en) =>
+      SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
+
+  String _formatStationIssues(BuildContext context, DoubleStaffStationResult st) =>
+      st.structuredIssues
+          .map((e) => context.trError(e.code.name, e.args, e.defaultMessage))
+          .join(' · ');
+
   void _calc({bool notify = false}) {
     if (!mounted) return;
     final observations = <DoubleStaffObservation>[];
@@ -159,8 +167,11 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
       if (parsed == null) {
         setState(() {
           _result = null;
-          _error = '第 ${i + 1} 行格式有误（需 8 个读数，行首可写点名）：'
-              '后上丝 后下丝 前上丝 前下丝 后黑 后红 前黑 前红';
+          _error = _l(
+            context,
+            '第 ${i + 1} 行格式有误（需 8 个读数，行首可写点名）：后上丝 后下丝 前上丝 前下丝 后黑 后红 前黑 前红',
+            'Line ${i + 1} format error (8 readings required, optional point ID first): BS upper, BS lower, FS upper, FS lower, BS black, BS red, FS black, FS red',
+          );
         });
         return;
       }
@@ -188,7 +199,11 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
       setState(() {
         _result = null;
         _stationPairs = const <(String, String)>[];
-        _error = '请至少输入一站观测数据';
+        _error = _l(
+          context,
+          '请至少输入一站观测数据',
+          'Please enter at least one station observation',
+        );
       });
       return;
     }
@@ -199,7 +214,7 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
       _error = null;
     });
     if (notify) {
-      SurveyToast.calcSuccess(context, '四等水准计算并检核成功');
+      SurveyToast.calcSuccess(context, context.tr('四等水准计算并检核成功'));
     }
   }
 
@@ -216,7 +231,8 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
       pointNames: [
         for (var i = 0; i < count; i++) _defaultToPoint(i),
       ],
-      stationLabelBuilder: (i, prev) => '第 ${i + 1} 站（$prev →）',
+      stationLabelBuilder: (i, prev) =>
+          _l(context, '第 ${i + 1} 站（$prev →）', 'Station ${i + 1} ($prev →)'),
       showRodFields: true,
       backRodLabel: _backRodLabel,
       frontRodLabel: _frontRodLabel,
@@ -271,25 +287,35 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
       );
       if (!mounted) return;
       if (!out.ok) {
-        SurveyToast.error(context, '导出失败：${out.error ?? ''}');
+        SurveyToast.error(
+          context,
+          _l(context, '导出失败：${out.error ?? ''}', 'Export failed: ${out.error ?? ''}'),
+        );
         return;
       }
-      final kindLabel = format == ExportFormat.png ? '手簿工程图' : '手簿 Excel';
+      final kindLabel = format == ExportFormat.png
+          ? _l(context, '手簿工程图', 'handbook image')
+          : _l(context, '手簿 Excel', 'handbook Excel');
       SurveyToast.success(
         context,
-        '已导出标准水准$kindLabel：${out.path}',
+        _l(context, '已导出标准水准$kindLabel：${out.path}', 'Exported $kindLabel: ${out.path}'),
         duration: const Duration(seconds: 4),
-        actionLabel: Platform.isWindows && out.path != null ? '打开文件夹' : null,
+        actionLabel: Platform.isWindows && out.path != null
+            ? context.tr('打开文件夹')
+            : null,
         onAction: () => ExportService.openFolder(out.path!),
       );
     } catch (e) {
       if (!mounted) return;
-      SurveyToast.error(context, '导出异常：$e');
+      SurveyToast.error(
+        context,
+        _l(context, '导出异常：$e', 'Export error: $e'),
+      );
     }
   }
 
   /// 一行的文本：原始读数取观测值，计算值取 core 的成果。
-  List<List<String>> _rows(DoubleStaffLevelingResult r) {
+  List<List<String>> _rows(BuildContext context, DoubleStaffLevelingResult r) {
     final out = <List<String>>[];
     String pair(double a, double b) =>
         '${fmt(a / 1000, 3)}/${fmt(b / 1000, 3)}';
@@ -312,7 +338,9 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
         o == null ? '' : pair(o.backRed, o.frontRed),
         '${fmt(st.backConstantDiffMm, 1)}/${fmt(st.frontConstantDiffMm, 1)}',
         fmt(st.meanDiffMm, 1),
-        st.ok ? '合格' : '超限',
+        !st.ok
+            ? context.tr('超限')
+            : (st.cumStadiaWarning ? context.tr('预警') : context.tr('合格')),
       ]);
     }
     return out;
@@ -321,6 +349,8 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
   @override
   Widget build(BuildContext context) {
     final r = _result;
+    final hasCumWarning =
+        r != null && r.stations.any((s) => s.cumStadiaWarning);
     final errors = <int>{
       if (r != null)
         for (var i = 0; i < r.stations.length; i++)
@@ -329,7 +359,8 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
     final hints = <int, String>{
       if (r != null)
         for (var i = 0; i < r.stations.length; i++)
-          if (!r.stations[i].ok) i: '第 ${i + 1} 站：${r.stations[i].issueText}',
+          if (!r.stations[i].ok)
+            i: '${_l(context, '第 ${i + 1} 站', 'Station ${i + 1}')}: ${_formatStationIssues(context, r.stations[i])}',
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -366,8 +397,13 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
               addLabel: '添加测站',
               syncKey: _pointNames.join('|'),
               controllers: [_obs],
-              countLabelBuilder: () =>
-                  '${_obs.text.split('\n').where((e) => _parseLine(e.trim()) != null).length} 站',
+              countLabelBuilder: () {
+                final count = _obs.text
+                    .split('\n')
+                    .where((e) => _parseLine(e.trim()) != null)
+                    .length;
+                return _l(context, '$count 站', '$count stn');
+              },
               columns: const [
                 TableInputColumn(
                   title: '点号(选填)',
@@ -424,8 +460,13 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
                 unit: 'mm',
                 minLines: 4,
                 maxLines: 8,
-                countLabel: (text) =>
-                    '${text.split('\n').where((e) => _parseLine(e.trim()) != null).length} 站',
+                countLabel: (text) {
+                  final count = text
+                      .split('\n')
+                      .where((e) => _parseLine(e.trim()) != null)
+                      .length;
+                  return _l(context, '$count 站', '$count stn');
+                },
                 onChanged: (_) => _calc(),
               ),
               onChanged: () => _calc(),
@@ -436,14 +477,16 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
               children: [
                 ActionChip(
                   avatar: const Icon(Icons.label_outline, size: 15),
-                  label: const Text('自定义点名', style: TextStyle(fontSize: 12)),
+                  label: const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
                   visualDensity: VisualDensity.compact,
                   onPressed: _openPointNamesDialog,
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.table_view_rounded, size: 15),
-                  label:
-                      const Text('导出手簿 Excel', style: TextStyle(fontSize: 12)),
+                  label: Text(
+                    _l(context, '导出手簿 Excel', 'Export Excel'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   visualDensity: VisualDensity.compact,
                   onPressed: r != null
                       ? () => _exportHandbook(ExportFormat.xlsx)
@@ -451,7 +494,10 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.image_outlined, size: 15),
-                  label: const Text('导出手簿图片', style: TextStyle(fontSize: 12)),
+                  label: Text(
+                    _l(context, '导出手簿图片', 'Export Image'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   visualDensity: VisualDensity.compact,
                   onPressed: r != null
                       ? () => _exportHandbook(ExportFormat.png)
@@ -478,25 +524,84 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
           const SizedBox(height: Insets.l),
           SectionHeader(
             title: '记录与检核',
-            caption: '限差：|K+黑−红| ≤ 3 mm、|d| ≤ 5 m、|Σd| ≤ 10 m',
+            caption: _l(
+              context,
+              '限差：|K+黑−红| ≤ 3 mm、|d| ≤ 5 m、|Σd| ≤ 10 m（±7 m 预警）、视线高 > 0.2 m',
+              'Limits: |K+B−R| ≤ 3 mm, |d| ≤ 5 m, |Σd| ≤ 10 m (±7 m warn), sight > 0.2 m',
+            ),
             actions: [
-              const InfoHintTooltip(
-                message: '按四等双面尺规范：每站需填后/前上丝、下丝、黑面与红面共 8 个毫米读数。',
+              InfoHintTooltip(
+                message: _l(
+                  context,
+                  '按四等双面尺规范：每站需填后/前上丝、下丝、黑面与红面共 8 个毫米读数，且视线高须 > 0.2 m。',
+                  'Fourth-order double-staff spec: 8 mm readings per station (BS/FS upper, lower, black, red) with sight height > 0.2 m.',
+                ),
               ),
+              if (hasCumWarning)
+                Pill(
+                  label: _l(context, '|Σd| > 7 m 预警', '|Σd| > 7 m warn'),
+                  tone: PillTone.warning,
+                ),
               // 全部通过时固定输出「全部合格」（测试按 find.text 精确匹配）；
               // 否则按「第 N 站：原因」逐条列在下方警告卡里。
               Pill(
-                label: r.ok ? '全部合格' : '${r.issues.length} 项超限',
+                label: r.ok
+                    ? context.tr('全部合格')
+                    : _l(
+                        context,
+                        '${r.issues.length} 项超限',
+                        '${r.issues.length} violation(s)',
+                      ),
                 tone: r.ok ? PillTone.success : PillTone.danger,
               ),
             ],
           ),
+          if (hasCumWarning) ...[
+            const SizedBox(height: Insets.s),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Insets.m, vertical: Insets.s),
+              decoration: BoxDecoration(
+                color: IosColors.orange(Theme.of(context).brightness)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(Radii.field),
+                border: Border.all(
+                  color: IosColors.orange(Theme.of(context).brightness)
+                      .withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: IosColors.orange(Theme.of(context).brightness),
+                  ),
+                  const SizedBox(width: Insets.s),
+                  Expanded(
+                    child: Text(
+                      _l(
+                        context,
+                        '累计视距差 |Σd| 已超过 7.0 m 预警阈值（限差 ±10.0 m），请注意平衡前后视距。',
+                        'Cumulative stadia difference |Σd| exceeds 7.0 m warning threshold (limit ±10.0 m). Balance BS/FS distances.',
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: IosColors.orange(Theme.of(context).brightness),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: Insets.s),
           SurfaceCard(
             padding: const EdgeInsets.all(Insets.s),
             child: WideTable(
               columns: kDoubleFaceColumns,
-              rows: _rows(r),
+              rows: _rows(context, r),
               columnWidths: kDoubleFaceWidths,
               errorRows: errors,
               rowHints: hints,
@@ -539,7 +644,11 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
             SurveyAlert(
               tone: AlertTone.error,
               title: '超限详情',
-              message: r.issues.join('\n'),
+              message: [
+                for (final st in r.stations)
+                  if (!st.ok)
+                    '${_l(context, '第 ${st.index} 站', 'Station ${st.index}')}: ${_formatStationIssues(context, st)}',
+              ].join('\n'),
             ),
           ],
         ],

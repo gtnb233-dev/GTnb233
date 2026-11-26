@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'support/app_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:survey_pro/l10n/survey_strings.dart';
 import 'package:survey_pro/main.dart';
 import 'package:survey_pro/state/drafts.dart';
 import 'package:survey_pro/state/settings.dart';
@@ -19,6 +20,7 @@ import 'package:survey_pro/ui/pages/tools/projection_tools.dart';
 import 'package:survey_pro/ui/pages/tools/quadrant_tools.dart';
 import 'package:survey_pro/ui/pages/tools_page.dart';
 import 'package:survey_pro/ui/widgets/widgets.dart';
+import 'package:survey_pro/ui/widgets/workspace_commands.dart';
 
 /// 小屏 + 大字号下的版式体检。
 ///
@@ -172,21 +174,23 @@ void main() {
       tester.view.reset();
       tester.platformDispatcher.clearTextScaleFactorTestValue();
     });
+    // 窄屏首页隐藏底栏，先在宽屏切到「设置」页再缩窄，展示液态玻璃底栏。
+    tester.view.physicalSize = const Size(1280, 800) * 3;
     await tester
         .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = _smallPhone * 3;
     await tester.pumpAndSettle();
 
     expect(find.byType(GlassNavBar), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
-    expect(tester.takeException(), isNull);
-
-    // 点玻璃条上的「设置」，切页后同样不溢出。
-    await tester.tap(
-      find.descendant(
-        of: find.byType(GlassNavBar),
-        matching: find.text('设置'),
-      ),
-    );
+    final adv = find.byKey(const ValueKey('settings-advanced-appearance'));
+    await tester.ensureVisible(adv);
+    await tester.pumpAndSettle();
+    await tester.tap(adv);
     await tester.pumpAndSettle();
     expect(find.text('UI 风格'), findsWidgets);
     expect(tester.takeException(), isNull);
@@ -210,16 +214,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('应用外壳在小屏默认用液态玻璃底栏，宽屏用左侧栏', (tester) async {
+  testWidgets('应用外壳在小屏非首页用液态玻璃底栏，宽屏用左侧栏', (tester) async {
     // SurveyApp 自带 MaterialApp / MediaQuery，不能再套一层 MaterialApp。
-    tester.view.physicalSize = _smallPhone * 3;
+    tester.view.physicalSize = const Size(1280, 800) * 3;
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     await tester
         .pumpWidget(SurveyApp(settings: AppSettings(), drafts: DraftStore()));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('工具库'));
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = _smallPhone * 3;
+    await tester.pumpAndSettle();
     expect(find.byType(GlassNavBar), findsOneWidget);
-    expect(find.text('工程测量'), findsWidgets);
+    expect(find.text('工具库'), findsWidgets);
     expect(tester.takeException(), isNull);
 
     tester.view.physicalSize = const Size(1280, 800) * 3;
@@ -392,5 +401,78 @@ void main() {
     expect(find.byType(InversePage), findsNothing);
     expect(find.byKey(rootHeader), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('宽屏 (>=840dp) 双栏侧边栏与 ◨ LivePlot 分栏联动，840dp 切换保留输入状态',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      SurveyApp(settings: AppSettings(), drafts: DraftStore()),
+    );
+    await tester.pumpAndSettle();
+
+    // 宽屏显示 workspace-sidebar 与 LivePlot 分栏切换按钮
+    expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
+    await tester.tap(find.byTooltip('LivePlot').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
+    expect(find.byType(WorkspaceLivePlotPanel), findsOneWidget);
+
+    // 打开坐标反算并修改 A 点 X，验证跨 840dp 断点缩放不丢输入状态
+    await tester.tap(find.byTooltip('快速跳转'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+      '坐标反算',
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsOneWidget);
+
+    final firstField = find.descendant(
+      of: find.byType(InversePage),
+      matching: find.byType(TextField),
+    ).first;
+    await tester.enterText(firstField, '1234.567');
+    await tester.pumpAndSettle();
+
+    // 缩窄到 <840dp：切换为窄屏二级顶栏，输入保留
+    tester.view.physicalSize = const Size(839, 800);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workspace-detail-header')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
+    expect(tester.widget<TextField>(firstField).controller!.text, '1234.567');
+
+    // 拉宽回 >=840dp：恢复双栏与分栏 LivePlot，输入仍保留
+    tester.view.physicalSize = const Size(840, 800);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
+    expect(tester.widget<TextField>(firstField).controller!.text, '1234.567');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('320x640 @ 1.3x 字号下中英文外壳均无溢出', (tester) async {
+    for (final lang in [AppLanguage.chinese, AppLanguage.english]) {
+      SharedPreferences.setMockInitialValues({});
+      final settings = AppSettings();
+      await settings.setLanguage(lang);
+      tester.view.physicalSize = _smallPhone * 3;
+      tester.view.devicePixelRatio = 3.0;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(() {
+        tester.view.reset();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+      await tester.pumpWidget(
+        SurveyApp(settings: settings, drafts: DraftStore()),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'Overflow in $lang');
+    }
   });
 }

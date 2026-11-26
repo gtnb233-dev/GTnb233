@@ -105,8 +105,13 @@ class _WideTableState extends State<WideTable> {
   void _copyCell(int col, String text) {
     unawaited(Clipboard.setData(ClipboardData(text: text)));
     unawaited(HapticFeedback.selectionClick());
-    final label = col < widget.columns.length ? widget.columns[col] : '数值';
-    SurveyToast.success(context, '已复制 $label：$text');
+    final label = col < widget.columns.length
+        ? context.tr(widget.columns[col])
+        : context.tr('数值');
+    SurveyToast.success(
+      context,
+      context.tr('已复制 {label}：{value}', {'label': label, 'value': text}),
+    );
   }
 
   Color? _rowBackground(ColorScheme scheme, int r) {
@@ -419,7 +424,7 @@ class _WideTableState extends State<WideTable> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
                     child: Text(
-                      widget.rowHints[r]!,
+                      context.tr(widget.rowHints[r]!),
                       style: TextStyle(fontSize: 11, color: scheme.error),
                     ),
                   ),

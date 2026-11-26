@@ -10,6 +10,7 @@ import '../../../export/leveling_handbook_xlsx.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
 import '../../../l10n/survey_strings.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
 import '../../widgets/draft_mixin.dart';
@@ -211,9 +212,9 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   /// 每站：后上/后下 50 m、前上/前下 50 m；K后=4687、K前=4787；K+黑−红 = 0。
   static const List<List<String>> _example = <List<String>>[
     <String>['1571', '1071', '1385', '885', '1384', '6071', '1381', '6168'],
-    <String>['1600', '1100', '1420', '920', '1500', '6187', '1498', '6285'],
+    <String>['1600', '1100', '1420', '920', '1500', '6287', '1498', '6185'],
     <String>['1650', '1150', '1470', '970', '1600', '6287', '1596', '6383'],
-    <String>['1700', '1200', '1520', '1020', '1700', '6387', '1701', '6488'],
+    <String>['1700', '1200', '1520', '1020', '1700', '6487', '1701', '6388'],
   ];
 
   LevelingGrade _grade = LevelingGrade.fourth;
@@ -225,7 +226,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   double get _distanceCoefficient => _mountain && _grade == LevelingGrade.fourth
       ? 25
       : _grade.lengthCoefficient;
-  bool _alternateRods = false;
+  bool _alternateRods = true;
   double _sightLimit = 80;
 
   /// 默认后尺 K=4687、前尺 K=4787；可切为对调或同尺 4687。
@@ -290,6 +291,17 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     _calc();
   }
 
+  String _l(BuildContext context, String zh, String en) =>
+      SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
+
+  String _formatStationIssues(
+    BuildContext context,
+    DoubleStaffStationResult st,
+  ) =>
+      st.structuredIssues
+          .map((e) => context.trError(e.code.name, e.args, e.defaultMessage))
+          .join(' · ');
+
   Future<void> _showStationLimits(int index) async {
     final row = _rows[index];
     final result = _resultOf(index);
@@ -302,7 +314,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                  '${row.name.text} · ${result.issueText.split('、').map((issue) => context.tr(issue)).join(' · ')}'),
+                  '${row.name.text} · ${_formatStationIssues(context, result)}'),
               const SizedBox(height: 8),
               for (final (action, label, icon) in [
                 ('repeat', '重测本站', Icons.refresh),
@@ -658,7 +670,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         _route = null;
         _stationResults = const <DoubleStaffStationResult>[];
         _completeRows = const <int>[];
-        _error = '请填写起点高程';
+        _error = _l(context, '请填写起点高程', 'Please enter start elevation');
       });
       return;
     }
@@ -678,7 +690,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         _route = null;
         _stationResults = const <DoubleStaffStationResult>[];
         _completeRows = const <int>[];
-        _error = _electronic ? '请填写前后直读距离与四个尺面读数' : '请至少填满一站 8 个读数（mm）';
+        _error = _electronic
+            ? _l(context, '请填写前后直读距离与四个尺面读数',
+                'Enter BS/FS direct distances and 4 staff readings')
+            : _l(context, '请至少填满一站 8 个读数（mm）',
+                'Complete at least 1 station (8 readings in mm)');
       });
       return;
     }
@@ -688,7 +704,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         _route = null;
         _stationResults = const <DoubleStaffStationResult>[];
         _completeRows = const <int>[];
-        _error = '附合路线需填写终点高程';
+        _error = _l(context, '附合路线需填写终点高程',
+            'Connecting route requires end elevation');
       });
       return;
     }
@@ -722,8 +739,45 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       _stationResults = perStation;
       _completeRows = idx;
       _route = route;
-      _error = anyBad ? '有测站检核超限（行下已标红），路线成果仅供参考' : null;
+      _error = anyBad
+          ? context.tr('有测站检核超限（行下已标红），路线成果仅供参考')
+          : null;
     });
+    final localPoints = readWorkspacePoints(drafts);
+    final pointsByRoute =
+        route.pointNames.map((id) => localPoints[id]).toList();
+    final routePoints = [
+      for (final point in pointsByRoute)
+        if (point != null)
+          LivePlotPointData(
+            x: point.x,
+            y: point.y,
+            label: point.label,
+            emphasis: point.emphasis,
+          ),
+    ];
+    if (routePoints.isNotEmpty) {
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: context.tr('四等水准测量'),
+          sourceToolId: 'leveling4',
+          sourceLabel: context.tr('四等水准测量'),
+          points: routePoints,
+          lines: [
+            if (_showRouteLines)
+              for (var i = 0; i + 1 < pointsByRoute.length; i++)
+                if (pointsByRoute[i] case final from?)
+                  if (pointsByRoute[i + 1] case final to?)
+                    LivePlotLineData(
+                      from: LivePlotPointData(
+                          x: from.x, y: from.y, label: from.label),
+                      to: LivePlotPointData(x: to.x, y: to.y, label: to.label),
+                    ),
+          ],
+          unit: 'm',
+        ),
+      );
+    }
   }
 
   DoubleStaffObservation? _observation(int index) {
@@ -868,20 +922,27 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     );
     if (!mounted) return;
     if (!res.ok) {
-      SurveyToast.error(context, '导出失败：${res.error ?? ''}');
+      SurveyToast.error(
+        context,
+        _l(context, '导出失败：${res.error ?? ''}',
+            'Export failed: ${res.error ?? ''}'),
+      );
       return;
     }
     final kindLabel = switch (format) {
-      ExportFormat.png => '手簿工程图',
-      ExportFormat.xlsx => '手簿 Excel',
+      ExportFormat.png => _l(context, '手簿工程图', 'handbook image'),
+      ExportFormat.xlsx => _l(context, '手簿 Excel', 'handbook Excel'),
       ExportFormat.csv => 'CSV',
       ExportFormat.txt => 'TXT',
     };
     SurveyToast.success(
       context,
-      '已导出标准水准$kindLabel：${res.path}',
+      _l(context, '已导出标准水准$kindLabel：${res.path}',
+          'Exported $kindLabel: ${res.path}'),
       duration: const Duration(seconds: 4),
-      actionLabel: Platform.isWindows && res.path != null ? '打开文件夹' : null,
+      actionLabel: Platform.isWindows && res.path != null
+          ? context.tr('打开文件夹')
+          : null,
       onAction: () => ExportService.openFolder(res.path!),
     );
   }
@@ -966,7 +1027,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               ? 'P${i + 1}'
               : _rows[i].name.text.trim(),
       ],
-      stationLabelBuilder: (i, prev) => '第 ${i + 1} 站（$prev →）',
+      stationLabelBuilder: (i, prev) =>
+          _l(context, '第 ${i + 1} 站（$prev →）', 'Station ${i + 1} ($prev →)'),
       backRodLabel: _backRodLabel,
       frontRodLabel: _frontRodLabel,
       isClosed: _closed,
@@ -1196,10 +1258,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           controller: row.name,
           onChanged: (_) => _calc(),
           style: const TextStyle(fontSize: 12.5),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            hintText: '点名',
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            hintText: context.tr('点名'),
           ),
         ),
       ),
@@ -1235,12 +1298,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         onTap: res != null && !res.ok ? () => _showStationLimits(i) : null,
         child: _textCell(
           res == null
-              ? '未填完'
+              ? context.tr('未填完')
               : (!res.ok
-                  ? '超限'
+                  ? context.tr('超限')
                   : res.cumulativeWarning
-                      ? '预警'
-                      : '合格'),
+                      ? context.tr('预警')
+                      : context.tr('合格')),
           kHandbookWidths[17],
           color: res == null
               ? Theme.of(context).colorScheme.onSurfaceVariant
@@ -1254,7 +1317,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         width: 40,
         child: SurveyPopconfirm(
           enabled: _rows.length > 1,
-          title: '删除第 ${i + 1} 站？',
+          title: _l(context, '删除第 ${i + 1} 站？', 'Delete station ${i + 1}?'),
           description: '将移除该站观测读数，且不可撤销',
           confirmLabel: '删除',
           destructive: true,
@@ -1336,7 +1399,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                       key: ValueKey<String>('leveling4-issue-$i'),
                       padding: const EdgeInsets.fromLTRB(52, 0, 8, 6),
                       child: Text(
-                        '第 ${i + 1} 站：${_resultOf(i)!.issueText}',
+                        '${_l(context, '第 ${i + 1} 站', 'Station ${i + 1}')}: ${_formatStationIssues(context, _resultOf(i)!)}',
                         style: TextStyle(fontSize: 11, color: scheme.error),
                       ),
                     ),
@@ -1355,22 +1418,24 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                       TextButton.icon(
                         onPressed: _addRow,
                         icon: const Icon(Icons.add_circle_outline, size: 16),
-                        label: const Text('添加测站'),
+                        label: const LocalText('添加测站'),
                       ),
                       TextButton.icon(
                         onPressed: _openPointNamesDialog,
                         icon: const Icon(Icons.edit_note_rounded, size: 16),
-                        label: const Text('批量自定义点名'),
+                        label: Text(_l(context, '批量自定义点名', 'Batch Point IDs')),
                       ),
                       TextButton.icon(
                         onPressed: () => _exportHandbook(ExportFormat.xlsx),
                         icon: const Icon(Icons.table_view_rounded, size: 16),
-                        label: const Text('导出标准手簿 Excel'),
+                        label: Text(_l(context, '导出标准手簿 Excel',
+                            'Export Handbook Excel')),
                       ),
                       TextButton.icon(
                         onPressed: () => _exportHandbook(ExportFormat.png),
                         icon: const Icon(Icons.image_outlined, size: 16),
-                        label: const Text('导出标准手簿图片'),
+                        label: Text(_l(context, '导出标准手簿图片',
+                            'Export Handbook Image')),
                       ),
                     ],
                   ),
@@ -1385,7 +1450,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
 
   Widget _label(ColorScheme scheme, String text) => Padding(
         padding: const EdgeInsets.only(right: 2),
-        child: Text(
+        child: LocalText(
           text,
           style: TextStyle(
             fontSize: 11.5,
@@ -1432,7 +1497,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   showSelectedIcon: false,
                   segments: [
                     for (final g in LevelingGrade.values)
-                      ButtonSegment(value: g, label: Text(g.label)),
+                      ButtonSegment(value: g, label: LocalText(g.label)),
                   ],
                   selected: {_grade},
                   onSelectionChanged: (v) => setState(() {
@@ -1446,8 +1511,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                 SegmentedButton<bool>(
                   showSelectedIcon: false,
                   segments: const [
-                    ButtonSegment(value: true, label: Text('闭合环')),
-                    ButtonSegment(value: false, label: Text('附合')),
+                    ButtonSegment(value: true, label: LocalText('闭合环')),
+                    ButtonSegment(value: false, label: LocalText('附合')),
                   ],
                   selected: {_closed},
                   onSelectionChanged: (v) => setState(() {
@@ -1461,8 +1526,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                 SegmentedButton<bool>(
                   showSelectedIcon: false,
                   segments: const [
-                    ButtonSegment(value: true, label: Text('按距离')),
-                    ButtonSegment(value: false, label: Text('按站数')),
+                    ButtonSegment(value: true, label: LocalText('按距离')),
+                    ButtonSegment(value: false, label: LocalText('按站数')),
                   ],
                   selected: {_byDistance},
                   onSelectionChanged: (v) => setState(() {
@@ -1477,7 +1542,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   showSelectedIcon: false,
                   segments: [
                     for (final m in _RodKMode.values)
-                      ButtonSegment(value: m, label: Text(m.label)),
+                      ButtonSegment(
+                        value: m,
+                        label: Text(
+                          m == _RodKMode.same4687
+                              ? _l(context, '同尺4687', 'Same 4687')
+                              : m.label,
+                        ),
+                      ),
                   ],
                   selected: {_rodMode},
                   onSelectionChanged: (v) => setState(() {
@@ -1529,9 +1601,15 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           ),
           const SizedBox(height: Insets.s),
           Text(
-            '后尺 K${_backRodLabel.isEmpty ? '' : _backRodLabel} = ${_kBack.toStringAsFixed(0)}，'
-            '前尺 K${_frontRodLabel.isEmpty ? '' : _frontRodLabel} = ${_kFront.toStringAsFixed(0)}；'
-            '四等检核 |K+黑−红| ≤ 3 mm、|视距差| ≤ 3 m、|Σd| ≤ 10 m，±7 m 预警。',
+            _l(
+              context,
+              '后尺 K${_backRodLabel.isEmpty ? '' : _backRodLabel} = ${_kBack.toStringAsFixed(0)}，'
+                  '前尺 K${_frontRodLabel.isEmpty ? '' : _frontRodLabel} = ${_kFront.toStringAsFixed(0)}；'
+                  '四等检核 |K+黑−红| ≤ 3 mm、|视距差| ≤ 3 m、|Σd| ≤ 10 m（±7 m 预警）、视线高 > 0.2 m。',
+              'BS K${_backRodLabel.isEmpty ? '' : _backRodLabel} = ${_kBack.toStringAsFixed(0)}, '
+                  'FS K${_frontRodLabel.isEmpty ? '' : _frontRodLabel} = ${_kFront.toStringAsFixed(0)}; '
+                  'Limits: |K+B−R| ≤ 3 mm, |d| ≤ 3 m, |Σd| ≤ 10 m (±7 m warn), sight > 0.2 m.',
+            ),
             style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
           ),
         ],
@@ -1603,6 +1681,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       TextEditingController red,
       String prefix,
     ) {
+      final prefixEn = prefix == '后' ? 'BS ' : 'FS ';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1617,17 +1696,25 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           const SizedBox(height: 6),
           Row(
             children: [
-              Expanded(child: _labeledReadingField('$prefix上丝', upper)),
+              Expanded(
+                  child: _labeledReadingField(
+                      _l(context, '$prefix上丝', '${prefixEn}Upper'), upper)),
               const SizedBox(width: Insets.s),
-              Expanded(child: _labeledReadingField('$prefix下丝', lower)),
+              Expanded(
+                  child: _labeledReadingField(
+                      _l(context, '$prefix下丝', '${prefixEn}Lower'), lower)),
             ],
           ),
           const SizedBox(height: Insets.s),
           Row(
             children: [
-              Expanded(child: _labeledReadingField('$prefix黑面', black)),
+              Expanded(
+                  child: _labeledReadingField(
+                      _l(context, '$prefix黑面', '${prefixEn}Black'), black)),
               const SizedBox(width: Insets.s),
-              Expanded(child: _labeledReadingField('$prefix红面', red)),
+              Expanded(
+                  child: _labeledReadingField(
+                      _l(context, '$prefix红面', '${prefixEn}Red'), red)),
             ],
           ),
         ],
@@ -1650,25 +1737,29 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   key: ValueKey<String>('leveling4-card-$i'),
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: Insets.s,
+                      runSpacing: Insets.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         InkWell(
                           onTap: () => _selectStation(i),
                           child: Pill(
-                              label: '第 ${i + 1} 站',
+                              label: _l(
+                                  context, '第 ${i + 1} 站', 'Station ${i + 1}'),
                               tone: identical(_activeStation, row)
                                   ? PillTone.info
                                   : PillTone.neutral),
                         ),
-                        const SizedBox(width: Insets.s),
-                        Expanded(
+                        SizedBox(
+                          width: 112,
                           child: TextField(
                             controller: row.name,
                             onChanged: (_) => _calc(),
                             style: const TextStyle(fontSize: 13),
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: '前点点名',
+                              labelText: context.tr('前点点名'),
                               hintText: 'P${i + 1}',
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -1677,15 +1768,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                             ),
                           ),
                         ),
-                        const SizedBox(width: Insets.s),
                         Pill(
                           label: res == null
-                              ? '未填完'
+                              ? context.tr('未填完')
                               : (!res.ok
-                                  ? '超限'
+                                  ? context.tr('超限')
                                   : res.cumulativeWarning
-                                      ? '预警'
-                                      : '合格'),
+                                      ? context.tr('预警')
+                                      : context.tr('合格')),
                           tone: res == null
                               ? PillTone.neutral
                               : (!res.ok
@@ -1696,7 +1786,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                         ),
                         SurveyPopconfirm(
                           enabled: _rows.length > 1,
-                          title: '删除第 ${i + 1} 站？',
+                          title: _l(context, '删除第 ${i + 1} 站？',
+                              'Delete station ${i + 1}?'),
                           description: '将移除该站观测读数，且不可撤销',
                           confirmLabel: '删除',
                           destructive: true,
@@ -1755,7 +1846,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                           runSpacing: Insets.xs,
                           children: [
                             Text(
-                              '后/前距 ${one(res.backDistanceM)} / ${one(res.frontDistanceM)} m',
+                              _l(
+                                context,
+                                '后/前距 ${one(res.backDistanceM)} / ${one(res.frontDistanceM)} m',
+                                'BS/FS ${one(res.backDistanceM)} / ${one(res.frontDistanceM)} m',
+                              ),
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontFeatures: [FontFeature.tabularFigures()],
@@ -1769,14 +1864,18 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                               ),
                             ),
                             Text(
-                              'K+黑−红：${one(res.backConstantDiffMm)} / ${one(res.frontConstantDiffMm)} mm',
+                              'K+B−R: ${one(res.backConstantDiffMm)} / ${one(res.frontConstantDiffMm)} mm',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontFeatures: [FontFeature.tabularFigures()],
                               ),
                             ),
                             Text(
-                              '高差中数：${one(res.meanDiffMm)} mm',
+                              _l(
+                                context,
+                                '高差中数：${one(res.meanDiffMm)} mm',
+                                'Mean ΔH: ${one(res.meanDiffMm)} mm',
+                              ),
                               style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
@@ -1794,7 +1893,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                         SurveyAlert(
                           key: ValueKey<String>('leveling4-card-issue-$i'),
                           tone: AlertTone.error,
-                          message: '第 ${i + 1} 站：${res.issueText}',
+                          message:
+                              '${_l(context, '第 ${i + 1} 站', 'Station ${i + 1}')}: ${_formatStationIssues(context, res)}',
                         ),
                         TextButton(
                           onPressed: () => _showStationLimits(i),
@@ -1864,15 +1964,56 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         if (point != null) point,
     ];
     final highlightedPoint = selected < 0 ? null : pointsByRoute[selected + 1];
+    final hasCumWarning = _stationResults.any((s) => s.cumulativeWarning);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (hasCumWarning) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Insets.m, vertical: Insets.s),
+            decoration: BoxDecoration(
+              color: IosColors.orange(scheme.brightness).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(Radii.field),
+              border: Border.all(
+                color:
+                    IosColors.orange(scheme.brightness).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: IosColors.orange(scheme.brightness),
+                ),
+                const SizedBox(width: Insets.s),
+                Expanded(
+                  child: Text(
+                    _l(
+                      context,
+                      '累计视距差 |Σd| 已超过 7.0 m 预警阈值（限差 ±10.0 m），请注意平衡前后视距。',
+                      'Cumulative stadia difference |Σd| exceeds 7.0 m warning threshold (limit ±10.0 m). Balance BS/FS distances.',
+                    ),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: IosColors.orange(scheme.brightness),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Insets.m),
+        ],
         ToleranceGauge(
           label: '闭合差 fh 检核',
           value: route.misclosureMm,
           limit: route.limitMm,
           valueText: '${fmt(route.misclosureMm, 1)} mm',
-          limitText: '限差 ±${fmt(route.limitMm, 1)} mm',
+          limitText: _l(context, '限差 ±${fmt(route.limitMm, 1)} mm',
+              'Limit ±${fmt(route.limitMm, 1)} mm'),
           ok: route.ok,
         ),
         const SizedBox(height: Insets.m),
@@ -1941,7 +2082,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               value: fmt(route.misclosureMm, 1),
               unit: 'mm',
               emphasis: true,
-              note: '理论 ${fmt(route.expectedDiffMm, 1)} mm',
+              note: _l(context, '理论 ${fmt(route.expectedDiffMm, 1)} mm',
+                  'Theo. ${fmt(route.expectedDiffMm, 1)} mm'),
               icon: Icons.rule,
             ),
             ResultTile(
@@ -1949,14 +2091,18 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               value: '±${fmt(route.limitMm, 1)}',
               unit: 'mm',
               note: _byDistance
-                  ? '${_grade.label} ±${_distanceCoefficient.toStringAsFixed(0)}√L'
-                  : '${_grade.label} ±${_grade.stationCoefficient.toStringAsFixed(0)}√n',
+                  ? '${context.tr(_grade.label)} ±${_distanceCoefficient.toStringAsFixed(0)}√L'
+                  : '${context.tr(_grade.label)} ±${_grade.stationCoefficient.toStringAsFixed(0)}√n',
             ),
             ResultTile(
               label: '路线总长',
               value: fmt(route.totalDistanceM, 1),
               unit: 'm',
-              note: '${route.stationCount} 站 · ${route.distributionLabel}分配',
+              note: _l(
+                context,
+                '${route.stationCount} 站 · ${route.distributionLabel}分配',
+                '${route.stationCount} stn · ${context.tr(route.distributionLabel)}',
+              ),
             ),
           ],
         ),
@@ -1985,9 +2131,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         ),
         const SizedBox(height: Insets.s),
         Text(
-          '闭合差按${route.distributionLabel}分配，Σ改正数 = −fh；末点 '
-          '${route.pointNames.last} = ${fmt(route.heightsM.last, 3)} m'
-          '（${route.isClosed ? '闭合回起点' : '落已知点'}）。',
+          _l(
+            context,
+            '闭合差按${route.distributionLabel}分配，Σ改正数 = −fh；末点 '
+                '${route.pointNames.last} = ${fmt(route.heightsM.last, 3)} m'
+                '（${route.isClosed ? '闭合回起点' : '落已知点'}）。',
+            'Misclosure distributed ${context.tr(route.distributionLabel)}, Σcorr = −fh; end '
+                '${route.pointNames.last} = ${fmt(route.heightsM.last, 3)} m.',
+          ),
           style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
         ),
       ],
@@ -2052,7 +2203,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           },
           builder: (ctx, open) => TextButton(
             onPressed: open,
-            child: const Text('规范算例'),
+            child: const LocalText('规范算例'),
           ),
         ),
       ],
@@ -2060,26 +2211,36 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         pageId: draftPageId,
         buildTable: _exportTable,
         confirmClear: true,
+        canUndo: _undo.isNotEmpty,
+        canRedo: _redo.isNotEmpty,
+        onUndo: () => _replayEdit(true),
+        onRedo: () => _replayEdit(false),
         extra: [
           ActionChip(
             avatar: const Icon(Icons.edit_note_rounded, size: 15),
-            label: const Text('自定义点名', style: TextStyle(fontSize: 12)),
+            label: Text(_l(context, '自定义点名', 'Point IDs'),
+                style: const TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
             onPressed: _openPointNamesDialog,
           ),
           ActionChip(
             avatar: const Icon(Icons.table_view_rounded, size: 15),
-            label: const Text('手簿 Excel', style: TextStyle(fontSize: 12)),
+            label: Text(_l(context, '手簿 Excel', 'Excel'),
+                style: const TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
             onPressed: () => _exportHandbook(ExportFormat.xlsx),
           ),
           ActionChip(
             avatar: const Icon(Icons.image_outlined, size: 15),
-            label: const Text('手簿图片', style: TextStyle(fontSize: 12)),
+            label: Text(_l(context, '手簿图片', 'Image'),
+                style: const TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
             onPressed: () => _exportHandbook(ExportFormat.png),
           ),
-          const Pill(label: '手簿 mm · 高程 m', tone: PillTone.neutral),
+          Pill(
+            label: _l(context, '手簿 mm · 高程 m', 'mm · m'),
+            tone: PillTone.neutral,
+          ),
         ],
         onClear: () {
           clearDraft();
@@ -2087,7 +2248,26 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         },
       ),
       children: [
-        const PageTutorial(id: 'leveling4'),
+        PageTutorial(
+          id: 'leveling4',
+          onLoadSample: () => _loadExample(),
+          liveCalcBuilder: (ctx) {
+            final activeIndex = _rows.indexOf(_activeStation ?? _rows.first);
+            final index = _resultOf(activeIndex) != null
+                ? activeIndex
+                : _completeRows.firstOrNull;
+            final res = index == null ? null : _resultOf(index);
+            final obs = index == null ? null : _observation(index);
+            if (res == null || obs == null) return const [];
+            String f(double v) => fmt(v, 1);
+            return [
+              '${_rows[index!].name.text}: d = ${f(res.backDistanceM)} − ${f(res.frontDistanceM)} = ${f(res.distanceDiffM)} m',
+              'ΔH = [(${f(obs.backBlack)} − ${f(obs.frontBlack)}) + (${f(obs.backRed)} − ${f(obs.frontRed)}) − (${f(obs.kBack)} − ${f(obs.kFront)})] ÷ 2 = ${f(res.meanDiffMm)} mm',
+              if (route != null)
+                'fₕ = ${f(route.sumDiffMm)} − ${f(route.expectedDiffMm)} = ${f(route.misclosureMm)} mm (±${f(route.limitMm)} mm)',
+            ];
+          },
+        ),
         PipelineStrip(
           steps: [
             PipelineStep(
@@ -2095,7 +2275,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               status: _stationResults.isNotEmpty
                   ? PipelineStatus.ok
                   : PipelineStatus.pending,
-              detail: '${_stationResults.length}/${_rows.length} 站',
+              detail: _l(
+                context,
+                '${_stationResults.length}/${_rows.length} 站',
+                '${_stationResults.length}/${_rows.length} stn',
+              ),
             ),
             PipelineStep(
               label: '视距检核',
@@ -2109,8 +2293,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   ? null
                   : (_stationResults
                           .every((st) => st.distanceOk && st.cumulativeOk)
-                      ? '全站通过'
-                      : '存在超限'),
+                      ? context.tr('全站通过')
+                      : context.tr('存在超限')),
             ),
             PipelineStep(
               label: 'K 常数检核',
@@ -2124,8 +2308,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   ? null
                   : (_stationResults.every(
                           (st) => st.backConstantOk && st.frontConstantOk)
-                      ? '全站通过'
-                      : '存在超限'),
+                      ? context.tr('全站通过')
+                      : context.tr('存在超限')),
             ),
             PipelineStep(
               label: '闭合差平差',

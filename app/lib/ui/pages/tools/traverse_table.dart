@@ -32,6 +32,9 @@ const List<double> kTraverseTableWidths = <double>[
   84,
 ];
 
+List<String> traverseTableColumns(String Function(String) tr) =>
+    <String>[for (final col in kTraverseTableColumns) tr(col)];
+
 /// 把平差结果摊成 12 列的导线成果表。
 ///
 /// 每一行是一**点**：观测角属于该点，边长/方位角/增量属于「该点 → 下一点」
@@ -47,7 +50,9 @@ List<List<String>> traverseTableRows({
   required int coordDigits,
   required int secDigits,
   String startLabel = '起点',
+  String Function(String)? tr,
 }) {
+  final resolvedStart = tr?.call(startLabel) ?? startLabel;
   final rows = <List<String>>[];
   for (var i = 0; i < points.length; i++) {
     final hasAngle = i < result.correctedAnglesDeg.length;
@@ -61,7 +66,7 @@ List<List<String>> traverseTableRows({
     final vdx = hasEdge ? result.closedDx[i] - result.dx[i] : null;
     final vdy = hasEdge ? result.closedDy[i] - result.dy[i] : null;
     rows.add(<String>[
-      i == 0 ? startLabel : 'J$i',
+      i == 0 ? resolvedStart : 'J$i',
       observed == null ? '' : fmtAngle(observed, secDigits: secDigits),
       correction == null ? '' : fmt(correction, 1),
       corrected == null ? '' : fmtAngle(corrected, secDigits: secDigits),

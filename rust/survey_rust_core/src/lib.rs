@@ -27,7 +27,7 @@ pub struct FfiEarthworkResult {
 
 #[no_mangle]
 pub extern "C" fn survey_rust_abi_version() -> u32 {
-    4
+    5
 }
 
 /// Distributes traverse misclosure over interleaved (dx, dy, length) rows.
@@ -104,11 +104,25 @@ pub struct FfiLevelingStation {
     pub issues: u32,
 }
 
-/// Calculates a route of dual-face stations. Each input row contains two
-/// distances, four face readings, and the backsight and foresight constants.
+/// Calculates a route of dual-face stations (ABI v5).
+///
+/// Each input row contains 14 doubles:
+/// `[back_distance, front_distance, back_black, back_red, front_black, front_red,
+///   k_back, k_front, back_upper, back_lower, front_upper, front_lower,
+///   has_back_direct, has_front_direct]`.
+///
+/// `issues` bitmask:
+/// - bit 0: back constant failed (`|K+B-R| > 3.0`)
+/// - bit 1: front constant failed (`|K+B-R| > 3.0`)
+/// - bit 2: distance diff failed (`|d| > distance_limit`)
+/// - bit 3: cumulative distance diff failed (`|Σd| > 10.0`)
+/// - bit 4: sight distance failed (`distance > sight_limit`)
+/// - bit 5: black/red height diff failed
+/// - bit 6: sight height too low (`<= min_sight_height_mm`)
+/// - bit 7: cumulative stadia warning (`7.0 < |Σd| <= 10.0`)
 ///
 /// # Safety
-/// The input and output must be disjoint and valid for count × 8 doubles
+/// The input and output must be disjoint and valid for count × 14 doubles
 /// and count station results respectively.
 #[no_mangle]
 pub unsafe extern "C" fn survey_leveling_check(
@@ -118,14 +132,15 @@ pub unsafe extern "C" fn survey_leveling_check(
     distance_limit: f64,
     sight_limit: f64,
     height_limit: f64,
+    min_sight_height_mm: f64,
 ) {
     if input.is_null() || output.is_null() || count == 0 {
         return;
     }
-    let input = unsafe { std::slice::from_raw_parts(input, count as usize * 8) };
+    let input = unsafe { std::slice::from_raw_parts(input, count as usize * 14) };
     let mut cumulative_diff = 0.0;
-    for (index, values) in input.chunks_exact(8).enumerate() {
-        let [back_distance, front_distance, back_black, back_red, front_black, front_red, k_back, k_front] =
+    for (index, values) in input.chunks_exact(14).enumerate() {
+        let [back_distance, front_distance, back_black, back_red, front_black, front_red, k_back, k_front, back_upper, back_lower, front_upper, front_lower, has_back_direct, has_front_direct] =
             values
         else {
             unreachable!()
@@ -137,18 +152,35 @@ pub unsafe extern "C" fn survey_leveling_check(
         let black_diff = back_black - front_black;
         let red_diff = back_red - front_red;
         let mean_diff = (black_diff + red_diff - (k_back - k_front)) / 2.0;
+
+        let back_sight_height_ok = *back_black > min_sight_height_mm
+            && *back_red > min_sight_height_mm
+            && (*has_back_direct > 0.5
+                || (*back_lower > min_sight_height_mm && *back_upper > min_sight_height_mm));
+        let front_sight_height_ok = *front_black > min_sight_height_mm
+            && *front_red > min_sight_height_mm
+            && (*has_front_direct > 0.5
+                || (*front_lower > min_sight_height_mm && *front_upper > min_sight_height_mm));
+
+        let cumulative_ok = cumulative_diff.abs() <= 10.0 + 1e-9;
+        let cum_stadia_warning = cumulative_ok && cumulative_diff.abs() > 7.0;
+
         let limits = [
             back_constant.abs() <= 3.0,
             front_constant.abs() <= 3.0,
             distance_diff.abs() <= distance_limit + 1e-9,
-            cumulative_diff.abs() <= 10.0 + 1e-9,
+            cumulative_ok,
             *back_distance <= sight_limit + 1e-9 && *front_distance <= sight_limit + 1e-9,
             (black_diff - red_diff + k_back - k_front).abs() <= height_limit,
+            back_sight_height_ok && front_sight_height_ok,
         ];
-        let issues = limits.iter().enumerate().fold(
-            0,
+        let mut issues = limits.iter().enumerate().fold(
+            0u32,
             |mask, (bit, ok)| if *ok { mask } else { mask | (1 << bit) },
         );
+        if cum_stadia_warning {
+            issues |= 1 << 7;
+        }
         unsafe {
             output.add(index).write(FfiLevelingStation {
                 back_distance: *back_distance,

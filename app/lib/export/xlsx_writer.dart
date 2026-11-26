@@ -119,6 +119,25 @@ class XlsxMerge {
   final int c2;
 }
 
+/// 工作表内嵌入的 PNG 位图（行号 1 起算，列号 0 起算，闭区间）。
+class XlsxEmbeddedImage {
+  const XlsxEmbeddedImage({
+    required this.pngBytes,
+    required this.fromRow,
+    required this.fromCol,
+    required this.toRow,
+    required this.toCol,
+    this.name = 'SurveyPlot',
+  });
+
+  final Uint8List pngBytes;
+  final int fromRow;
+  final int fromCol;
+  final int toRow;
+  final int toCol;
+  final String name;
+}
+
 /// 支持合并单元格、对齐、边框、行高列宽、A4 打印设置与略图区的单工作表数据。
 class XlsxSheetData {
   const XlsxSheetData({
@@ -135,6 +154,7 @@ class XlsxSheetData {
     this.tableOuterEndRow,
     this.tableOuterEndCol,
     this.sketches = const <XlsxSketchArea>[],
+    this.images = const <XlsxEmbeddedImage>[],
   });
 
   final String sheetName;
@@ -161,31 +181,214 @@ class XlsxSheetData {
   /// 略图区域列表（Excel 中作占位提示框，PNG 导出在框内渲染矢量简图）。
   final List<XlsxSketchArea> sketches;
 
+  /// 嵌入工作表的 PNG 位图列表（写入 `xl/media/` 与 `xl/drawings/`）。
+  final List<XlsxEmbeddedImage> images;
+
+  static bool _isNumericLiteral(String s) {
+    final t = s.trim();
+    if (t.isEmpty || t == '—' || t == '-') return true;
+    return RegExp(r'^[+\-]?\d+(?:\.\d+)?$').hasMatch(t);
+  }
+
+  static String _translateLine(
+    String line,
+    String Function(String) translate, {
+    bool isNonCjk = false,
+  }) {
+    if (line.trim().isEmpty || _isNumericLiteral(line)) return line;
+    final direct = translate(line);
+    if (direct != line) return direct;
+    if (line.contains('    ')) {
+      final parts = line.split('    ');
+      final translated = [
+        for (final p in parts)
+          p.trim().isEmpty
+              ? p
+              : _translateLine(p, translate, isNonCjk: isNonCjk),
+      ];
+      return translated.join('    ');
+    }
+    if (!isNonCjk) return line;
+    return _translateCompositeNonCjk(line, translate);
+  }
+
+  static String _translateCompositeNonCjk(
+    String text,
+    String Function(String) translate,
+  ) {
+    var out = text;
+    // 日期 YYYY年MM月DD日 -> YYYY-MM-DD
+    out = out.replaceAllMapped(
+      RegExp(r'(\d{4})年(\d{1,2})月(\d{1,2})日'),
+      (m) => '${m[1]}-${m[2]!.padLeft(2, '0')}-${m[3]!.padLeft(2, '0')}',
+    );
+    const orderedTokens = <(String, String)>[
+      ('闭合导线坐标计算表', 'Closed Traverse Coordinate Computation'),
+      ('附合导线坐标计算表', 'Connecting Traverse Coordinate Computation'),
+      ('闭合导线计算表', 'Closed Traverse'),
+      ('附合导线计算表', 'Connecting Traverse'),
+      ('辅助计算与精度检核', 'Auxiliary Calculations & Precision Check'),
+      ('全长相对闭合差', 'Relative Linear Misclosure'),
+      ('坐标增量闭合差', 'Coordinate Increment Misclosure'),
+      ('导线全长闭合差', 'Total Linear Misclosure'),
+      ('角度闭合差', 'Angular Misclosure'),
+      ('按坐标增量成比例分配', 'Distributed by ΔX/ΔY'),
+      ('按边长成比例分配', 'Distributed by Side Length'),
+      ('测量类型', 'Survey Type'),
+      ('配赋方式', 'Adjustment'),
+      ('观测左角', 'Left Angles'),
+      ('观测右角', 'Right Angles'),
+      ('闭合导线', 'Closed Traverse'),
+      ('附合导线', 'Connecting Traverse'),
+      ('理想闭合', 'Ideal Closure'),
+      ('合格', 'Pass'),
+      ('超限', 'Exceeded'),
+      ('限差', 'Limit'),
+      ('观测', 'Observed'),
+      ('计算', 'Computed'),
+      ('复核', 'Checked'),
+      ('日期', 'Date'),
+      ('Σβ测', 'Σβ_obs'),
+      ('Σβ理', 'Σβ_theo'),
+    ];
+    for (final (zh, enFallback) in orderedTokens) {
+      if (out.contains(zh)) {
+        final tr = translate(zh);
+        out = out.replaceAll(zh, tr != zh ? tr : enFallback);
+      }
+    }
+    out = out
+        .replaceAll('，', ', ')
+        .replaceAll('：', ': ')
+        .replaceAll('（', ' (')
+        .replaceAll('）', ')')
+        .replaceAll('、', ', ');
+    return out;
+  }
+
+  static String _translateCellValue(
+    String value,
+    String Function(String) translate, {
+    bool isNonCjk = false,
+  }) {
+    if (value.trim().isEmpty || _isNumericLiteral(value)) return value;
+    final direct = translate(value);
+    if (direct != value) return direct;
+    if (value.contains('\n')) {
+      return value
+          .split('\n')
+          .map((line) => _translateLine(line, translate, isNonCjk: isNonCjk))
+          .join('\n');
+    }
+    return _translateLine(value, translate, isNonCjk: isNonCjk);
+  }
+
+  static double _lineDisplayWidth(String s) {
+    var w = 0.0;
+    for (final rune in s.runes) {
+      w += rune > 0x2E80 ? 2.0 : 1.05;
+    }
+    return w;
+  }
+
   XlsxSheetData localizeLabels(String Function(String) translate) {
-    const labels = {
-      XlsxCellStyle.boldHeader,
-      XlsxCellStyle.title,
-      XlsxCellStyle.headerCenter,
-      XlsxCellStyle.sectionTitle,
-      XlsxCellStyle.headerSub,
-    };
+    final isNonCjk =
+        translate('点号') != '点号' || translate('合格') != '合格';
+    final localizedCells = <XlsxCell>[
+      for (final cell in cells)
+        XlsxCell(
+          row: cell.row,
+          col: cell.col,
+          value: _translateCellValue(
+            cell.value,
+            translate,
+            isNonCjk: isNonCjk,
+          ),
+          style: cell.style,
+          forceString: cell.forceString,
+        ),
+    ];
+
+    Map<int, double> adaptedColWidths = colWidths;
+    Map<int, double> adaptedRowHeights = rowHeights;
+
+    if (isNonCjk) {
+      final mergeSpans = <(int, int), XlsxMerge>{};
+      for (final m in merges) {
+        mergeSpans[(m.r1, m.c1)] = m;
+      }
+
+      final newWidths = Map<int, double>.from(colWidths);
+      for (final cell in localizedCells) {
+        final m = mergeSpans[(cell.row, cell.col)];
+        if (m != null && m.c2 > m.c1) continue;
+        if (cell.style == XlsxCellStyle.title ||
+            cell.style == XlsxCellStyle.metaLine ||
+            cell.style == XlsxCellStyle.note ||
+            cell.style == XlsxCellStyle.sectionTitle) {
+          continue;
+        }
+        var maxLineW = 0.0;
+        for (final line in cell.value.split('\n')) {
+          final w = _lineDisplayWidth(line);
+          if (w > maxLineW) maxLineW = w;
+        }
+        if (maxLineW > 0) {
+          final target = (maxLineW + 2.5).clamp(8.0, 42.0);
+          final cur = newWidths[cell.col] ?? 11.0;
+          if (target > cur) {
+            newWidths[cell.col] = target;
+          }
+        }
+      }
+      adaptedColWidths = newWidths;
+
+      final newHeights = Map<int, double>.from(rowHeights);
+      for (final cell in localizedCells) {
+        if (cell.style == XlsxCellStyle.headerCenter ||
+            cell.style == XlsxCellStyle.headerSub ||
+            cell.style == XlsxCellStyle.cellLeftTop ||
+            cell.style == XlsxCellStyle.note) {
+          final m = mergeSpans[(cell.row, cell.col)];
+          final c1 = m?.c1 ?? cell.col;
+          final c2 = m?.c2 ?? cell.col;
+          final r1 = m?.r1 ?? cell.row;
+          final r2 = m?.r2 ?? cell.row;
+          var spanW = 0.0;
+          for (var c = c1; c <= c2; c++) {
+            spanW += newWidths[c] ?? 11.0;
+          }
+          var estLines = 0;
+          for (final line in cell.value.split('\n')) {
+            final lw = _lineDisplayWidth(line);
+            estLines += lw <= 0 ? 1 : ((lw / (spanW - 1.5).clamp(6.0, 200.0)).ceil());
+          }
+          final neededH = (estLines * 14.5 + 8.0);
+          var curSpanH = 0.0;
+          for (var r = r1; r <= r2; r++) {
+            curSpanH += newHeights[r] ?? 21.0;
+          }
+          if (neededH > curSpanH && curSpanH > 0) {
+            final extra = (neededH - curSpanH) / (r2 - r1 + 1);
+            for (var r = r1; r <= r2; r++) {
+              newHeights[r] = (newHeights[r] ?? 21.0) + extra;
+            }
+          }
+        }
+      }
+      adaptedRowHeights = newHeights;
+    }
+
     return XlsxSheetData(
-      sheetName: translate(sheetName),
-      cells: [
-        for (final cell in cells)
-          if (labels.contains(cell.style))
-            XlsxCell(
-                row: cell.row,
-                col: cell.col,
-                value: translate(cell.value),
-                style: cell.style,
-                forceString: cell.forceString)
-          else
-            cell,
-      ],
+      sheetName: _translateCellValue(
+        sheetName,
+        translate,
+        isNonCjk: isNonCjk,
+      ),
+      cells: localizedCells,
       merges: merges,
-      colWidths: colWidths,
-      rowHeights: rowHeights,
+      colWidths: adaptedColWidths,
+      rowHeights: adaptedRowHeights,
       landscape: landscape,
       fitToWidth: fitToWidth,
       fitToHeight: fitToHeight,
@@ -203,6 +406,7 @@ class XlsxSheetData {
               headerText: translate(area.headerText),
               sketch: area.sketch),
       ],
+      images: images,
     );
   }
 }
@@ -215,6 +419,8 @@ class XlsxSheetData {
 class XlsxWriter {
   XlsxWriter._();
 
+  static Uint8List _utf8(String s) => Uint8List.fromList(utf8.encode(s));
+
   /// [rows] 里能解析成数字的单元格写成数值（右对齐、可在 Excel 里继续算），
   /// 其余写成 inline 字符串；第一行按表头加粗。
   static Uint8List build(
@@ -222,13 +428,13 @@ class XlsxWriter {
     String sheetName = 'Sheet1',
   }) {
     final sheet = _sheetXml(rows);
-    final files = <String, String>{
-      '[Content_Types].xml': _contentTypes(1),
-      '_rels/.rels': _rootRels,
-      'xl/workbook.xml': _workbook(<String>[sheetName]),
-      'xl/_rels/workbook.xml.rels': _workbookRels(1),
-      'xl/styles.xml': _styles,
-      'xl/worksheets/sheet1.xml': sheet,
+    final files = <String, Uint8List>{
+      '[Content_Types].xml': _utf8(_contentTypes(1)),
+      '_rels/.rels': _utf8(_rootRels),
+      'xl/workbook.xml': _utf8(_workbook(<String>[sheetName])),
+      'xl/_rels/workbook.xml.rels': _utf8(_workbookRels(1)),
+      'xl/styles.xml': _utf8(_styles),
+      'xl/worksheets/sheet1.xml': _utf8(sheet),
     };
     return _zip(files);
   }
@@ -246,14 +452,17 @@ class XlsxWriter {
         : sheets;
     final usedNames = <String>{};
     final sheetNames = <String>[];
-    final files = <String, String>{
-      '[Content_Types].xml': _contentTypes(list.length),
-      '_rels/.rels': _rootRels,
-      'xl/_rels/workbook.xml.rels': _workbookRels(list.length),
-      'xl/styles.xml': _styles,
+    final files = <String, Uint8List>{
+      '_rels/.rels': _utf8(_rootRels),
+      'xl/_rels/workbook.xml.rels': _utf8(_workbookRels(list.length)),
+      'xl/styles.xml': _utf8(_styles),
     };
+    var drawingCount = 0;
+    var imageCount = 0;
     for (var i = 0; i < list.length; i++) {
-      final base = _sanitizeSheetName(list[i].sheetName);
+      final sheet = list[i];
+      final sheetIdx = i + 1;
+      final base = _sanitizeSheetName(sheet.sheetName);
       var unique = base;
       var suffix = 2;
       while (!usedNames.add(unique)) {
@@ -264,9 +473,37 @@ class XlsxWriter {
         suffix++;
       }
       sheetNames.add(unique);
-      files['xl/worksheets/sheet${i + 1}.xml'] = _sheetXmlStyled(list[i]);
+
+      final hasDrawing = sheet.images.isNotEmpty;
+      files['xl/worksheets/sheet$sheetIdx.xml'] =
+          _utf8(_sheetXmlStyled(sheet, hasDrawing: hasDrawing));
+
+      if (hasDrawing) {
+        drawingCount++;
+        final drawingIdx = drawingCount;
+        files['xl/worksheets/_rels/sheet$sheetIdx.xml.rels'] =
+            _utf8(_sheetDrawingRels(drawingIdx));
+
+        final imageIds = <int>[];
+        for (final img in sheet.images) {
+          imageCount++;
+          imageIds.add(imageCount);
+          files['xl/media/image$imageCount.png'] = img.pngBytes;
+        }
+        files['xl/drawings/drawing$drawingIdx.xml'] =
+            _utf8(_drawingXml(sheet.images));
+        files['xl/drawings/_rels/drawing$drawingIdx.xml.rels'] =
+            _utf8(_drawingImageRels(imageIds));
+      }
     }
-    files['xl/workbook.xml'] = _workbook(sheetNames);
+    files['[Content_Types].xml'] = _utf8(
+      _contentTypes(
+        list.length,
+        hasPng: imageCount > 0,
+        drawingCount: drawingCount,
+      ),
+    );
+    files['xl/workbook.xml'] = _utf8(_workbook(sheetNames));
     return _zip(files);
   }
 
@@ -318,7 +555,10 @@ class XlsxWriter {
     return String.fromCharCodes(buf.toString().codeUnits.reversed);
   }
 
-  static String _sheetXmlStyled(XlsxSheetData sheetData) {
+  static String _sheetXmlStyled(
+    XlsxSheetData sheetData, {
+    bool hasDrawing = false,
+  }) {
     final grid = <(int, int), XlsxCell>{};
     for (final cell in sheetData.cells) {
       grid[(cell.row, cell.col)] = cell;
@@ -354,8 +594,11 @@ class XlsxWriter {
 
     final sb = StringBuffer();
     sb.write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
+    final rNs = hasDrawing
+        ? ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        : '';
     sb.write(
-      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"$rNs>',
     );
     sb.write('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
     if (maxCol >= 0) {
@@ -424,6 +667,9 @@ class XlsxWriter {
     sb.write(
       '<pageSetup paperSize="${sheetData.paperSize}" orientation="$orient" fitToWidth="${sheetData.fitToWidth}" fitToHeight="${sheetData.fitToHeight}"/>',
     );
+    if (hasDrawing) {
+      sb.write('<drawing r:id="rId1"/>');
+    }
     sb.write('</worksheet>');
     return sb.toString();
   }
@@ -482,7 +728,11 @@ class XlsxWriter {
     return w;
   }
 
-  static String _contentTypes(int sheetCount) {
+  static String _contentTypes(
+    int sheetCount, {
+    bool hasPng = false,
+    int drawingCount = 0,
+  }) {
     final sb = StringBuffer()
       ..write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
       ..write(
@@ -491,13 +741,21 @@ class XlsxWriter {
       ..write(
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
       )
-      ..write('<Default Extension="xml" ContentType="application/xml"/>')
-      ..write(
-        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
-      );
+      ..write('<Default Extension="xml" ContentType="application/xml"/>');
+    if (hasPng) {
+      sb.write('<Default Extension="png" ContentType="image/png"/>');
+    }
+    sb.write(
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+    );
     for (var i = 1; i <= sheetCount; i++) {
       sb.write(
         '<Override PartName="/xl/worksheets/sheet$i.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>',
+      );
+    }
+    for (var d = 1; d <= drawingCount; d++) {
+      sb.write(
+        '<Override PartName="/xl/drawings/drawing$d.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>',
       );
     }
     sb
@@ -505,6 +763,72 @@ class XlsxWriter {
         '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>',
       )
       ..write('</Types>');
+    return sb.toString();
+  }
+
+  static String _sheetDrawingRels(int drawingIndex) =>
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing$drawingIndex.xml"/>'
+      '</Relationships>';
+
+  static String _drawingImageRels(List<int> imageIds) {
+    final sb = StringBuffer()
+      ..write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
+      ..write(
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+      );
+    for (var i = 0; i < imageIds.length; i++) {
+      sb.write(
+        '<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${imageIds[i]}.png"/>',
+      );
+    }
+    sb.write('</Relationships>');
+    return sb.toString();
+  }
+
+  static String _drawingXml(List<XlsxEmbeddedImage> images) {
+    final sb = StringBuffer()
+      ..write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
+      ..write(
+        '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" '
+        'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
+      );
+    for (var i = 0; i < images.length; i++) {
+      final img = images[i];
+      final r1 = img.fromRow > 0 ? img.fromRow - 1 : 0;
+      final r2 = img.toRow > 0 ? img.toRow : 1;
+      final c1 = img.fromCol >= 0 ? img.fromCol : 0;
+      final c2 = img.toCol >= 0 ? img.toCol + 1 : 1;
+      sb
+        ..write('<xdr:twoCellAnchor editAs="oneCell">')
+        ..write('<xdr:from>')
+        ..write('<xdr:col>$c1</xdr:col><xdr:colOff>38100</xdr:colOff>')
+        ..write('<xdr:row>$r1</xdr:row><xdr:rowOff>38100</xdr:rowOff>')
+        ..write('</xdr:from>')
+        ..write('<xdr:to>')
+        ..write('<xdr:col>$c2</xdr:col><xdr:colOff>0</xdr:colOff>')
+        ..write('<xdr:row>$r2</xdr:row><xdr:rowOff>0</xdr:rowOff>')
+        ..write('</xdr:to>')
+        ..write('<xdr:pic>')
+        ..write('<xdr:nvPicPr>')
+        ..write('<xdr:cNvPr id="${i + 2}" name="${_esc(img.name)}"/>')
+        ..write('<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>')
+        ..write('</xdr:nvPicPr>')
+        ..write('<xdr:blipFill>')
+        ..write('<a:blip r:embed="rId${i + 1}"/>')
+        ..write('<a:stretch><a:fillRect/></a:stretch>')
+        ..write('</xdr:blipFill>')
+        ..write('<xdr:spPr>')
+        ..write('<a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm>')
+        ..write('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>')
+        ..write('</xdr:spPr>')
+        ..write('</xdr:pic>')
+        ..write('<xdr:clientData/>')
+        ..write('</xdr:twoCellAnchor>');
+    }
+    sb.write('</xdr:wsDr>');
     return sb.toString();
   }
 
@@ -598,7 +922,7 @@ class XlsxWriter {
       '<xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
       '<xf numFmtId="0" fontId="7" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
       '<xf numFmtId="0" fontId="8" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
-      '<xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+      '<xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="0"/></xf>'
       '<xf numFmtId="0" fontId="9" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
       '<xf numFmtId="0" fontId="10" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
       '<xf numFmtId="0" fontId="11" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
@@ -613,14 +937,14 @@ class XlsxWriter {
 
   // ---------------- ZIP（STORED，无压缩） ----------------
 
-  static Uint8List _zip(Map<String, String> files) {
+  static Uint8List _zip(Map<String, Uint8List> files) {
     final out = BytesBuilder();
     final central = BytesBuilder();
     var offset = 0;
     final stamp = _dosTime(DateTime.now());
     for (final e in files.entries) {
       final name = utf8.encode(e.key);
-      final data = Uint8List.fromList(utf8.encode(e.value));
+      final data = e.value;
       final crc = _crc32(data);
       final local = BytesBuilder()
         ..add(_u32(0x04034b50))

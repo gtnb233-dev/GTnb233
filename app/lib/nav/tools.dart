@@ -111,6 +111,14 @@ const List<ToolDef> kTools = [
     icon: Icons.rule,
     keywords: ['中误差', '相对误差', '限差'],
   ),
+  ToolDef(
+    id: 'control_points',
+    title: '控制点库',
+    subtitle: '工程控制点管理、搜索、导入与单点坐标选用',
+    group: ToolGroup.network,
+    icon: Icons.pin_drop_outlined,
+    keywords: ['控制点', '点库', '已知点', 'control', 'point', 'DXF', 'CSV'],
+  ),
 
   // ── 线路与曲线 ──────────────────────────────────────────
   ToolDef(
@@ -176,10 +184,20 @@ const List<ToolDef> kTools = [
   ToolDef(
     id: 'projection',
     title: '坐标转换',
-    subtitle: '高斯投影正反算（3°/6°带）与平面四参数拟合',
+    subtitle: '高斯投影正反算（3°/6°带）、平面四参数与七参数转换',
     group: ToolGroup.formula,
     icon: Icons.swap_horiz,
-    keywords: ['高斯', '投影', '坐标转换', '四参数', '中央子午线', '带号'],
+    keywords: [
+      '高斯',
+      '投影',
+      '坐标转换',
+      '四参数',
+      '七参数',
+      '布尔莎',
+      'Bursa-Wolf',
+      '中央子午线',
+      '带号',
+    ],
   ),
   ToolDef(
     id: 'convert',
@@ -213,7 +231,8 @@ List<ToolDef> searchTools(String query, {SurveyStrings? strings}) {
       .where((tool) =>
           _searchFields[tool]!.any((field) => field.contains(q)) ||
           (strings != null &&
-              [tool.title, tool.subtitle, tool.group.label].any(
+              [tool.title, tool.subtitle, tool.group.label, ...tool.keywords]
+                  .any(
                 (field) => strings.translate(field).toLowerCase().contains(q),
               )))
       .toList(growable: false);

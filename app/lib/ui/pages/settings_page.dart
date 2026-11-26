@@ -54,7 +54,7 @@ class SettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: Insets.s),
               const LocalText(
-                '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。',
+                '界面语言已覆盖菜单、工具库、设置与主要计算页面。',
                 style: TextStyle(fontSize: 11.5),
               ),
             ],
@@ -101,51 +101,15 @@ class SettingsPage extends StatelessWidget {
         const SizedBox(height: Insets.l),
         const SectionHeader(
           title: '外观',
-          caption: '界面风格、玻璃导航与莫奈取色',
+          caption: 'Unslop Graphite 哑光界面与液态玻璃效果',
         ),
         const SizedBox(height: Insets.s),
-        SurfaceCard(
-          padding: const EdgeInsets.all(Insets.l),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const LocalText(
-                'UI 风格',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: Insets.s),
-              SegmentedButton<UiStyle>(
-                showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStatePropertyAll(
-                    TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                segments: [
-                  for (final style in UiStyle.values)
-                    ButtonSegment(
-                        value: style, label: Text(context.tr(style.label))),
-                ],
-                selected: {s.uiStyle},
-                onSelectionChanged: (v) => s.setUiStyle(v.first),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr(s.uiStyle.description),
-                style:
-                    TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: Insets.m),
         SurfaceCard(
           padding: const EdgeInsets.fromLTRB(
             Insets.l,
             Insets.xs,
             Insets.l,
-            Insets.s,
+            Insets.xs,
           ),
           child: Column(
             children: [
@@ -168,33 +132,104 @@ class SettingsPage extends StatelessWidget {
                 height: 0.5,
                 thickness: 0.5,
               ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: s.monet,
-                onChanged: s.setMonet,
-                title: const LocalText(
-                  '莫奈调色',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              Theme(
+                data: Theme.of(context).copyWith(
+                  dividerColor: Colors.transparent,
                 ),
-                subtitle: const LocalText(
-                  '用种子色生成整套 tonal 调色板；Android 12+ / Windows 支持自动跟随系统强调色',
-                  style: TextStyle(fontSize: 11.5),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: Insets.s),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                child: ExpansionTile(
+                  key: const ValueKey('settings-advanced-appearance'),
+                  initiallyExpanded: false,
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: Insets.s),
+                  title: const LocalText(
+                    '高级外观',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    context.tr('传统 UI 风格与莫奈取色'),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                   children: [
-                    for (final seed in MonetSeed.values)
-                      FilterChip(
-                        label: Text(context.tr(seed.label)),
-                        selected: s.monetSeed == seed,
-                        visualDensity: VisualDensity.compact,
-                        onSelected:
-                            s.monet ? (_) => s.setMonetSeed(seed) : null,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: Insets.xs),
+                          const LocalText(
+                            'UI 风格',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: Insets.s),
+                          SegmentedButton<UiStyle>(
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              textStyle: WidgetStatePropertyAll(
+                                TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            segments: [
+                              for (final style in UiStyle.values)
+                                ButtonSegment(
+                                    value: style,
+                                    label: Text(context.tr(style.label))),
+                            ],
+                            selected: {s.uiStyle},
+                            onSelectionChanged: (v) => s.setUiStyle(v.first),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            context.tr(s.uiStyle.description),
+                            style: TextStyle(
+                                fontSize: 11.5, color: scheme.onSurfaceVariant),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(height: Insets.s),
+                    Divider(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                      height: 0.5,
+                      thickness: 0.5,
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: s.monet,
+                      onChanged: s.setMonet,
+                      title: const LocalText(
+                        '莫奈调色',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const LocalText(
+                        '用种子色生成整套 tonal 调色板；Android 12+ / Windows 支持自动跟随系统强调色',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final seed in MonetSeed.values)
+                            FilterChip(
+                              label: Text(context.tr(seed.label)),
+                              selected: s.monetSeed == seed,
+                              visualDensity: VisualDensity.compact,
+                              onSelected:
+                                  s.monet ? (_) => s.setMonetSeed(seed) : null,
+                            ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -466,11 +501,15 @@ class SettingsPage extends StatelessWidget {
               const SizedBox(height: Insets.m),
               Row(
                 children: [
-                  Text(
-                    context.tr('计算核心引擎'),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: scheme.onSurfaceVariant,
+                  Flexible(
+                    child: Text(
+                      context.tr('计算核心引擎'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(width: Insets.s),
@@ -521,7 +560,7 @@ Future<void> _showOverlayShowcase(BuildContext context) {
     actionsBuilder: (dialogCtx) => [
       FilledButton(
         onPressed: () => Navigator.of(dialogCtx).pop(),
-        child: const Text('完成预览'),
+        child: const LocalText('完成预览'),
       ),
     ],
   );
@@ -558,7 +597,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
               child: Text(
-                badge,
+                context.tr(badge),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -599,22 +638,24 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
           runSpacing: Insets.s,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Row(
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('限差公式说明', style: TextStyle(fontSize: 12.5)),
-                SizedBox(width: 4),
+                const LocalText('限差公式说明', style: TextStyle(fontSize: 12.5)),
+                const SizedBox(width: 4),
                 InfoHintTooltip(
-                  message: '四等水准限差 ±20√L mm；视距差单站 ≤ 5 m，累计 ≤ 10 m。',
+                  message: context.tr(
+                      '四等水准限差 ±20√L mm；视距差单站 ≤ 5 m，累计 ≤ 10 m。'),
                 ),
               ],
             ),
             SurveyTooltip(
-              message: '快捷键 Ctrl + K 可打开全局工具速搜',
+              message: context.tr('快捷键 Ctrl + K 可打开全局工具速搜'),
               child: OutlinedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.touch_app_outlined, size: 15),
-                label: const Text('悬停 / 长按触发', style: TextStyle(fontSize: 12)),
+                label:
+                    const LocalText('悬停 / 长按触发', style: TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
@@ -638,25 +679,25 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
               onPressed: () => SurveyToast.info(context, '已切换输入量级为 厘米 (cm)'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const Text('信息 Toast', style: TextStyle(fontSize: 12)),
+              child: const LocalText('信息 Toast', style: TextStyle(fontSize: 12)),
             ),
             FilledButton.tonal(
               onPressed: () => SurveyToast.success(context, '成果表已复制到剪贴板'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const Text('成功 Toast', style: TextStyle(fontSize: 12)),
+              child: const LocalText('成功 Toast', style: TextStyle(fontSize: 12)),
             ),
             FilledButton.tonal(
               onPressed: () => SurveyToast.warning(context, '请先填满至少一组完整测站'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const Text('警告 Toast', style: TextStyle(fontSize: 12)),
+              child: const LocalText('警告 Toast', style: TextStyle(fontSize: 12)),
             ),
             FilledButton.tonal(
               onPressed: () => SurveyToast.error(context, '导出失败：无目标写入权限'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const Text('错误 Toast', style: TextStyle(fontSize: 12)),
+              child: const LocalText('错误 Toast', style: TextStyle(fontSize: 12)),
             ),
           ],
         ),
@@ -682,7 +723,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
             child: TextButton.icon(
               onPressed: () => setState(() => _showClosableAlert = true),
               icon: const Icon(Icons.refresh_rounded, size: 15),
-              label: const Text('重新展示 Alert 横幅'),
+              label: const LocalText('重新展示 Alert 横幅'),
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
             ),
           ),
@@ -710,7 +751,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
               SurveyToast.info(context, ok ? '模态框选择了：确认执行' : '模态框已取消');
             },
             icon: const Icon(Icons.open_in_new_rounded, size: 15),
-            label: const Text('触发确认 Modal'),
+            label: const LocalText('触发确认 Modal'),
             style:
                 OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
           ),
@@ -734,7 +775,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
             builder: (ctx, open) => FilledButton.tonalIcon(
               onPressed: open,
               icon: const Icon(Icons.delete_outline_rounded, size: 16),
-              label: const Text('测试 Popconfirm'),
+              label: const LocalText('测试 Popconfirm'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
             ),

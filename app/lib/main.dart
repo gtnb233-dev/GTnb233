@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'l10n/survey_strings.dart';
+import 'platform/native_bridge_contract.dart';
+import 'state/control_points.dart';
 import 'state/drafts.dart';
+import 'state/live_plot_controller.dart';
 import 'state/settings.dart';
 import 'theme/app_theme.dart';
 import 'theme/monet.dart';
@@ -44,14 +47,30 @@ Future<void> main() async {
   await settings.load();
   final drafts = DraftStore();
   await drafts.load();
-  runApp(SurveyApp(settings: settings, drafts: drafts));
+  final controlPoints = ControlPointStore();
+  await controlPoints.load();
+  final livePlot = LivePlotController();
+  runApp(SurveyApp(
+    settings: settings,
+    drafts: drafts,
+    controlPoints: controlPoints,
+    livePlot: livePlot,
+  ));
 }
 
 class SurveyApp extends StatefulWidget {
-  const SurveyApp({super.key, required this.settings, required this.drafts});
+  const SurveyApp({
+    super.key,
+    required this.settings,
+    required this.drafts,
+    this.controlPoints,
+    this.livePlot,
+  });
 
   final AppSettings settings;
   final DraftStore drafts;
+  final ControlPointStore? controlPoints;
+  final LivePlotController? livePlot;
 
   @override
   State<SurveyApp> createState() => _SurveyAppState();
@@ -61,12 +80,20 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
   /// Android 12+ / Windows 的系统强调色；取不到时为 null。
   Color? _systemAccent;
   bool? _lastWindowDark;
+  String? _lastWindowTitle;
   late final AppLifecycleListener _lifecycle;
+  late final ControlPointStore _controlPoints =
+      widget.controlPoints ?? ControlPointStore();
+  late final LivePlotController _livePlot =
+      widget.livePlot ?? LivePlotController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.controlPoints == null) {
+      unawaited(_controlPoints.load());
+    }
     _lifecycle = AppLifecycleListener(
       onInactive: () => unawaited(widget.drafts.flushAll()),
       onHide: () => unawaited(widget.drafts.flushAll()),
@@ -80,6 +107,7 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     widget.settings.addListener(_onSettingsChanged);
     _syncAccent();
     _syncWindowBrightness();
+    _syncWindowTitle();
   }
 
   @override
@@ -87,6 +115,8 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     widget.settings.removeListener(_onSettingsChanged);
     _lifecycle.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    if (widget.controlPoints == null) _controlPoints.dispose();
+    if (widget.livePlot == null) _livePlot.dispose();
     super.dispose();
   }
 
@@ -95,9 +125,24 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     _syncWindowBrightness();
   }
 
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    _syncWindowTitle(locales);
+  }
+
   void _onSettingsChanged() {
     _syncAccent();
     _syncWindowBrightness();
+    _syncWindowTitle();
+  }
+
+  void _syncWindowTitle([List<Locale>? locales]) {
+    final resolved = widget.settings.language.locale ??
+        AppLanguage.resolve(locales ?? PlatformDispatcher.instance.locales);
+    final title = SurveyStrings(resolved.languageCode).translate('工程测量');
+    if (_lastWindowTitle == title) return;
+    _lastWindowTitle = title;
+    unawaited(NativeWindowBridge.setWindowTitle(title));
   }
 
   void _syncWindowBrightness() {
@@ -138,9 +183,13 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     final settings = widget.settings;
     return DraftScope(
       store: widget.drafts,
-      child: SettingsScope(
-        settings: settings,
-        child: AnimatedBuilder(
+      child: ControlPointScope(
+        store: _controlPoints,
+        child: LivePlotScope(
+          controller: _livePlot,
+          child: SettingsScope(
+            settings: settings,
+            child: AnimatedBuilder(
           animation: settings,
           builder: (context, _) {
             final style = settings.uiStyle;
@@ -177,6 +226,8 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
               },
             );
           },
+        ),
+      ),
         ),
       ),
     );

@@ -61,16 +61,23 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
 
   List<_PaletteEntry> get _matches {
     final q = _query.text.trim().toLowerCase();
-    final tools = searchTools(q, strings: SurveyStrings.of(context))
-        .map(_PaletteEntry.tool);
+    final strings = SurveyStrings.of(context);
+    final tools = searchTools(q, strings: strings).map(_PaletteEntry.tool);
     final formulas = q.isEmpty
         ? kFormulaLibrary.take(4).map(_PaletteEntry.formula)
         : kFormulaLibrary
             .where(
               (f) =>
-                  context.tr(f.name).toLowerCase().contains(q) ||
+                  strings.translate(f.name).toLowerCase().contains(q) ||
                   f.name.toLowerCase().contains(q) ||
+                  strings.translate(f.category).toLowerCase().contains(q) ||
                   f.category.toLowerCase().contains(q) ||
+                  (f.description != null &&
+                      (strings
+                              .translate(f.description!)
+                              .toLowerCase()
+                              .contains(q) ||
+                          f.description!.toLowerCase().contains(q))) ||
                   f.expression.toLowerCase().contains(q),
             )
             .map(_PaletteEntry.formula);

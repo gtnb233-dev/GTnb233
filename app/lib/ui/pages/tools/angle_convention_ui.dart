@@ -4,12 +4,18 @@ import 'package:survey_core/survey_core.dart';
 ///
 /// 口径由 core 的 [TraverseResult.angleConvention] 给出：顺时针导线量右角时
 /// 右角就是内角，逆时针时才是外角，所以不能按左角/右角写死。
-String traverseJudgementText(TraverseResult result) {
+String traverseJudgementText(
+  TraverseResult result, {
+  String Function(String source, [Map<String, Object> arguments])? tr,
+}) {
   final convention = result.angleConvention;
   if (convention == null) {
-    return '附合导线：按方位角条件检核，无内角和/外角和判定';
+    const fallback = '附合导线：按方位角条件检核，无内角和/外角和判定';
+    return tr?.call(fallback) ?? fallback;
   }
-  return '判定：${convention.label} ${convention.formulaLabel}';
+  final label = tr?.call(convention.label) ?? convention.label;
+  final raw = '判定：$label ${convention.formulaLabel}';
+  return tr?.call(raw) ?? raw;
 }
 
 /// 角度闭合差的界面写法（带符号，默认秒位 1 位）。

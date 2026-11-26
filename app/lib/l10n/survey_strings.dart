@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'error_messages_en.dart';
 import 'messages.dart';
 import 'survey_terms.dart';
 import 'tool_messages_en.dart';
@@ -79,6 +80,34 @@ class SurveyStrings {
             englishMessages[source] ??
             toolEnglishMessages[source] ??
             _translateDynamic(source);
+    return _interpolate(message, arguments);
+  }
+
+  /// Formats a structured [SurveyErrorCode] (by enum `.name` or code string).
+  ///
+  /// When [languageCode] is `'zh'`, returns [fallback] (usually the
+  /// Chinese `defaultMessage` from `survey_core`) if provided. Otherwise looks
+  /// up [errorEnglishMessages] first, then falls back to `translate(fallback)`
+  /// or [code].
+  String trError(
+    String code, [
+    Map<String, Object> arguments = const {},
+    String? fallback,
+  ]) {
+    if (languageCode == 'zh') {
+      return _interpolate(fallback ?? code, arguments);
+    }
+    final template = errorEnglishMessages[code];
+    if (template != null) {
+      return _interpolate(template, arguments);
+    }
+    if (fallback != null) {
+      return translate(fallback, arguments);
+    }
+    return code;
+  }
+
+  String _interpolate(String message, Map<String, Object> arguments) {
     if (arguments.isEmpty) return message;
     return message.replaceAllMapped(
       _argument,
@@ -142,9 +171,11 @@ class SurveyStrings {
 class _SurveyStringsDelegate extends LocalizationsDelegate<SurveyStrings> {
   const _SurveyStringsDelegate();
 
+  static const _supportedCodes = {'zh', 'en', 'sn', 'nd', 'fr', 'pt', 'es'};
+
   @override
   bool isSupported(Locale locale) =>
-      AppLanguage.supportedLocales.contains(locale);
+      _supportedCodes.contains(locale.languageCode);
 
   @override
   Future<SurveyStrings> load(Locale locale) =>
@@ -172,6 +203,13 @@ class _ZimbabweFrameworkFallback<T> extends LocalizationsDelegate<T> {
 extension TranslatedContext on BuildContext {
   String tr(String source, [Map<String, Object> arguments = const {}]) =>
       SurveyStrings.of(this).translate(source, arguments);
+
+  String trError(
+    String code, [
+    Map<String, Object> arguments = const {},
+    String? fallback,
+  ]) =>
+      SurveyStrings.of(this).trError(code, arguments, fallback);
 }
 
 /// Allows static text to keep a const widget tree while the locale changes.

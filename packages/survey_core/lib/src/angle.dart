@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'errors.dart';
+
 /// 角度输入解释方式。
 ///
 /// 国内测量习惯把 `123°45'30"` 写成 `123.4530`（度.分秒紧凑写法 GG.MMSS：
@@ -166,7 +168,7 @@ double parseAngle(
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
   if (t.isEmpty) {
-    throw const FormatException('角度为空');
+    throw const SurveyFormatException(SurveyErrorCode.angleEmpty, '角度为空');
   }
   var negative = false;
   if (t.startsWith('-')) {
@@ -177,10 +179,14 @@ double parseAngle(
   }
   final parts = t.split(' ').where((e) => e.isNotEmpty).toList();
   if (parts.isEmpty) {
-    throw const FormatException('角度为空');
+    throw const SurveyFormatException(SurveyErrorCode.angleEmpty, '角度为空');
   }
   if (parts.length > 3) {
-    throw FormatException('角度格式不正确：“$text”（度分秒最多三段）');
+    throw SurveyFormatException(
+      SurveyErrorCode.angleTooManyParts,
+      '角度格式不正确：“$text”（度分秒最多三段）',
+      {'text': text},
+    );
   }
   double value;
   if (parts.length == 3) {
@@ -193,7 +199,11 @@ double parseAngle(
     final p0 = parts[0];
     if (p0.contains('.')) {
       if (p0.contains('..') || p0.startsWith('.')) {
-        throw FormatException('角度格式不正确：“$text”');
+        throw SurveyFormatException(
+          SurveyErrorCode.angleInvalidFormat,
+          '角度格式不正确：“$text”',
+          {'text': text},
+        );
       }
       if (p0.endsWith('.')) {
         value = dmsToDeg(
@@ -210,7 +220,11 @@ double parseAngle(
             _num(parts[1], text),
           );
         } else {
-          throw FormatException('角度格式不正确：“$text”（度分秒最多三段）');
+          throw SurveyFormatException(
+            SurveyErrorCode.angleTooManyParts,
+            '角度格式不正确：“$text”（度分秒最多三段）',
+            {'text': text},
+          );
         }
       }
     } else {
@@ -220,7 +234,11 @@ double parseAngle(
     final s = parts[0];
     if (s.split('.').length >= 3) {
       if (s.contains('..') || s.startsWith('.')) {
-        throw FormatException('角度格式不正确：“$text”');
+        throw SurveyFormatException(
+          SurveyErrorCode.angleInvalidFormat,
+          '角度格式不正确：“$text”',
+          {'text': text},
+        );
       }
       final clean = s.endsWith('.') ? s.substring(0, s.length - 1) : s;
       final dotParts = clean.split('.');
@@ -239,7 +257,11 @@ double parseAngle(
           _num('${dotParts[2]}.${dotParts[3]}', text),
         );
       } else {
-        throw FormatException('角度格式不正确：“$text”（度分秒最多三段）');
+        throw SurveyFormatException(
+          SurveyErrorCode.angleTooManyParts,
+          '角度格式不正确：“$text”（度分秒最多三段）',
+          {'text': text},
+        );
       }
     } else {
       final single = _num(s, text);
@@ -259,7 +281,11 @@ double parseAngle(
 double _num(String s, String whole) {
   final v = double.tryParse(s);
   if (v == null || !v.isFinite) {
-    throw FormatException('角度格式不正确：“$whole”');
+    throw SurveyFormatException(
+      SurveyErrorCode.angleInvalidFormat,
+      '角度格式不正确：“$whole”',
+      {'text': whole},
+    );
   }
   return v;
 }

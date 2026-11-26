@@ -24,6 +24,10 @@ class PageActions extends StatefulWidget {
     this.onUnitChanged,
     this.showAngleSelector = false,
     this.onAngleModeChanged,
+    this.onUndo,
+    this.onRedo,
+    this.canUndo = false,
+    this.canRedo = false,
   });
 
   final String pageId;
@@ -43,6 +47,12 @@ class PageActions extends StatefulWidget {
   /// 是否显示角度格式快捷切换胶囊（度分秒 / 十进制）。
   final bool showAngleSelector;
   final VoidCallback? onAngleModeChanged;
+
+  /// 可选撤销/重做回调（配合 DraftMixin.undoDraft / redoDraft）。
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final bool canUndo;
+  final bool canRedo;
 
   @override
   State<PageActions> createState() => _PageActionsState();
@@ -80,20 +90,29 @@ class _PageActionsState extends State<PageActions> {
       if (!result.ok) {
         SurveyToast.error(
           context,
-          '导出失败：${result.error ?? "未知错误"}',
+          context.tr(
+            '导出失败：{error}',
+            {'error': result.error ?? context.tr('未知错误')},
+          ),
         );
         return;
       }
       SurveyToast.success(
         context,
-        '已导出 ${format.label}：${result.path}',
+        context.tr(
+          '已导出 {format}：{path}',
+          {'format': context.tr(format.label), 'path': result.path!},
+        ),
         duration: const Duration(seconds: 4),
         actionLabel: Platform.isWindows ? '打开文件夹' : null,
         onAction: () => ExportService.openFolder(result.path!),
       );
     } catch (e) {
       if (mounted) {
-        SurveyToast.error(context, '导出失败：$e');
+        SurveyToast.error(
+          context,
+          context.tr('导出失败：{error}', {'error': e.toString()}),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -135,9 +154,34 @@ class _PageActionsState extends State<PageActions> {
     );
 
     final actionChips = <Widget>[
+      if (widget.onUndo != null)
+        SurveyTooltip(
+          message: '撤销',
+          child: IconButton(
+            onPressed: widget.canUndo ? widget.onUndo : null,
+            icon: const Icon(Icons.undo_rounded, size: 16),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+        ),
+      if (widget.onRedo != null)
+        SurveyTooltip(
+          message: '重做',
+          child: IconButton(
+            onPressed: widget.canRedo ? widget.onRedo : null,
+            icon: const Icon(Icons.redo_rounded, size: 16),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+        ),
       if (widget.showUnitSelector)
         PopupMenuButton<LengthUnit>(
-          tooltip: '切换长度输入量级（当前：${settings.lengthUnitLabel}）',
+          tooltip: context.tr(
+            '切换长度输入量级（当前：{unit}）',
+            {'unit': context.tr(settings.lengthUnitLabel)},
+          ),
           initialValue: settings.lengthUnit,
           onSelected: (u) async {
             await SettingsScope.read(context).setLengthUnit(u);
@@ -145,7 +189,10 @@ class _PageActionsState extends State<PageActions> {
             if (!context.mounted) return;
             SurveyToast.info(
               context,
-              '输入量级已切换为 ${u.label} (${u.symbol})',
+              context.tr(
+                '输入量级已切换为 {label} ({symbol})',
+                {'label': context.tr(u.label), 'symbol': u.symbol},
+              ),
             );
           },
           itemBuilder: (context) => [
@@ -164,7 +211,13 @@ class _PageActionsState extends State<PageActions> {
                           : scheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 8),
-                    Text('${u.label} (${u.symbol})'),
+                    Flexible(
+                      child: Text(
+                        '${context.tr(u.label)} (${u.symbol})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -257,7 +310,7 @@ class _PageActionsState extends State<PageActions> {
         PopupMenuButton<ExportFormat>(
           enabled: !_busy,
           onSelected: _export,
-          tooltip: '导出表格',
+          tooltip: context.tr('导出表格'),
           itemBuilder: (context) => [
             for (final f in ExportFormat.values)
               PopupMenuItem(
@@ -274,7 +327,13 @@ class _PageActionsState extends State<PageActions> {
                       size: 16,
                     ),
                     const SizedBox(width: 8),
-                    Text(context.tr(f.label)),
+                    Flexible(
+                      child: Text(
+                        context.tr(f.label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -309,50 +368,36 @@ class _PageActionsState extends State<PageActions> {
           ),
         ),
       if (widget.onClear != null)
-        widget.confirmClear
-            ? SurveyPopconfirm(
-                title: '清空本页草稿？',
-                description: '将恢复默认值并清除本页已保存输入',
-                confirmLabel: '清空',
-                destructive: true,
-                onConfirm: () async {
-                  await drafts.clear(widget.pageId);
-                  widget.onClear!.call();
-                  if (!context.mounted) return;
-                  SurveyToast.info(context, '已清空本页草稿');
-                },
-                builder: (ctx, open) => SurveyTooltip(
-                  message: '恢复默认值并清空本页草稿',
-                  child: TextButton.icon(
-                    onPressed: open,
-                    icon: const Icon(Icons.restart_alt, size: 15),
-                    label: Text(context.tr('清空')),
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: const Size(0, 30),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ),
-              )
-            : SurveyTooltip(
-                message: '恢复默认值并清空本页草稿',
-                child: TextButton.icon(
-                  onPressed: () async {
-                    await drafts.clear(widget.pageId);
-                    widget.onClear!.call();
-                  },
-                  icon: const Icon(Icons.restart_alt, size: 15),
-                  label: Text(context.tr('清空')),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    minimumSize: const Size(0, 30),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ),
+        SurveyTooltip(
+          message: '恢复默认值并清空本页草稿',
+          child: TextButton.icon(
+            onPressed: () async {
+              if (widget.confirmClear) {
+                final ok = await SurveyModal.confirm(
+                  context,
+                  title: '清空本页草稿？',
+                  message: '将恢复默认值并清除本页已保存输入',
+                  confirmLabel: '清空',
+                  destructive: true,
+                );
+                if (!ok || !context.mounted) return;
+              }
+              await drafts.clear(widget.pageId);
+              widget.onClear!.call();
+              if (widget.confirmClear && context.mounted) {
+                SurveyToast.info(context, '已清空本页草稿');
+              }
+            },
+            icon: const Icon(Icons.restart_alt, size: 15),
+            label: Text(context.tr('清空')),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
       ...widget.extra,
     ];
 

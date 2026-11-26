@@ -16,6 +16,9 @@ const List<double> kIntersectionTableWidths = <double>[36, 132, 96, 132, 96];
 /// 其余按坐标小数位（教材用 3 位）。
 const Set<int> kIntersectionSixDigitRows = <int>{3, 4};
 
+List<String> intersectionTableColumns(String Function(String) tr) =>
+    <String>[for (final col in kIntersectionTableColumns) tr(col)];
+
 /// 把 core 的 [ForwardIntersectionTable.rows]（9 行 × 2 列）摊成表格数据。
 ///
 /// 逐格对应教材：1 Xa|Ya、2 Xb|Yb、3 Xa−Xb|Yb−Ya、4 tanα|tanβ、

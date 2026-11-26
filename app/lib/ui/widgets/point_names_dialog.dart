@@ -154,7 +154,7 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
     final scheme = Theme.of(context).colorScheme;
     final presets = widget.presets;
     final startVal = _startCtrl.text.trim().isEmpty
-        ? (widget.startName ?? '起点')
+        ? (widget.startName ?? context.tr('起点'))
         : _startCtrl.text.trim();
     final step = int.tryParse(_step.text) ?? 0;
     final validSequence = widget.sequencePrefix == null ||
@@ -213,7 +213,8 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
             if (presets != null)
               for (final p in presets)
                 ActionChip(
-                  label: Text(p.label, style: const TextStyle(fontSize: 11.5)),
+                  label: Text(context.tr(p.label),
+                      style: const TextStyle(fontSize: 11.5)),
                   visualDensity: VisualDensity.compact,
                   onPressed: () {
                     final built = p.buildNames(_nameCtrls.length, startVal);
@@ -227,29 +228,30 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
                 )
             else ...[
               ActionChip(
-                label: const Text('转点 TP1, TP2…',
-                    style: TextStyle(fontSize: 11.5)),
+                label: Text(context.tr('转点 TP1, TP2…'),
+                    style: const TextStyle(fontSize: 11.5)),
                 visualDensity: VisualDensity.compact,
                 onPressed: () =>
                     _applyPrefix('TP', closeToStart: widget.isClosed),
               ),
               ActionChip(
-                label: const Text('水准点 BM1, BM2…',
-                    style: TextStyle(fontSize: 11.5)),
+                label: Text(context.tr('水准点 BM1, BM2…'),
+                    style: const TextStyle(fontSize: 11.5)),
                 visualDensity: VisualDensity.compact,
                 onPressed: () =>
                     _applyPrefix('BM', closeToStart: widget.isClosed),
               ),
               ActionChip(
-                label:
-                    const Text('测点 P1, P2…', style: TextStyle(fontSize: 11.5)),
+                label: Text(context.tr('测点 P1, P2…'),
+                    style: const TextStyle(fontSize: 11.5)),
                 visualDensity: VisualDensity.compact,
                 onPressed: () =>
                     _applyPrefix('P', closeToStart: widget.isClosed),
               ),
               if (_nameCtrls.isNotEmpty && widget.startName != null)
                 ActionChip(
-                  label: const Text('末点闭合起点', style: TextStyle(fontSize: 11.5)),
+                  label: Text(context.tr('末点闭合起点'),
+                      style: const TextStyle(fontSize: 11.5)),
                   visualDensity: VisualDensity.compact,
                   onPressed: () {
                     _nameCtrls.last.text = startVal;
@@ -265,8 +267,8 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
             controller: _startCtrl,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: widget.startLabel,
-              hintText: '如 BM1',
+              labelText: context.tr(widget.startLabel),
+              hintText: context.tr('如 BM1'),
               isDense: true,
             ),
           ),
@@ -278,9 +280,9 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
               Expanded(
                 child: TextField(
                   controller: _backRodCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '后尺号（可选）',
-                    hintText: '如 5',
+                  decoration: InputDecoration(
+                    labelText: context.tr('后尺号（可选）'),
+                    hintText: context.tr('如 5'),
                     isDense: true,
                   ),
                 ),
@@ -289,9 +291,9 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
               Expanded(
                 child: TextField(
                   controller: _frontRodCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '前尺号（可选）',
-                    hintText: '如 6',
+                  decoration: InputDecoration(
+                    labelText: context.tr('前尺号（可选）'),
+                    hintText: context.tr('如 6'),
                     isDense: true,
                   ),
                 ),
@@ -301,7 +303,7 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
           const SizedBox(height: Insets.m),
         ],
         Text(
-          '各站 / 各点编号',
+          context.tr('各站 / 各点编号'),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -326,7 +328,7 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
                                     ? 'P$i'
                                     : _nameCtrls[i - 1].text.trim()),
                           )
-                        : '第 ${i + 1} 站前点',
+                        : context.tr('第 {n} 站前点', {'n': i + 1}),
                     style: TextStyle(
                       fontSize: 12,
                       color: scheme.onSurfaceVariant,
@@ -392,7 +394,7 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
                           ],
                         ));
                       },
-                child: const Text('应用'),
+                child: Text(context.tr('应用')),
               ),
             ],
           ),

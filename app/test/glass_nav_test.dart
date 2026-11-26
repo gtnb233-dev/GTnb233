@@ -137,7 +137,7 @@ void main() {
     addTearDown(() => SharedPreferences.setMockInitialValues({}));
     final settings = AppSettings();
     await settings.load();
-    tester.view.physicalSize = const Size(320, 640) * 3;
+    tester.view.physicalSize = const Size(1280, 800) * 3;
     tester.view.devicePixelRatio = 3.0;
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(() {
@@ -147,12 +147,9 @@ void main() {
     await tester.pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(GlassNavBar),
-        matching: find.text('设置'),
-      ),
-    );
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(320, 640) * 3;
     await tester.pumpAndSettle();
 
     final scrollable = tester.state<ScrollableState>(

@@ -27,13 +27,77 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
   /// 第一次进入、且没有草稿时用的初值；草稿里缺某个字段就用它补。
   Map<String, String> get draftDefaults => const {};
 
+  static const int _maxHistory = 40;
+
   bool _draftBound = false;
   bool _suppressDraft = false;
   final Map<String, VoidCallback> _draftListeners = {};
+  final List<Map<String, String>> _undoStack = [];
+  final List<Map<String, String>> _redoStack = [];
+  Map<String, String> _lastSnapshot = const {};
   DraftStore? _store;
 
   /// 供页面在导出/清空前取用。
   DraftStore get drafts => _store ?? DraftScope.read(context);
+
+  /// 当前页面所属项目分组（可选）。
+  String? get draftProject => drafts.projectOf(draftPageId);
+
+  /// 设置当前页面所属项目分组。
+  Future<void> setDraftProject(String? project) =>
+      drafts.setProject(draftPageId, project);
+
+  bool get canUndo => _undoStack.isNotEmpty;
+  bool get canRedo => _redoStack.isNotEmpty;
+
+  Map<String, String> _captureSnapshot() => {
+        for (final entry in draftFields.entries)
+          entry.key: draftInputText(entry.value),
+      };
+
+  bool _sameSnapshot(Map<String, String> a, Map<String, String> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
+  }
+
+  void _applySnapshot(Map<String, String> snapshot) {
+    _suppressDraft = true;
+    try {
+      draftFields.forEach((field, controller) {
+        final next = snapshot[field] ?? '';
+        if (controller.text != next) {
+          controller.text = next;
+        }
+      });
+    } finally {
+      _suppressDraft = false;
+    }
+    _lastSnapshot = Map<String, String>.from(snapshot);
+    final store = _store;
+    if (store != null) {
+      store.putAll(draftPageId, snapshot);
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// 撤销上一步草稿输入变更。
+  void undoDraft() {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(Map<String, String>.from(_captureSnapshot()));
+    final prev = _undoStack.removeLast();
+    _applySnapshot(prev);
+  }
+
+  /// 重做已撤销的草稿输入变更。
+  void redoDraft() {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(Map<String, String>.from(_captureSnapshot()));
+    final next = _redoStack.removeLast();
+    _applySnapshot(next);
+  }
 
   @override
   void didChangeDependencies() {
@@ -53,16 +117,33 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
       }
       void listener() {
         if (!_suppressDraft) {
+          final current = _captureSnapshot();
+          if (!_sameSnapshot(current, _lastSnapshot)) {
+            if (_lastSnapshot.isNotEmpty) {
+              _undoStack.add(Map<String, String>.from(_lastSnapshot));
+              if (_undoStack.length > _maxHistory) {
+                _undoStack.removeAt(0);
+              }
+              _redoStack.clear();
+            }
+            _lastSnapshot = current;
+          }
           store.put(draftPageId, field, draftInputText(controller));
         }
       }
       controller.addListener(listener);
       _draftListeners[field] = listener;
     });
+    _lastSnapshot = _captureSnapshot();
   }
 
   /// 清空草稿：先同步恢复初值（屏蔽监听避免回写），再异步删掉已存草稿。
   Future<void> clearDraft() async {
+    _undoStack.add(Map<String, String>.from(_captureSnapshot()));
+    if (_undoStack.length > _maxHistory) {
+      _undoStack.removeAt(0);
+    }
+    _redoStack.clear();
     _suppressDraft = true;
     try {
       draftFields.forEach((field, controller) {
@@ -74,6 +155,7 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
     } finally {
       _suppressDraft = false;
     }
+    _lastSnapshot = _captureSnapshot();
     final store = _store;
     if (store != null) {
       await store.clear(draftPageId);

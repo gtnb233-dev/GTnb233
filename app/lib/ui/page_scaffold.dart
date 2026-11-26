@@ -3,11 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../l10n/survey_strings.dart';
+import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/command_palette.dart';
+import 'widgets/outline_symbol.dart';
 import 'widgets/tutorial_panel.dart';
 import 'widgets/workspace_commands.dart';
 
@@ -363,6 +365,8 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final canPop = Navigator.canPop(context);
     final compact =
         MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+    final tutorial = widget.children.whereType<PageTutorial>().firstOrNull;
+    final livePlot = LivePlotScope.maybeOf(context);
     final desktopHeader = Container(
       decoration: BoxDecoration(
         border: Border(
@@ -411,12 +415,16 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               return Row(
                 children: [
                   if (canPop) ...[
-                    GlassIconOrb(
-                      icon: Icons.arrow_back_ios_new_rounded,
+                    IconButton(
                       tooltip: context.tr('返回'),
+                      visualDensity: VisualDensity.compact,
                       onPressed: () => Navigator.maybePop(context),
+                      icon: const OutlineSymbol(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 17,
+                      ),
                     ),
-                    const SizedBox(width: Insets.s),
+                    const SizedBox(width: Insets.xs),
                   ],
                   Expanded(child: titleCol),
                   if (widget.actions != null && widget.actions!.isNotEmpty) ...[
@@ -426,6 +434,38 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                       children: widget.actions!,
                     ),
                   ],
+                  if (tutorial != null)
+                    IconButton(
+                      tooltip: context.tr('打开离线教程'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => tutorial.openGuide(context),
+                      icon: const OutlineSymbol(
+                        Icons.help_outline_rounded,
+                        size: 19,
+                      ),
+                    ),
+                  if (livePlot != null)
+                    IconButton(
+                      tooltip: context.tr('实时坐标图分栏'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: livePlot.toggleSplit,
+                      icon: OutlineSymbol(
+                        livePlot.splitOpen
+                            ? Icons.vertical_split
+                            : Icons.vertical_split_outlined,
+                        size: 19,
+                        color: livePlot.splitOpen ? scheme.primary : null,
+                      ),
+                    ),
+                  IconButton(
+                    tooltip: context.tr('更多操作'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _showCompactActions,
+                    icon: const OutlineSymbol(
+                      Icons.more_horiz_rounded,
+                      size: 19,
+                    ),
+                  ),
                 ],
               );
             },

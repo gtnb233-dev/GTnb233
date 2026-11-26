@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'errors.dart';
+
 /// 水准路线平差（附合 / 闭合 / 支线）。
 ///
 /// 闭合差限差按 `limitCoefficient × √L`（mm，L 以 km 计）计算；
@@ -123,6 +125,9 @@ const double kDoubleStaffDistanceDiffToleranceM = 5.0;
 /// 四等水准双面尺的检核阈值：|累计视距差 Σd| ≤ 10 m。
 const double kDoubleStaffCumulativeToleranceM = 10.0;
 
+/// 四等水准双面尺的检核阈值：最小视线高（标尺读数）> 0.2 m（200 mm）。
+const double kDoubleStaffMinSightHeightMm = 200.0;
+
 /// 双面尺一站观测（尺读数单位 mm，视距用上/下丝读数）。
 class DoubleStaffObservation {
   const DoubleStaffObservation({
@@ -190,7 +195,9 @@ class DoubleStaffStationResult {
     required this.frontConstantOk,
     required this.distanceOk,
     required this.cumulativeOk,
+    this.cumStadiaWarning = false,
     this.sightOk = true,
+    this.sightHeightOk = true,
     this.heightDifferenceOk = true,
   });
 
@@ -235,21 +242,28 @@ class DoubleStaffStationResult {
 
   /// |Σd| ≤ 10 m。
   final bool cumulativeOk;
+
+  /// |Σd| > 7.0 m 且 ≤ 10.0 m 时的预警标志（未超限但接近限差）。
+  final bool cumStadiaWarning;
+
   final bool sightOk;
+  final bool sightHeightOk;
   final bool heightDifferenceOk;
   bool get cumulativeWarning =>
-      cumulativeOk && cumulativeDistanceDiffM.abs() >= 7 - 1e-9;
+      cumStadiaWarning ||
+      (cumulativeOk && cumulativeDistanceDiffM.abs() >= 7 - 1e-9);
 
   /// 高差中数（m）。
   double get meanDiffM => meanDiffMm / 1000.0;
 
-  /// 四项检核是否全部通过。
+  /// 全部检核是否通过。
   bool get ok =>
       backConstantOk &&
       frontConstantOk &&
       distanceOk &&
       cumulativeOk &&
       sightOk &&
+      sightHeightOk &&
       heightDifferenceOk;
 
   /// 不合格项说明（全部合格时为空串）。
@@ -260,8 +274,62 @@ class DoubleStaffStationResult {
     if (!distanceOk) out.add('视距差超限');
     if (!cumulativeOk) out.add('累计视距差超限');
     if (!sightOk) out.add('视线长度超限');
+    if (!sightHeightOk) out.add('视线高 ≤ 0.2m');
     if (!heightDifferenceOk) out.add('红黑面高差之差超限');
     return out.join('、');
+  }
+
+  /// 结构化不合格项（供界面按语言格式化）。
+  List<SurveyStructuredError> get structuredIssues {
+    final out = <SurveyStructuredError>[];
+    if (!backConstantOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.levelingBackConstantExceeded,
+        '后尺 K+黑−红超限',
+        {'diff': backConstantDiffMm},
+      ));
+    }
+    if (!frontConstantOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.levelingFrontConstantExceeded,
+        '前尺 K+黑−红超限',
+        {'diff': frontConstantDiffMm},
+      ));
+    }
+    if (!distanceOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.levelingDistanceDiffExceeded,
+        '视距差超限',
+        {'diff': distanceDiffM},
+      ));
+    }
+    if (!cumulativeOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.levelingCumulativeDiffExceeded,
+        '累计视距差超限',
+        {'diff': cumulativeDistanceDiffM},
+      ));
+    }
+    if (!sightOk) {
+      out.add(SurveyStructuredError(
+        SurveyErrorCode.levelingSightLengthExceeded,
+        '视线长度超限',
+        {'back': backDistanceM, 'front': frontDistanceM},
+      ));
+    }
+    if (!sightHeightOk) {
+      out.add(const SurveyStructuredError(
+        SurveyErrorCode.levelingSightHeightTooLow,
+        '视线高 ≤ 0.2m',
+      ));
+    }
+    if (!heightDifferenceOk) {
+      out.add(const SurveyStructuredError(
+        SurveyErrorCode.levelingHeightDiffExceeded,
+        '红黑面高差之差超限',
+      ));
+    }
+    return out;
   }
 }
 
@@ -332,6 +400,7 @@ DoubleStaffLevelingResult doubleStaffLeveling(
   double distanceDiffToleranceM = kDoubleStaffDistanceDiffToleranceM,
   double cumulativeToleranceM = kDoubleStaffCumulativeToleranceM,
   double sightLimitM = double.infinity,
+  double minSightHeightMm = kDoubleStaffMinSightHeightMm,
   double heightDifferenceLimitMm = double.infinity,
 }) {
   final stations = <DoubleStaffStationResult>[];
@@ -359,6 +428,17 @@ DoubleStaffLevelingResult doubleStaffLeveling(
     sumBlack += blackDiff;
     sumRed += redDiff;
     sumMean += meanDiff;
+    final backSightHeightOk = o.backBlack > minSightHeightMm &&
+        o.backRed > minSightHeightMm &&
+        (o.backDirectM != null ||
+            (o.backLower > minSightHeightMm && o.backUpper > minSightHeightMm));
+    final frontSightHeightOk = o.frontBlack > minSightHeightMm &&
+        o.frontRed > minSightHeightMm &&
+        (o.frontDirectM != null ||
+            (o.frontLower > minSightHeightMm &&
+                o.frontUpper > minSightHeightMm));
+    final cumulativeOk = cumulative.abs() <= cumulativeToleranceM + 1e-9;
+    final cumStadiaWarning = cumulativeOk && cumulative.abs() > 7.0;
     stations.add(DoubleStaffStationResult(
       index: i + 1,
       backDistanceM: backDistance,
@@ -373,9 +453,11 @@ DoubleStaffLevelingResult doubleStaffLeveling(
       backConstantOk: backConstant.abs() <= constantToleranceMm,
       frontConstantOk: frontConstant.abs() <= constantToleranceMm,
       distanceOk: d.abs() <= distanceDiffToleranceM + 1e-9,
-      cumulativeOk: cumulative.abs() <= cumulativeToleranceM + 1e-9,
+      cumulativeOk: cumulativeOk,
+      cumStadiaWarning: cumStadiaWarning,
       sightOk: backDistance <= sightLimitM + 1e-9 &&
           frontDistance <= sightLimitM + 1e-9,
+      sightHeightOk: backSightHeightOk && frontSightHeightOk,
       heightDifferenceOk: (blackDiff - redDiff + o.kBack - o.kFront).abs() <=
           heightDifferenceLimitMm,
     ));
@@ -426,17 +508,30 @@ double levelingMisclosureLimitMm({
 }) {
   if (lengthKm != null) {
     if (!lengthKm.isFinite || lengthKm < 0) {
-      throw ArgumentError.value(lengthKm, 'lengthKm', '路线长必须是非负有限数');
+      throw SurveyArgumentError.value(
+        lengthKm,
+        'lengthKm',
+        SurveyErrorCode.levelingLengthInvalid,
+        '路线长必须是非负有限数',
+      );
     }
     return grade.lengthCoefficient * math.sqrt(lengthKm);
   }
   if (stationCount != null) {
     if (stationCount < 0) {
-      throw ArgumentError.value(stationCount, 'stationCount', '测站数不能为负');
+      throw SurveyArgumentError.value(
+        stationCount,
+        'stationCount',
+        SurveyErrorCode.levelingStationCountNegative,
+        '测站数不能为负',
+      );
     }
     return grade.stationCoefficient * math.sqrt(stationCount.toDouble());
   }
-  throw ArgumentError('lengthKm 与 stationCount 至少给一个');
+  throw SurveyArgumentError(
+    SurveyErrorCode.levelingLengthOrStationRequired,
+    'lengthKm 与 stationCount 至少给一个',
+  );
 }
 
 /// 水准路线的一站：前视点名 + 高差中数 + 本站路线长。

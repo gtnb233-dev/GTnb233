@@ -136,7 +136,7 @@ class _ResultTileState extends State<ResultTile> {
               Padding(
                 padding: const EdgeInsets.only(top: 3),
                 child: Text(
-                  widget.unit!,
+                  context.tr(widget.unit!),
                   style: TextStyle(
                     fontSize: 11.5,
                     color: scheme.onSurfaceVariant,
@@ -248,7 +248,7 @@ class DataSheet extends StatelessWidget {
     Widget headCell(int i) => Expanded(
           flex: (flex[i] * 100).round(),
           child: Text(
-            columns[i],
+            context.tr(columns[i]),
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
@@ -261,7 +261,7 @@ class DataSheet extends StatelessWidget {
     Widget bodyCell(int r, int c) => Expanded(
           flex: (flex[c] * 100).round(),
           child: Text(
-            rows[r][c],
+            context.tr(rows[r][c]),
             style: TextStyle(
               fontSize: 12.5,
               fontWeight:
@@ -386,7 +386,7 @@ class _MetricTileState extends State<MetricTile> {
                 ),
                 if (widget.hasDraft)
                   Tooltip(
-                    message: '有已保存草稿',
+                    message: context.tr('有已保存草稿'),
                     child: Container(
                       width: 7,
                       height: 7,
@@ -426,7 +426,7 @@ class _MetricTileState extends State<MetricTile> {
                 if (widget.unit != null) ...[
                   const SizedBox(width: Insets.xs),
                   Text(
-                    widget.unit!,
+                    context.tr(widget.unit!),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,

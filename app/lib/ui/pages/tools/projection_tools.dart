@@ -7,13 +7,18 @@ import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
 import '../../../l10n/survey_strings.dart';
+import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
+import 'control_points_page.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
+
+String _pl(BuildContext context, String zh, String en) =>
+    SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
 
 double? _num(TextEditingController c) {
   final t = c.text.trim();
@@ -26,8 +31,10 @@ TextEditingController _ctrl(String t) => TextEditingController(text: t);
 /// 椭球下拉的顺序与显示名（西安80 即 Krassovsky 1940）。
 const List<Ellipsoid> _ellipsoids = [kCgcs2000, kKrassovsky, kWgs84];
 
-String _ellipsoidLabel(Ellipsoid e) =>
-    identical(e, kKrassovsky) ? '西安80（Krassovsky 1940）' : e.name;
+String _ellipsoidLabel(BuildContext context, Ellipsoid e) =>
+    identical(e, kKrassovsky)
+        ? _pl(context, '西安80（Krassovsky 1940）', "Xi'an 80 (Krassovsky 1940)")
+        : e.name;
 
 /// 一组公共点：点名 + 源坐标 + 目标坐标。
 class _CommonPoint {
@@ -323,24 +330,33 @@ class _ProjectionPageState extends State<ProjectionPage>
 
   /// 导出：按当前模式给「输入 + 成果」专属表，标题带模式名。
   SheetTable _exportTable() {
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
     final s = SettingsScope.read(context);
     final rows = <List<String>>[
-      <String>['项目', '值', '单位'],
-      <String>['椭球', _ellipsoid.name, ''],
+      <String>[
+        isZh ? '项目' : 'Item',
+        isZh ? '值' : 'Value',
+        isZh ? '单位' : 'Unit',
+      ],
+      <String>[isZh ? '椭球' : 'Ellipsoid', _ellipsoid.name, ''],
     ];
     if (_mode == 0) {
       final p = _forward;
       rows.addAll(<List<String>>[
-        <String>['B（纬度）', _blExportText(_lat, s.angleSecDigits), '°'],
-        <String>['L（经度）', _blExportText(_lon, s.angleSecDigits), '°'],
-        <String>['假东（y 常数）', _fe.text.trim(), 'm'],
-        <String>['带宽', '$_zoneWidth°', ''],
-        <String>['x（北坐标）', p == null ? '' : fmt(p.x, 3), 'm'],
-        <String>['y（含假东）', p == null ? '' : fmt(p.y, 3), 'm'],
-        <String>['带号', p == null ? '' : '${p.zone}', ''],
-        <String>['中央子午线', p == null ? '' : fmt(p.centralMeridianDeg, 3), '°'],
+        <String>[isZh ? 'B（纬度）' : 'Latitude B', _blExportText(_lat, s.angleSecDigits), '°'],
+        <String>[isZh ? 'L（经度）' : 'Longitude L', _blExportText(_lon, s.angleSecDigits), '°'],
+        <String>[isZh ? '假东（y 常数）' : 'False Easting', _fe.text.trim(), 'm'],
+        <String>[isZh ? '带宽' : 'Zone Width', '$_zoneWidth°', ''],
+        <String>[isZh ? 'x（北坐标）' : 'Northing x', p == null ? '' : fmt(p.x, 3), 'm'],
+        <String>[isZh ? 'y（含假东）' : 'Easting y', p == null ? '' : fmt(p.y, 3), 'm'],
+        <String>[isZh ? '带号' : 'Zone', p == null ? '' : '${p.zone}', ''],
         <String>[
-          '自然坐标 y',
+          isZh ? '中央子午线' : 'Central Meridian',
+          p == null ? '' : fmt(p.centralMeridianDeg, 3),
+          '°',
+        ],
+        <String>[
+          isZh ? '自然坐标 y' : 'Natural y',
           p == null ? '' : fmt(p.y - (_num(_fe) ?? 0), 3),
           'm',
         ],
@@ -348,28 +364,32 @@ class _ProjectionPageState extends State<ProjectionPage>
     } else if (_mode == 1) {
       final ll = _inverse;
       rows.addAll(<List<String>>[
-        <String>['x（北坐标）', _invX.text.trim(), 'm'],
-        <String>['y（东坐标，可含带号）', _invY.text.trim(), 'm'],
-        <String>['带宽', '$_inverseZoneWidth°', ''],
-        <String>['中央子午线 L0', _blExportText(_l0, s.angleSecDigits), '°'],
-        <String>['带号', _zone.text.trim(), ''],
+        <String>[isZh ? 'x（北坐标）' : 'Northing x', _invX.text.trim(), 'm'],
+        <String>[isZh ? 'y（东坐标，可含带号）' : 'Easting y', _invY.text.trim(), 'm'],
+        <String>[isZh ? '带宽' : 'Zone Width', '$_inverseZoneWidth°', ''],
         <String>[
-          '纬度 B（十进制度）',
+          isZh ? '中央子午线 L0' : 'Central Meridian L0',
+          _blExportText(_l0, s.angleSecDigits),
+          '°',
+        ],
+        <String>[isZh ? '带号' : 'Zone', _zone.text.trim(), ''],
+        <String>[
+          isZh ? '纬度 B（十进制度）' : 'Latitude B (DD)',
           ll == null ? '' : fmt(ll.latDeg, 8),
           '°',
         ],
         <String>[
-          '经度 L（十进制度）',
+          isZh ? '经度 L（十进制度）' : 'Longitude L (DD)',
           ll == null ? '' : fmt(ll.lonDeg, 8),
           '°',
         ],
         <String>[
-          '纬度 B（度分秒）',
+          isZh ? '纬度 B（度分秒）' : 'Latitude B (DMS)',
           ll == null ? '' : fmtAngle(ll.latDeg, secDigits: 2),
           '',
         ],
         <String>[
-          '经度 L（度分秒）',
+          isZh ? '经度 L（度分秒）' : 'Longitude L (DMS)',
           ll == null ? '' : fmtAngle(ll.lonDeg, secDigits: 2),
           '',
         ],
@@ -377,108 +397,135 @@ class _ProjectionPageState extends State<ProjectionPage>
     } else if (_mode == 2) {
       final fit = _fit;
       rows.addAll(<List<String>>[
-        <String>['公共点（每行 点名, X, Y, X′, Y′）', _pairs.text.trim(), ''],
-        <String>['平移 dx', fit == null ? '' : fmt(fit.transform.dx, 4), 'm'],
-        <String>['平移 dy', fit == null ? '' : fmt(fit.transform.dy, 4), 'm'],
-        <String>['尺度 k', fit == null ? '' : fmt(fit.transform.scale, 9), ''],
+        <String>[isZh ? '公共点（每行 点名, X, Y, X′, Y′）' : 'Control Pairs', _pairs.text.trim(), ''],
+        <String>[isZh ? '平移 dx' : 'Translation dx', fit == null ? '' : fmt(fit.transform.dx, 4), 'm'],
+        <String>[isZh ? '平移 dy' : 'Translation dy', fit == null ? '' : fmt(fit.transform.dy, 4), 'm'],
+        <String>[isZh ? '尺度 k' : 'Scale k', fit == null ? '' : fmt(fit.transform.scale, 9), ''],
         <String>[
-          '尺度差',
+          isZh ? '尺度差' : 'Scale Diff',
           fit == null ? '' : fmt((fit.transform.scale - 1) * 1e6, 4),
           'ppm',
         ],
         <String>[
-          '旋转 θ（度分秒）',
+          isZh ? '旋转 θ（度分秒）' : 'Rotation θ (DMS)',
           fit == null ? '' : fmtAngle(fit.transform.rotationDeg, secDigits: 2),
           '',
         ],
         <String>[
-          '旋转 θ（度）',
+          isZh ? '旋转 θ（度）' : 'Rotation θ (DD)',
           fit == null ? '' : fmt(fit.transform.rotationDeg, 6),
           '°',
         ],
-        <String>['中误差 rms', fit == null ? '' : fmt(fit.rms, 6), 'm'],
-        <String>['公共点数', fit == null ? '' : '${fit.count}', ''],
-        <String>['应用点 X', _applyX.text.trim(), 'm'],
-        <String>['应用点 Y', _applyY.text.trim(), 'm'],
+        <String>[isZh ? '中误差 rms' : 'RMS Error', fit == null ? '' : fmt(fit.rms, 6), 'm'],
+        <String>[isZh ? '公共点数' : 'Point Count', fit == null ? '' : '${fit.count}', ''],
+        <String>[isZh ? '应用点 X' : 'Apply X', _applyX.text.trim(), 'm'],
+        <String>[isZh ? '应用点 Y' : 'Apply Y', _applyY.text.trim(), 'm'],
       ]);
     } else if (_mode == 3) {
       final c = _cartesian;
       final g = _geodeticBack;
       rows.addAll(<List<String>>[
-        <String>['换算方向', _geodesyDir == 0 ? '大地 → 空间直角' : '空间直角 → 大地', ''],
-        <String>['B（纬度）', _bLat.text.trim(), '°'],
-        <String>['L（经度）', _bLon.text.trim(), '°'],
-        <String>['H（大地高）', _bH.text.trim(), 'm'],
+        <String>[
+          isZh ? '换算方向' : 'Direction',
+          _geodesyDir == 0
+              ? (isZh ? '大地 → 空间直角' : 'Geodetic → ECEF')
+              : (isZh ? '空间直角 → 大地' : 'ECEF → Geodetic'),
+          '',
+        ],
+        <String>[isZh ? 'B（纬度）' : 'Latitude B', _bLat.text.trim(), '°'],
+        <String>[isZh ? 'L（经度）' : 'Longitude L', _bLon.text.trim(), '°'],
+        <String>[isZh ? 'H（大地高）' : 'Height H', _bH.text.trim(), 'm'],
         <String>['X', _cx.text.trim(), 'm'],
         <String>['Y', _cy.text.trim(), 'm'],
         <String>['Z', _cz.text.trim(), 'm'],
-        <String>['成果 X', c == null ? '' : fmt(c.x, 4), 'm'],
-        <String>['成果 Y', c == null ? '' : fmt(c.y, 4), 'm'],
-        <String>['成果 Z', c == null ? '' : fmt(c.z, 4), 'm'],
-        <String>['成果 B（十进制度）', g == null ? '' : fmt(g.latDeg, 9), '°'],
-        <String>['成果 L（十进制度）', g == null ? '' : fmt(g.lonDeg, 9), '°'],
-        <String>['成果 H', g == null ? '' : fmt(g.heightM, 4), 'm'],
+        <String>[isZh ? '成果 X' : 'Result X', c == null ? '' : fmt(c.x, 4), 'm'],
+        <String>[isZh ? '成果 Y' : 'Result Y', c == null ? '' : fmt(c.y, 4), 'm'],
+        <String>[isZh ? '成果 Z' : 'Result Z', c == null ? '' : fmt(c.z, 4), 'm'],
+        <String>[isZh ? '成果 B（十进制度）' : 'Result B (DD)', g == null ? '' : fmt(g.latDeg, 9), '°'],
+        <String>[isZh ? '成果 L（十进制度）' : 'Result L (DD)', g == null ? '' : fmt(g.lonDeg, 9), '°'],
+        <String>[isZh ? '成果 H' : 'Result H', g == null ? '' : fmt(g.heightM, 4), 'm'],
         <String>[
-          '成果 B（度分秒）',
+          isZh ? '成果 B（度分秒）' : 'Result B (DMS)',
           g == null ? '' : fmtAngle(g.latDeg, secDigits: 2),
-          ''
+          '',
         ],
         <String>[
-          '成果 L（度分秒）',
+          isZh ? '成果 L（度分秒）' : 'Result L (DMS)',
           g == null ? '' : fmtAngle(g.lonDeg, secDigits: 2),
-          ''
+          '',
         ],
       ]);
     } else {
       final fit = _helmertFit;
       rows.addAll(<List<String>>[
-        <String>['公共点', _helmertPts.text.trim(), ''],
-        <String>['应用点 B', _hApply0.text.trim(), '°'],
-        <String>['应用点 L', _hApply1.text.trim(), '°'],
-        <String>['应用点 H', _hApply2.text.trim(), 'm'],
-        <String>['平移 dx', fit == null ? '' : fmt(fit.transform.dx, 4), 'm'],
-        <String>['平移 dy', fit == null ? '' : fmt(fit.transform.dy, 4), 'm'],
-        <String>['平移 dz', fit == null ? '' : fmt(fit.transform.dz, 4), 'm'],
+        <String>[isZh ? '公共点' : 'Control Points', _helmertPts.text.trim(), ''],
+        <String>[isZh ? '应用点 B' : 'Apply B/X', _hApply0.text.trim(), '°'],
+        <String>[isZh ? '应用点 L' : 'Apply L/Y', _hApply1.text.trim(), '°'],
+        <String>[isZh ? '应用点 H' : 'Apply H/Z', _hApply2.text.trim(), 'm'],
+        <String>[isZh ? '平移 dx' : 'dx', fit == null ? '' : fmt(fit.transform.dx, 4), 'm'],
+        <String>[isZh ? '平移 dy' : 'dy', fit == null ? '' : fmt(fit.transform.dy, 4), 'm'],
+        <String>[isZh ? '平移 dz' : 'dz', fit == null ? '' : fmt(fit.transform.dz, 4), 'm'],
         <String>[
-          '旋转 ex',
+          isZh ? '旋转 ex' : 'ex',
           fit == null ? '' : fmt(fit.transform.exArcSec, 4),
-          '″'
+          '″',
         ],
         <String>[
-          '旋转 ey',
+          isZh ? '旋转 ey' : 'ey',
           fit == null ? '' : fmt(fit.transform.eyArcSec, 4),
-          '″'
+          '″',
         ],
         <String>[
-          '旋转 ez',
+          isZh ? '旋转 ez' : 'ez',
           fit == null ? '' : fmt(fit.transform.ezArcSec, 4),
-          '″'
+          '″',
         ],
         <String>[
-          '尺度',
+          isZh ? '尺度' : 'Scale',
           fit == null ? '' : fmt(fit.transform.scalePpm, 4),
-          'ppm'
+          'ppm',
         ],
-        <String>['中误差 rms', fit == null ? '' : fmt(fit.rms, 6), 'm'],
-        <String>['公共点数', fit == null ? '' : '${fit.count}', ''],
-        <String>['换算方向', _helmertFromGeodetic ? '大地 → 空间直角' : '空间直角 → 大地', ''],
+        <String>[isZh ? '中误差 rms' : 'RMS Error', fit == null ? '' : fmt(fit.rms, 6), 'm'],
+        <String>[isZh ? '公共点数' : 'Point Count', fit == null ? '' : '${fit.count}', ''],
+        <String>[
+          isZh ? '换算方向' : 'Source',
+          _helmertFromGeodetic
+              ? (isZh ? '大地 → 空间直角' : 'Geodetic → ECEF')
+              : (isZh ? '空间直角 → 大地' : 'ECEF → ECEF'),
+          '',
+        ],
       ]);
     }
     // 残差：四参数与七参数模式在 CSV/TXT 中补齐列宽，在 Excel/PNG 工程表拆为双页。
-    const titles = <String>[
-      '坐标转换 · 高斯正算',
-      '坐标转换 · 高斯反算',
-      '坐标转换 · 四参数',
-      '坐标转换 · 大地↔空间直角',
-      '坐标转换 · 七参数',
-    ];
+    final titles = isZh
+        ? const <String>[
+            '坐标转换 · 高斯正算',
+            '坐标转换 · 高斯反算',
+            '坐标转换 · 四参数',
+            '坐标转换 · 大地↔空间直角',
+            '坐标转换 · 七参数',
+          ]
+        : const <String>[
+            'Projection · Gauss Forward',
+            'Projection · Gauss Inverse',
+            'Projection · 2D 4-Param',
+            'Projection · Geodetic ↔ ECEF',
+            'Projection · 7-Param Helmert',
+          ];
     final title = titles[_mode.clamp(0, 4)];
-    final notes = <String>[
-      '高斯投影：x 含假北偏，y 含带号与假东偏；3° 带中央子午线 = 3n，6° 带 = 6n − 3。',
-      '四参数：X′ = dx + k·(X·cosθ − Y·sinθ)（平面相似变换，k 与 θ 为尺度与旋转）。',
-      '七参数：布尔莎模型，平移 m + 旋转 ″ + 尺度 ppm；残差为参数回代值与已知值之差。',
-      '坐标小数位 = ${s.coordDigits}，角度秒位 = ${s.angleSecDigits}。',
-    ];
+    final notes = isZh
+        ? <String>[
+            '高斯投影：x 含假北偏，y 含带号与假东偏；3° 带中央子午线 = 3n，6° 带 = 6n − 3。',
+            '四参数：X′ = dx + k·(X·cosθ − Y·sinθ)（平面相似变换，k 与 θ 为尺度与旋转）。',
+            '七参数：布尔莎模型，平移 m + 旋转 ″ + 尺度 ppm；残差为参数回代值与已知值之差。',
+            '坐标小数位 = ${s.coordDigits}，角度秒位 = ${s.angleSecDigits}。',
+          ]
+        : <String>[
+            'Gauss-Krüger: 3° zone L0 = 3n; 6° zone L0 = 6n − 3.',
+            '2D 4-Param: X′ = dx + k·(X·cosθ − Y·sinθ).',
+            'Bursa-Wolf 7-Param: translations (m), rotations (″), scale (ppm).',
+            'Coord digits = ${s.coordDigits}, angle sec digits = ${s.angleSecDigits}.',
+          ];
 
     List<List<String>> padRows(List<List<String>> src, int width) =>
         <List<String>>[
@@ -489,14 +536,21 @@ class _ProjectionPageState extends State<ProjectionPage>
               <String>[...row, for (var k = row.length; k < width; k++) ''],
         ];
 
+    final resCols4 = isZh
+        ? _residualColumns
+        : const ['Point', 'ΔX (m)', 'ΔY (m)', 'Residual (m)'];
+    final resCols7 = isZh
+        ? _helmertResidualColumns
+        : const ['Point', 'ΔX (m)', 'ΔY (m)', 'ΔZ (m)', 'Residual (m)'];
+
     if (_mode == 2) {
       final residual = _residualRows();
       if (residual.isNotEmpty) {
         final flatRows = <List<String>>[
-          ...padRows(rows, _residualColumns.length),
+          ...padRows(rows, resCols4.length),
           const <String>['', '', '', ''],
-          const <String>['四参数逐点残差', '', '', ''],
-          _residualColumns,
+          <String>[isZh ? '四参数逐点残差' : '2D 4-Param Residuals', '', '', ''],
+          resCols4,
           ...residual,
         ];
         return SheetTable(
@@ -509,9 +563,11 @@ class _ProjectionPageState extends State<ProjectionPage>
             ),
             SurveyForms.fromSheetTable(
               SheetTable(
-                title: '四参数逐点残差',
-                rows: <List<String>>[_residualColumns, ...residual],
-                notes: const ['ΔX / ΔY = 参数回代值 − 已知值；残差列为平面点位残差。'],
+                title: isZh ? '四参数逐点残差' : '2D 4-Param Residuals',
+                rows: <List<String>>[resCols4, ...residual],
+                notes: isZh
+                    ? const ['ΔX / ΔY = 参数回代值 − 已知值；残差列为平面点位残差。']
+                    : const ['ΔX / ΔY = predicted − observed; 2D residual shown.'],
               ),
             ),
           ],
@@ -522,10 +578,10 @@ class _ProjectionPageState extends State<ProjectionPage>
       final residual = _helmertResidualRows();
       if (residual.isNotEmpty) {
         final flatRows = <List<String>>[
-          ...padRows(rows, _helmertResidualColumns.length),
+          ...padRows(rows, resCols7.length),
           const <String>['', '', '', '', ''],
-          const <String>['七参数逐点残差', '', '', '', ''],
-          _helmertResidualColumns,
+          <String>[isZh ? '七参数逐点残差' : '7-Param Residuals', '', '', '', ''],
+          resCols7,
           ...residual,
         ];
         return SheetTable(
@@ -538,9 +594,11 @@ class _ProjectionPageState extends State<ProjectionPage>
             ),
             SurveyForms.fromSheetTable(
               SheetTable(
-                title: '七参数逐点残差',
-                rows: <List<String>>[_helmertResidualColumns, ...residual],
-                notes: const ['ΔX / ΔY / ΔZ = 参数回代值 − 已知值；残差列为三维点位残差。'],
+                title: isZh ? '七参数逐点残差' : '7-Param Residuals',
+                rows: <List<String>>[resCols7, ...residual],
+                notes: isZh
+                    ? const ['ΔX / ΔY / ΔZ = 参数回代值 − 已知值；残差列为三维点位残差。']
+                    : const ['ΔX / ΔY / ΔZ = predicted − observed; 3D residual shown.'],
               ),
             ),
           ],
@@ -599,16 +657,143 @@ class _ProjectionPageState extends State<ProjectionPage>
 
   double get _falseEasting => _num(_fe) ?? 500000;
 
-  /// 纬度/经度越界时给中文提示（core 抛 ArgumentError）。
+  void _loadSample() {
+    clearDraft();
+    _calcAll();
+  }
+
+  void _pushActivePlot() {
+    if (!mounted) return;
+    if (_mode == 0 && _forward != null) {
+      final p = _forward!;
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: _pl(context, '高斯正算', 'Gauss Forward'),
+          sourceToolId: 'projection',
+          sourceLabel: _pl(context, '高斯正算', 'Gauss Forward'),
+          surveyNorthUp: true,
+          unit: 'm',
+          points: [
+            LivePlotPointData(
+              x: p.x,
+              y: p.y,
+              label: 'Z${p.zone}',
+              emphasis: true,
+              draggable: false,
+            ),
+          ],
+        ),
+      );
+    } else if (_mode == 1 && _inverse != null) {
+      final x = _num(_invX);
+      final y = _num(_invY);
+      if (x != null && y != null) {
+        LivePlotScope.maybeRead(context)?.updateSnapshot(
+          LivePlotSnapshot(
+            title: _pl(context, '高斯反算', 'Gauss Inverse'),
+            sourceToolId: 'projection',
+            sourceLabel: _pl(context, '高斯反算', 'Gauss Inverse'),
+            surveyNorthUp: true,
+            unit: 'm',
+            points: [
+              LivePlotPointData(
+                x: x,
+                y: y,
+                label: 'P',
+                emphasis: true,
+                draggable: false,
+              ),
+            ],
+          ),
+        );
+      }
+    } else if (_mode == 2 && _fit != null && _fitPoints.isNotEmpty) {
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: _pl(context, '四参数拟合', '2D 4-Param Fit'),
+          sourceToolId: 'projection',
+          sourceLabel: _pl(context, '四参数', '2D 4-Param'),
+          surveyNorthUp: true,
+          unit: 'm',
+          points: [
+            for (final p in _fitPoints)
+              LivePlotPointData(
+                x: p.to.x,
+                y: p.to.y,
+                label: p.label,
+                draggable: false,
+              ),
+          ],
+        ),
+      );
+    } else if (_mode == 3) {
+      final c = _cartesian;
+      final x = c?.x ?? _num(_cx);
+      final y = c?.y ?? _num(_cy);
+      if (x != null && y != null) {
+        LivePlotScope.maybeRead(context)?.updateSnapshot(
+          LivePlotSnapshot(
+            title: _pl(context, '大地↔空间直角', 'Geodetic ↔ ECEF'),
+            sourceToolId: 'projection',
+            sourceLabel: _pl(context, '大地↔空间直角', 'Geodetic ↔ ECEF'),
+            surveyNorthUp: false,
+            unit: 'm',
+            points: [
+              LivePlotPointData(
+                x: x,
+                y: y,
+                label: 'ECEF',
+                emphasis: true,
+                draggable: false,
+              ),
+            ],
+          ),
+        );
+      }
+    } else if (_mode == 4 && _helmertFit != null && _helmertPoints.isNotEmpty) {
+      LivePlotScope.maybeRead(context)?.updateSnapshot(
+        LivePlotSnapshot(
+          title: _pl(context, '七参数拟合', '7-Param Helmert'),
+          sourceToolId: 'projection',
+          sourceLabel: _pl(context, '七参数', '7-Param Helmert'),
+          surveyNorthUp: false,
+          unit: 'm',
+          points: [
+            for (final p in _helmertPoints)
+              LivePlotPointData(
+                x: p.d,
+                y: p.e,
+                label: p.label,
+                draggable: false,
+              ),
+          ],
+        ),
+      );
+    }
+  }
+
+  /// 纬度/经度越界时给本地化提示（core 抛 ArgumentError）。
   String _latLonMessage(ArgumentError e, double lat, double lon) {
     if (lat.abs() > 84) {
-      return '纬度超出 ±84°（当前 ${fmt(lat, 6)}°），高斯投影只在 |B| ≤ 84° 内有效';
+      return context.trError(
+        'projectionGaussLatOutOfRange',
+        const {},
+        '纬度超出 ±84°（当前 ${fmt(lat, 6)}°），高斯投影只在 |B| ≤ 84° 内有效',
+      );
     }
     if (lon.abs() > 180) {
-      return '经度超出 ±180°（当前 ${fmt(lon, 6)}°），请检查经度是否为东经/西经';
+      return context.trError(
+        'projectionLonOutOfRange',
+        const {},
+        '经度超出 ±180°（当前 ${fmt(lon, 6)}°），请检查经度是否为东经/西经',
+      );
     }
     final msg = e.message;
-    return msg is String && msg.isNotEmpty ? '参数超出投影范围：$msg' : '参数超出投影范围，请检查输入';
+    return context.trError(
+      'projectionCoordNotFinite',
+      const {},
+      msg is String && msg.isNotEmpty ? '参数超出投影范围：$msg' : '参数超出投影范围，请检查输入',
+    );
   }
 
   void _calcForward({bool notify = false}) {
@@ -617,7 +802,11 @@ class _ProjectionPageState extends State<ProjectionPage>
     if (lat == null || lon == null) {
       setState(() {
         _forward = null;
-        _forwardError = '请填写有效的纬度 B 与经度 L（支持十进制度或度分秒）';
+        _forwardError = _pl(
+          context,
+          '请填写有效的纬度 B 与经度 L（支持十进制度或度分秒）',
+          'Enter valid latitude B and longitude L (DD or DMS)',
+        );
       });
       return;
     }
@@ -633,8 +822,12 @@ class _ProjectionPageState extends State<ProjectionPage>
         _forward = p;
         _forwardError = null;
       });
+      if (_mode == 0) _pushActivePlot();
       if (notify && mounted) {
-        SurveyToast.calcSuccess(context, '高斯正算计算成功');
+        SurveyToast.calcSuccess(
+          context,
+          _pl(context, '高斯正算计算成功', 'Gauss forward computed'),
+        );
       }
     } on ArgumentError catch (e) {
       setState(() {
@@ -659,14 +852,20 @@ class _ProjectionPageState extends State<ProjectionPage>
     if (x == null || y == null) {
       setState(() {
         _inverse = null;
-        _inverseError = '请填写平面坐标 x、y（m）';
+        _inverseError = _pl(
+          context,
+          '请填写平面坐标 x、y（m）',
+          'Enter plane coordinates x, y (m)',
+        );
       });
       return;
     }
     if (l0 == null) {
       setState(() {
         _inverse = null;
-        _inverseError = _byZone ? '请填写带号' : '请填写中央子午线 L0';
+        _inverseError = _byZone
+            ? _pl(context, '请填写带号', 'Enter zone number')
+            : _pl(context, '请填写中央子午线 L0', 'Enter central meridian L0');
       });
       return;
     }
@@ -682,16 +881,24 @@ class _ProjectionPageState extends State<ProjectionPage>
         _inverse = ll;
         _inverseError = null;
       });
+      if (_mode == 1) _pushActivePlot();
       if (notify && mounted) {
-        SurveyToast.calcSuccess(context, '高斯反算计算成功');
+        SurveyToast.calcSuccess(
+          context,
+          _pl(context, '高斯反算计算成功', 'Gauss inverse computed'),
+        );
       }
     } on ArgumentError catch (e) {
       final msg = e.message;
       setState(() {
         _inverse = null;
-        _inverseError = msg is String && msg.isNotEmpty
-            ? '反算参数超出投影范围：$msg'
-            : '反算参数超出投影范围，请检查 x、y 与中央子午线';
+        _inverseError = context.trError(
+          'projectionInverseLatOutOfRange',
+          const {},
+          msg is String && msg.isNotEmpty
+              ? '反算参数超出投影范围：$msg'
+              : '反算参数超出投影范围，请检查 x、y 与中央子午线',
+        );
       });
     }
   }
@@ -702,7 +909,11 @@ class _ProjectionPageState extends State<ProjectionPage>
       setState(() {
         _fit = null;
         _fitPoints = const [];
-        _fitError = '公共点不足 2 个，无法拟合';
+        _fitError = _pl(
+          context,
+          '公共点不足 2 个，无法拟合',
+          'At least 2 common points required',
+        );
       });
       return;
     }
@@ -714,7 +925,11 @@ class _ProjectionPageState extends State<ProjectionPage>
       setState(() {
         _fit = null;
         _fitPoints = const [];
-        _fitError = '公共点不足 2 个或点位重合，无法拟合';
+        _fitError = _pl(
+          context,
+          '公共点不足 2 个或点位重合，无法拟合',
+          'At least 2 non-coincident common points required',
+        );
       });
       return;
     }
@@ -723,8 +938,12 @@ class _ProjectionPageState extends State<ProjectionPage>
       _fitPoints = pts;
       _fitError = null;
     });
+    if (_mode == 2) _pushActivePlot();
     if (notify && mounted) {
-      SurveyToast.calcSuccess(context, '平面四参数拟合成功');
+      SurveyToast.calcSuccess(
+        context,
+        _pl(context, '平面四参数拟合成功', '2D 4-parameter fit computed'),
+      );
     }
   }
 
@@ -763,9 +982,16 @@ class _ProjectionPageState extends State<ProjectionPage>
 
   String _geodesyMessage(ArgumentError e) {
     final msg = e.message;
-    return msg is String && msg.isNotEmpty
+    final fallback = msg is String && msg.isNotEmpty
         ? '参数超出换算范围：$msg'
         : '参数超出换算范围，请检查 B、L、H（|B| ≤ 90°、|L| ≤ 180°）';
+    if (msg is String && msg.contains('90')) {
+      return context.trError('geodesyLatOutOfRange', const {}, fallback);
+    }
+    if (msg is String && msg.contains('180')) {
+      return context.trError('geodesyLonOutOfRange', const {}, fallback);
+    }
+    return context.trError('geodesyEcefNotFinite', const {}, fallback);
   }
 
   void _calcGeodesy({bool notify = false}) {
@@ -776,7 +1002,11 @@ class _ProjectionPageState extends State<ProjectionPage>
       if (lat == null || lon == null) {
         setState(() {
           _cartesian = null;
-          _geodesyError = '请填写有效的纬度 B 与经度 L（支持十进制度或度分秒）';
+          _geodesyError = _pl(
+            context,
+            '请填写有效的纬度 B 与经度 L（支持十进制度或度分秒）',
+            'Enter valid latitude B and longitude L (DD or DMS)',
+          );
         });
         return;
       }
@@ -792,8 +1022,12 @@ class _ProjectionPageState extends State<ProjectionPage>
           _geodeticBack = null;
           _geodesyError = null;
         });
+        if (_mode == 3) _pushActivePlot();
         if (notify && mounted) {
-          SurveyToast.calcSuccess(context, '空间直角坐标换算成功');
+          SurveyToast.calcSuccess(
+            context,
+            _pl(context, '空间直角坐标换算成功', 'ECEF coordinates computed'),
+          );
         }
       } on ArgumentError catch (e) {
         setState(() {
@@ -809,7 +1043,11 @@ class _ProjectionPageState extends State<ProjectionPage>
     if (x == null || y == null || z == null) {
       setState(() {
         _geodeticBack = null;
-        _geodesyError = '请填写 X、Y、Z（m）';
+        _geodesyError = _pl(
+          context,
+          '请填写 X、Y、Z（m）',
+          'Enter X, Y, Z (m)',
+        );
       });
       return;
     }
@@ -825,8 +1063,12 @@ class _ProjectionPageState extends State<ProjectionPage>
         _cartesian = null;
         _geodesyError = null;
       });
+      if (_mode == 3) _pushActivePlot();
       if (notify && mounted) {
-        SurveyToast.calcSuccess(context, '大地坐标换算成功');
+        SurveyToast.calcSuccess(
+          context,
+          _pl(context, '大地坐标换算成功', 'Geodetic coordinates computed'),
+        );
       }
     } on ArgumentError catch (e) {
       setState(() {
@@ -856,7 +1098,11 @@ class _ProjectionPageState extends State<ProjectionPage>
       setState(() {
         _helmertFit = null;
         _helmertPoints = const [];
-        _helmertError = '公共点不足 3 个，无法解算七参数';
+        _helmertError = _pl(
+          context,
+          '公共点不足 3 个，无法解算七参数',
+          'At least 3 common points required for 7-parameter fit',
+        );
       });
       return;
     }
@@ -876,8 +1122,11 @@ class _ProjectionPageState extends State<ProjectionPage>
           setState(() {
             _helmertFit = null;
             _helmertPoints = const [];
-            _helmertError = '第 ${i + 1} 个公共点的 B/L 超出范围'
-                '（|B| ≤ 90°、|L| ≤ 180°）';
+            _helmertError = _pl(
+              context,
+              '第 ${i + 1} 个公共点的 B/L 超出范围（|B| ≤ 90°、|L| ≤ 180°）',
+              'Point #${i + 1}: B/L out of range (|B| ≤ 90°, |L| ≤ 180°)',
+            );
           });
           return;
         }
@@ -891,7 +1140,11 @@ class _ProjectionPageState extends State<ProjectionPage>
       setState(() {
         _helmertFit = null;
         _helmertPoints = const [];
-        _helmertError = '公共点不足 3 个或点位退化，无法解算七参数';
+        _helmertError = _pl(
+          context,
+          '公共点不足 3 个或点位退化，无法解算七参数',
+          'At least 3 non-collinear common points required',
+        );
       });
       return;
     }
@@ -900,8 +1153,12 @@ class _ProjectionPageState extends State<ProjectionPage>
       _helmertPoints = pts;
       _helmertError = null;
     });
+    if (_mode == 4) _pushActivePlot();
     if (notify && mounted) {
-      SurveyToast.calcSuccess(context, '布尔莎七参数拟合成功');
+      SurveyToast.calcSuccess(
+        context,
+        _pl(context, '布尔莎七参数拟合成功', '7-parameter Helmert fit computed'),
+      );
     }
   }
 
@@ -961,7 +1218,7 @@ class _ProjectionPageState extends State<ProjectionPage>
 
   Widget _geodesyDirField() {
     return FieldShell(
-      label: '换算方向',
+      label: _pl(context, '换算方向', 'Direction'),
       child: Row(
         children: [
           Expanded(
@@ -973,9 +1230,15 @@ class _ProjectionPageState extends State<ProjectionPage>
                   TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
               ),
-              segments: const [
-                ButtonSegment(value: 0, label: LocalText('大地 → 空间直角')),
-                ButtonSegment(value: 1, label: LocalText('空间直角 → 大地')),
+              segments: [
+                ButtonSegment(
+                  value: 0,
+                  label: Text(_pl(context, '大地 → 空间直角', 'Geodetic → ECEF')),
+                ),
+                ButtonSegment(
+                  value: 1,
+                  label: Text(_pl(context, '空间直角 → 大地', 'ECEF → Geodetic')),
+                ),
               ],
               selected: {_geodesyDir},
               onSelectionChanged: (v) => setState(() {
@@ -991,10 +1254,18 @@ class _ProjectionPageState extends State<ProjectionPage>
 
   Widget _blFormatField() {
     return FieldShell(
-      label: '经纬度 / 角度格式',
+      label: _pl(context, '经纬度 / 角度格式', 'Lat/Lon Format'),
       helper: _blDmsMode
-          ? '度分秒分格：按 空格 或 小数点 自动跳格，支持粘贴 39.5400'
-          : '十进制度（默认，如 39.9）；亦支持直填 39 54 00 或 39.54.00',
+          ? _pl(
+              context,
+              '度分秒分格：按 空格 或 小数点 自动跳格，支持粘贴 39.5400',
+              'DMS segmented: Space/dot advances; supports 39.5400',
+            )
+          : _pl(
+              context,
+              '十进制度（默认，如 39.9）；亦支持直填 39 54 00 或 39.54.00',
+              'Decimal degrees (default, e.g. 39.9); also accepts 39 54 00',
+            ),
       child: SegmentedButton<bool>(
         showSelectedIcon: false,
         style: const ButtonStyle(
@@ -1003,9 +1274,15 @@ class _ProjectionPageState extends State<ProjectionPage>
             TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ),
-        segments: const [
-          ButtonSegment(value: false, label: LocalText('十进制度')),
-          ButtonSegment(value: true, label: LocalText('度分秒分格')),
+        segments: [
+          ButtonSegment(
+            value: false,
+            label: Text(_pl(context, '十进制度', 'Decimal Deg')),
+          ),
+          ButtonSegment(
+            value: true,
+            label: Text(_pl(context, '度分秒分格', 'DMS')),
+          ),
         ],
         selected: {_blDmsMode},
         onSelectionChanged: (v) {
@@ -1055,10 +1332,20 @@ class _ProjectionPageState extends State<ProjectionPage>
         InputCard(
           step: 1,
           icon: Icons.public_outlined,
-          title: _geodesyDir == 0 ? '大地坐标（B, L, H）' : '空间直角坐标（X, Y, Z）',
+          title: _geodesyDir == 0
+              ? _pl(context, '大地坐标（B, L, H）', 'Geodetic (B, L, H)')
+              : _pl(context, '空间直角坐标（X, Y, Z）', 'ECEF (X, Y, Z)'),
           caption: _geodesyDir == 0
-              ? 'B、L 支持十进制度（如 39.9 / 116.4）或切换「度分秒分格」（空格/小数点跳格），H 为大地高（m）。'
-              : 'X、Y、Z 为椭球中心为原点的空间直角坐标（m）；反算给出 B、L 与大地高 H。',
+              ? _pl(
+                  context,
+                  'B、L 支持十进制度（如 39.9 / 116.4）或切换「度分秒分格」（空格/小数点跳格），H 为大地高（m）。',
+                  'B, L in DD or DMS; H is ellipsoidal height (m).',
+                )
+              : _pl(
+                  context,
+                  'X、Y、Z 为椭球中心为原点的空间直角坐标（m）；反算给出 B、L 与大地高 H。',
+                  'Geocentric Cartesian X, Y, Z (m); inverse yields B, L, H.',
+                ),
           fields: [
             _geodesyDirField(),
             if (_geodesyDir == 0) ...[
@@ -1066,14 +1353,14 @@ class _ProjectionPageState extends State<ProjectionPage>
               if (_blDmsMode) ...[
                 AngleField(
                   controller: _bLat,
-                  label: '纬度 B',
+                  label: _pl(context, '纬度 B', 'Latitude B'),
                   mode: _blAngleMode,
                   secDigits: secDigits,
                   onChanged: (_) => _calcGeodesy(),
                 ),
                 AngleField(
                   controller: _bLon,
-                  label: '经度 L',
+                  label: _pl(context, '经度 L', 'Longitude L'),
                   mode: _blAngleMode,
                   secDigits: secDigits,
                   onChanged: (_) => _calcGeodesy(),
@@ -1084,7 +1371,7 @@ class _ProjectionPageState extends State<ProjectionPage>
                     Expanded(
                       child: AngleField(
                         controller: _bLat,
-                        label: '纬度 B',
+                        label: _pl(context, '纬度 B', 'Latitude B'),
                         mode: _blAngleMode,
                         secDigits: secDigits,
                         onChanged: (_) => _calcGeodesy(),
@@ -1094,7 +1381,7 @@ class _ProjectionPageState extends State<ProjectionPage>
                     Expanded(
                       child: AngleField(
                         controller: _bLon,
-                        label: '经度 L',
+                        label: _pl(context, '经度 L', 'Longitude L'),
                         mode: _blAngleMode,
                         secDigits: secDigits,
                         onChanged: (_) => _calcGeodesy(),
@@ -1104,10 +1391,14 @@ class _ProjectionPageState extends State<ProjectionPage>
                 ),
               NumberField(
                 controller: _bH,
-                label: '大地高 H',
+                label: _pl(context, '大地高 H', 'Height H'),
                 prefixTag: 'H',
                 unit: 'm',
-                helper: '可填 0（仅要平面坐标时）',
+                helper: _pl(
+                  context,
+                  '可填 0（仅要平面坐标时）',
+                  'Enter 0 if height is unused',
+                ),
                 onChanged: (_) => _calcGeodesy(),
               ),
             ] else ...[
@@ -1145,7 +1436,9 @@ class _ProjectionPageState extends State<ProjectionPage>
             _ellipsoidField(),
           ],
           action: PrimaryAction(
-            label: _geodesyDir == 0 ? '换算成空间直角' : '换算成大地坐标',
+            label: _geodesyDir == 0
+                ? _pl(context, '换算成空间直角', 'Convert to ECEF')
+                : _pl(context, '换算成大地坐标', 'Convert to Geodetic'),
             onPressed: () => _calcGeodesy(notify: true),
           ),
         ),
@@ -1153,8 +1446,10 @@ class _ProjectionPageState extends State<ProjectionPage>
         if (c != null || g != null) ...[
           const SizedBox(height: Insets.l),
           SectionHeader(
-            title: '换算成果',
-            caption: _geodesyDir == 0 ? '空间直角坐标（m）' : '大地坐标（B, L, H）',
+            title: _pl(context, '换算成果', 'Conversion Results'),
+            caption: _geodesyDir == 0
+                ? _pl(context, '空间直角坐标（m）', 'ECEF Coordinates (m)')
+                : _pl(context, '大地坐标（B, L, H）', 'Geodetic (B, L, H)'),
           ),
           const SizedBox(height: Insets.s),
           ResultGrid(
@@ -1181,29 +1476,29 @@ class _ProjectionPageState extends State<ProjectionPage>
               ],
               if (g != null) ...[
                 ResultTile(
-                  label: '纬度 B（十进制度）',
+                  label: _pl(context, '纬度 B（十进制度）', 'Latitude B (DD)'),
                   value: fmt(g.latDeg, 9),
                   unit: '°',
                   emphasis: true,
                 ),
                 ResultTile(
-                  label: '经度 L（十进制度）',
+                  label: _pl(context, '经度 L（十进制度）', 'Longitude L (DD)'),
                   value: fmt(g.lonDeg, 9),
                   unit: '°',
                   emphasis: true,
                 ),
                 ResultTile(
-                  label: '大地高 H',
+                  label: _pl(context, '大地高 H', 'Height H'),
                   value: fmt(g.heightM, 4),
                   unit: 'm',
                   emphasis: true,
                 ),
                 ResultTile(
-                  label: '纬度 B（度分秒）',
+                  label: _pl(context, '纬度 B（度分秒）', 'Latitude B (DMS)'),
                   value: fmtAngle(g.latDeg, secDigits: 2),
                 ),
                 ResultTile(
-                  label: '经度 L（度分秒）',
+                  label: _pl(context, '经度 L（度分秒）', 'Longitude L (DMS)'),
                   value: fmtAngle(g.lonDeg, secDigits: 2),
                 ),
               ],
@@ -1258,8 +1553,16 @@ class _ProjectionPageState extends State<ProjectionPage>
         SectionHeader(
           title: title,
           caption: hasErrors
-              ? '矢量已等比放大以突出方向，最大残差点为 ${samples[maxIdx].label}（${fmt(maxRes, 4)} m）'
-              : '各公共点回代残差接近 0，矢量方向示意图',
+              ? _pl(
+                  context,
+                  '矢量已等比放大以突出方向，最大残差点为 ${samples[maxIdx].label}（${fmt(maxRes, 4)} m）',
+                  'Vectors scaled for clarity; max residual at ${samples[maxIdx].label} (${fmt(maxRes, 4)} m)',
+                )
+              : _pl(
+                  context,
+                  '各公共点回代残差接近 0，矢量方向示意图',
+                  'Residuals near zero across all common points',
+                ),
         ),
         const SizedBox(height: Insets.s),
         LivePlot(
@@ -1340,11 +1643,19 @@ class _ProjectionPageState extends State<ProjectionPage>
           step: 1,
           icon: Icons.transform_outlined,
           title: _helmertFromGeodetic
-              ? '公共点（每行 点名, B, L, H, X, Y, Z）'
-              : '公共点（每行 点名, X, Y, Z, X′, Y′, Z′）',
+              ? _pl(context, '公共点（每行 点名, B, L, H, X, Y, Z）', 'Common Points (Name, B, L, H, X, Y, Z)')
+              : _pl(context, '公共点（每行 点名, X, Y, Z, X′, Y′, Z′）', 'Common Points (Name, X, Y, Z, X′, Y′, Z′)'),
           caption: _helmertFromGeodetic
-              ? '左边是源坐标系的大地坐标（十进制度 + 大地高），右边是目标坐标系的空间直角坐标（m）。'
-              : '两边都是空间直角坐标（m）：左边源坐标系，右边目标坐标系。',
+              ? _pl(
+                  context,
+                  '左边是源坐标系的大地坐标（十进制度 + 大地高），右边是目标坐标系的空间直角坐标（m）。',
+                  'Source geodetic (B, L in deg, H in m) to target ECEF (m).',
+                )
+              : _pl(
+                  context,
+                  '两边都是空间直角坐标（m）：左边源坐标系，右边目标坐标系。',
+                  'Source ECEF (m) to target ECEF (m).',
+                ),
           fields: [
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
@@ -1353,84 +1664,91 @@ class _ProjectionPageState extends State<ProjectionPage>
                 setState(() => _helmertFromGeodetic = v);
                 _calcHelmert();
               },
-              title: const Text(
-                '输出来源用 B, L, H（自动转空间直角）',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              title: Text(
+                _pl(context, '输出来源用 B, L, H（自动转空间直角）', 'Source as Geodetic (B, L, H)'),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              subtitle: const Text(
-                '关掉则公共点两列都是 X, Y, Z',
-                style: TextStyle(fontSize: 11.5),
+              subtitle: Text(
+                _pl(context, '关掉则公共点两列都是 X, Y, Z', 'Off: both sides use X, Y, Z'),
+                style: const TextStyle(fontSize: 11.5),
               ),
             ),
             TableInputSheet(
-              label: '公共点数据（至少 3 个）',
+              label: _pl(context, '公共点数据（至少 3 个）', 'Common Points (at least 3)'),
               unit: _helmertFromGeodetic ? '° / m' : 'm',
               helper: _helmertFromGeodetic
-                  ? '每行：点名 / B(°) / L(°) / H(m) / X(m) / Y(m) / Z(m)'
-                  : '每行：点名 / X / Y / Z / X′ / Y′ / Z′',
-              addLabel: '添加公共点',
+                  ? _pl(context, '每行：点名 / B(°) / L(°) / H(m) / X(m) / Y(m) / Z(m)', 'Name / B(°) / L(°) / H(m) / X(m) / Y(m) / Z(m)')
+                  : _pl(context, '每行：点名 / X / Y / Z / X′ / Y′ / Z′', 'Name / X / Y / Z / X′ / Y′ / Z′'),
+              addLabel: _pl(context, '添加公共点', 'Add Point'),
               minRows: 3,
               showRowIndex: false,
               syncKey: _helmertFromGeodetic,
               controllers: [_helmertPts],
-              countLabelBuilder: () =>
-                  '${_parseHelmertPoints(_helmertPts.text).length} 点',
+              countLabelBuilder: () => _pl(
+                context,
+                '${_parseHelmertPoints(_helmertPts.text).length} 点',
+                '${_parseHelmertPoints(_helmertPts.text).length} pts',
+              ),
               columns: _helmertFromGeodetic
-                  ? const [
+                  ? [
                       TableInputColumn(
-                        title: '点名',
+                        title: _pl(context, '点名', 'Name'),
                         kind: TableCellKind.text,
                         width: 68,
                         hint: 'P1',
                         autoName: true,
                         autoNamePrefix: 'P',
                       ),
-                      TableInputColumn(title: 'B (°)', width: 92, hint: '39.9'),
-                      TableInputColumn(
+                      const TableInputColumn(title: 'B (°)', width: 92, hint: '39.9'),
+                      const TableInputColumn(
                           title: 'L (°)', width: 96, hint: '116.4'),
-                      TableInputColumn(title: 'H (m)', width: 78, hint: '50.0'),
-                      TableInputColumn(
+                      const TableInputColumn(title: 'H (m)', width: 78, hint: '50.0'),
+                      const TableInputColumn(
                           title: 'X (m)', width: 108, hint: '-2178647'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'Y (m)', width: 108, hint: '4388877'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'Z (m)', width: 108, hint: '4069526'),
                     ]
-                  : const [
+                  : [
                       TableInputColumn(
-                        title: '点名',
+                        title: _pl(context, '点名', 'Name'),
                         kind: TableCellKind.text,
                         width: 68,
                         hint: 'P1',
                         autoName: true,
                         autoNamePrefix: 'P',
                       ),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'X (m)', width: 108, hint: '-2178657'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'Y (m)', width: 108, hint: '4388876'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'Z (m)', width: 108, hint: '4069505'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'X′ (m)', width: 108, hint: '-2178647'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'Y′ (m)', width: 108, hint: '4388877'),
-                      TableInputColumn(
+                      const TableInputColumn(
                           title: 'Z′ (m)', width: 108, hint: '4069526'),
                     ],
               parseRows: (texts) => _parseNamedTupleRows(texts[0], 6),
               serializeRows: (rows) => [_serializeNamedTupleRows(rows, 6)],
               textFallbackBuilder: (context) => DataTextField(
                 controller: _helmertPts,
-                label: '公共点数据',
-                fieldLabel: '公共点（至少 3 个）',
+                label: _pl(context, '公共点数据', 'Common Points'),
+                fieldLabel: _pl(context, '公共点（至少 3 个）', 'Common Points (min 3)'),
                 formatHint: _helmertFromGeodetic
-                    ? '每行：点名, B(°), L(°), H(m), X(m), Y(m), Z(m)'
-                    : '每行：点名, X, Y, Z, X′, Y′, Z′',
+                    ? _pl(context, '每行：点名, B(°), L(°), H(m), X(m), Y(m), Z(m)', 'Name, B(°), L(°), H(m), X(m), Y(m), Z(m)')
+                    : _pl(context, '每行：点名, X, Y, Z, X′, Y′, Z′', 'Name, X, Y, Z, X′, Y′, Z′'),
                 hint: _helmertFromGeodetic
                     ? 'P1, 39.900000, 116.400000, 50.000, -2178647.151, 4388877.418, 4069526.727'
                     : 'P1, -2178657.083, 4388876.234, 4069505.748, -2178647.151, 4388877.418, 4069526.727',
-                countLabel: (t) => '${_parseHelmertPoints(t).length} 点',
+                countLabel: (t) => _pl(
+                  context,
+                  '${_parseHelmertPoints(t).length} 点',
+                  '${_parseHelmertPoints(t).length} pts',
+                ),
                 minLines: 5,
                 maxLines: 8,
                 onChanged: (_) => _calcHelmert(),
@@ -1439,7 +1757,7 @@ class _ProjectionPageState extends State<ProjectionPage>
             ),
           ],
           action: PrimaryAction(
-            label: '拟合七参数',
+            label: _pl(context, '拟合七参数', 'Fit 7-Parameter'),
             onPressed: () => _calcHelmert(notify: true),
           ),
         ),
@@ -1447,112 +1765,139 @@ class _ProjectionPageState extends State<ProjectionPage>
         if (fit != null) ...[
           const SizedBox(height: Insets.l),
           SectionHeader(
-            title: '转换参数（布尔莎七参数）',
-            caption: '3 个平移（m）+ 3 个旋转（″）+ 尺度（ppm），共 ${fit.count} 个公共点',
+            title: _pl(context, '转换参数（布尔莎七参数）', 'Bursa-Wolf 7 Parameters'),
+            caption: _pl(
+              context,
+              '3 个平移（m）+ 3 个旋转（″）+ 尺度（ppm），共 ${fit.count} 个公共点',
+              '3 translations (m) + 3 rotations (″) + scale (ppm), ${fit.count} pts',
+            ),
           ),
           const SizedBox(height: Insets.s),
           ResultGrid(
             items: [
               ResultTile(
-                label: '平移 dx',
+                label: _pl(context, '平移 dx', 'dx'),
                 value: fmt(fit.transform.dx, 4),
                 unit: 'm',
                 emphasis: true,
               ),
               ResultTile(
-                label: '平移 dy',
+                label: _pl(context, '平移 dy', 'dy'),
                 value: fmt(fit.transform.dy, 4),
                 unit: 'm',
                 emphasis: true,
               ),
               ResultTile(
-                label: '平移 dz',
+                label: _pl(context, '平移 dz', 'dz'),
                 value: fmt(fit.transform.dz, 4),
                 unit: 'm',
                 emphasis: true,
               ),
               ResultTile(
-                label: '旋转 ex',
+                label: _pl(context, '旋转 ex', 'ex'),
                 value: fmt(fit.transform.exArcSec, 4),
                 unit: '″',
               ),
               ResultTile(
-                label: '旋转 ey',
+                label: _pl(context, '旋转 ey', 'ey'),
                 value: fmt(fit.transform.eyArcSec, 4),
                 unit: '″',
               ),
               ResultTile(
-                label: '旋转 ez',
+                label: _pl(context, '旋转 ez', 'ez'),
                 value: fmt(fit.transform.ezArcSec, 4),
                 unit: '″',
               ),
               ResultTile(
-                label: '尺度',
+                label: _pl(context, '尺度', 'Scale'),
                 value: fmt(fit.transform.scalePpm, 4),
                 unit: 'ppm',
                 emphasis: true,
               ),
               ResultTile(
-                label: '中误差 rms',
+                label: _pl(context, '中误差 rms', 'RMS Error'),
                 value: fmt(fit.rms, 6),
                 unit: 'm',
               ),
-              ResultTile(label: '点数', value: '${fit.count}'),
+              ResultTile(
+                label: _pl(context, '点数', 'Points'),
+                value: '${fit.count}',
+              ),
             ],
           ),
           const SizedBox(height: Insets.l),
           _residualVectorCard(
             context: context,
-            title: '平面残差矢量图（X–Y 投影）',
-            exportTitle: '七参数残差矢量图',
+            title: _pl(context, '平面残差矢量图（X–Y 投影）', 'Residual Vectors (X–Y)'),
+            exportTitle: _pl(context, '七参数残差矢量图', '7-Param Residual Plot'),
             samples: helmertSamples,
           ),
           const SizedBox(height: Insets.l),
           SectionHeader(
-            title: '逐点残差',
-            caption: 'ΔX/ΔY/ΔZ = 参数回代值 − 已知值；残差列取 core 的点位残差',
+            title: _pl(context, '逐点残差', 'Point Residuals'),
+            caption: _pl(
+              context,
+              'ΔX/ΔY/ΔZ = 参数回代值 − 已知值；残差列取 core 的点位残差',
+              'ΔX/ΔY/ΔZ = predicted − observed',
+            ),
             actions: [
               ExportCsvButton(
-                columns: _helmertResidualColumns,
+                columns: SurveyStrings.of(context).languageCode == 'zh'
+                    ? _helmertResidualColumns
+                    : const ['Point', 'ΔX (m)', 'ΔY (m)', 'ΔZ (m)', 'Residual (m)'],
                 rows: rows,
-                tooltip: '复制七参数逐点残差 CSV（点名/ΔX/ΔY/ΔZ/残差）',
+                tooltip: _pl(
+                  context,
+                  '复制七参数逐点残差 CSV（点名/ΔX/ΔY/ΔZ/残差）',
+                  'Copy 7-param residuals CSV',
+                ),
               ),
             ],
           ),
           const SizedBox(height: Insets.s),
           DataSheet(
-            columns: _helmertResidualColumns,
+            columns: SurveyStrings.of(context).languageCode == 'zh'
+                ? _helmertResidualColumns
+                : const ['Point', 'ΔX (m)', 'ΔY (m)', 'ΔZ (m)', 'Residual (m)'],
             widths: const [0.9, 1.0, 1.0, 1.0, 1.0],
             rows: rows,
           ),
           const SizedBox(height: Insets.l),
           InputCard(
             title: _helmertFromGeodetic
-                ? '用参数正算一个点（B, L, H）'
-                : '用参数正算一个点（X, Y, Z）',
+                ? _pl(context, '用参数正算一个点（B, L, H）', 'Transform Point (B, L, H)')
+                : _pl(context, '用参数正算一个点（X, Y, Z）', 'Transform Point (X, Y, Z)'),
             caption: _helmertFromGeodetic
-                ? '按拟合出的七参数把源坐标 (B, L, H) 换算到目标坐标系的空间直角坐标，即时显示'
-                : '按拟合出的七参数把源 (X, Y, Z) 换算到目标 (X′, Y′, Z′)，即时显示',
+                ? _pl(
+                    context,
+                    '按拟合出的七参数把源坐标 (B, L, H) 换算到目标坐标系的空间直角坐标，即时显示',
+                    'Apply fitted 7-param transform to source (B, L, H)',
+                  )
+                : _pl(
+                    context,
+                    '按拟合出的七参数把源 (X, Y, Z) 换算到目标 (X′, Y′, Z′)，即时显示',
+                    'Apply fitted 7-param transform to source (X, Y, Z)',
+                  ),
             fields: [
               if (_helmertFromGeodetic) _blFormatField(),
               if (_helmertFromGeodetic && _blDmsMode) ...[
                 AngleField(
                   controller: _hApply0,
-                  label: '纬度 B',
+                  label: _pl(context, '纬度 B', 'Latitude B'),
                   mode: _blAngleMode,
                   secDigits: SettingsScope.of(context).angleSecDigits,
                   onChanged: (_) => setState(() {}),
                 ),
                 AngleField(
                   controller: _hApply1,
-                  label: '经度 L',
+                  label: _pl(context, '经度 L', 'Longitude L'),
                   mode: _blAngleMode,
                   secDigits: SettingsScope.of(context).angleSecDigits,
                   onChanged: (_) => setState(() {}),
                 ),
                 NumberField(
                   controller: _hApply2,
-                  label: '大地高 H',
+                  label: _pl(context, '大地高 H', 'Height H'),
                   unit: 'm',
                   onChanged: (_) => setState(() {}),
                 ),
@@ -1613,19 +1958,19 @@ class _ProjectionPageState extends State<ProjectionPage>
               child: ResultGrid(
                 items: [
                   ResultTile(
-                    label: 'X′（正算结果）',
+                    label: _pl(context, 'X′（正算结果）', 'X′ (Result)'),
                     value: fmt(applied.x, 4),
                     unit: 'm',
                     emphasis: true,
                   ),
                   ResultTile(
-                    label: 'Y′（正算结果）',
+                    label: _pl(context, 'Y′（正算结果）', 'Y′ (Result)'),
                     value: fmt(applied.y, 4),
                     unit: 'm',
                     emphasis: true,
                   ),
                   ResultTile(
-                    label: 'Z′（正算结果）',
+                    label: _pl(context, 'Z′（正算结果）', 'Z′ (Result)'),
                     value: fmt(applied.z, 4),
                     unit: 'm',
                     emphasis: true,
@@ -1653,12 +1998,27 @@ class _ProjectionPageState extends State<ProjectionPage>
                 TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
             ),
-            segments: const [
-              ButtonSegment(value: 0, label: LocalText('高斯正算')),
-              ButtonSegment(value: 1, label: LocalText('高斯反算')),
-              ButtonSegment(value: 2, label: LocalText('四参数')),
-              ButtonSegment(value: 3, label: LocalText('大地↔空间直角')),
-              ButtonSegment(value: 4, label: LocalText('七参数')),
+            segments: [
+              ButtonSegment(
+                value: 0,
+                label: Text(_pl(context, '高斯正算', 'Gauss Forward')),
+              ),
+              ButtonSegment(
+                value: 1,
+                label: Text(_pl(context, '高斯反算', 'Gauss Inverse')),
+              ),
+              ButtonSegment(
+                value: 2,
+                label: Text(_pl(context, '四参数', '2D 4-Param')),
+              ),
+              ButtonSegment(
+                value: 3,
+                label: Text(_pl(context, '大地↔空间直角', 'Geodetic ↔ ECEF')),
+              ),
+              ButtonSegment(
+                value: 4,
+                label: Text(_pl(context, '七参数', '7-Param Helmert')),
+              ),
             ],
             selected: {_mode},
             onSelectionChanged: (v) => setState(() {
@@ -1673,8 +2033,12 @@ class _ProjectionPageState extends State<ProjectionPage>
 
   Widget _ellipsoidField() {
     return FieldShell(
-      label: '椭球',
-      helper: '角秒差仅影响厘米级以内，规范要求与测区坐标系一致',
+      label: _pl(context, '椭球', 'Ellipsoid'),
+      helper: _pl(
+        context,
+        '角秒差仅影响厘米级以内，规范要求与测区坐标系一致',
+        'Match the datum ellipsoid of your survey project',
+      ),
       child: DropdownButtonFormField<Ellipsoid>(
         value: _ellipsoid,
         isExpanded: true,
@@ -1684,7 +2048,7 @@ class _ProjectionPageState extends State<ProjectionPage>
             DropdownMenuItem<Ellipsoid>(
               value: e,
               child: Text(
-                _ellipsoidLabel(e),
+                _ellipsoidLabel(context, e),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1702,16 +2066,16 @@ class _ProjectionPageState extends State<ProjectionPage>
   Widget _zoneWidthField(
       {required int width, required ValueChanged<int> onChanged}) {
     return FieldShell(
-      label: '带宽',
+      label: _pl(context, '带宽', 'Zone Width'),
       child: Row(
         children: [
           Expanded(
             child: SegmentedButton<int>(
               showSelectedIcon: false,
               style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: const [
-                ButtonSegment(value: 3, label: Text('3° 带')),
-                ButtonSegment(value: 6, label: Text('6° 带')),
+              segments: [
+                ButtonSegment(value: 3, label: Text(_pl(context, '3° 带', '3° Zone'))),
+                ButtonSegment(value: 6, label: Text(_pl(context, '6° 带', '6° Zone'))),
               ],
               selected: {width},
               onSelectionChanged: (v) => onChanged(v.first),
@@ -1727,7 +2091,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       padding: const EdgeInsets.only(top: Insets.m),
       child: SurveyAlert(
         tone: AlertTone.error,
-        title: '参数输入提示',
+        title: _pl(context, '参数输入提示', 'Parameter Error'),
         message: message,
       ),
     );
@@ -1737,27 +2101,48 @@ class _ProjectionPageState extends State<ProjectionPage>
   Widget build(BuildContext context) {
     return DetailScaffold(
       commandBar: true,
-      title: '坐标转换',
-      subtitle: '高斯-克吕格正反算（3°/6° 带）与四参数平面相似变换',
+      title: _pl(context, '坐标转换', 'Projection & Datum'),
+      subtitle: _pl(
+        context,
+        '高斯-克吕格正反算（3°/6° 带）与四参数/七参数坐标转换',
+        'Gauss-Krüger (3°/6°), 2D 4-Param, Geodetic ↔ ECEF & 7-Param Helmert',
+      ),
       toolbar: PageActions(
         pageId: draftPageId,
         buildTable: _exportTable,
+        onUndo: canUndo ? undoDraft : null,
+        onRedo: canRedo ? redoDraft : null,
+        canUndo: canUndo,
+        canRedo: canRedo,
         onClear: () {
           clearDraft();
           _calcAll();
         },
       ),
       children: [
-        PageTutorial(id: 'projection', workedSteps: [
-          if (_mode == 0)
-            if (_forward case final p?) ...[
-              'L₀ = ${fmt(p.centralMeridianDeg, 6)}°',
-              'E₀ = E − FE = ${fmt(p.y, 3)} − ${fmt(_falseEasting, 3)} = ${fmt(p.y - _falseEasting, 3)} m',
-            ],
-          if (_mode == 1)
-            if (_inverse case final p?)
-              '(B, L) = (${fmt(p.latDeg, 8)}°, ${fmt(p.lonDeg, 8)}°)',
-        ]),
+        PageTutorial(
+          id: 'projection',
+          onLoadSample: _loadSample,
+          liveCalcBuilder: (ctx) => [
+            if (_mode == 0)
+              if (_forward case final p?) ...[
+                'L₀ = ${fmt(p.centralMeridianDeg, 6)}°',
+                'E₀ = E − FE = ${fmt(p.y, 3)} − ${fmt(_falseEasting, 3)} = ${fmt(p.y - _falseEasting, 3)} m',
+              ],
+            if (_mode == 1)
+              if (_inverse case final p?)
+                '(B, L) = (${fmt(p.latDeg, 8)}°, ${fmt(p.lonDeg, 8)}°)',
+            if (_mode == 2)
+              if (_fit case final f?)
+                'dx=${fmt(f.transform.dx, 3)} m, dy=${fmt(f.transform.dy, 3)} m, k=${fmt(f.transform.scale, 7)}',
+            if (_mode == 3)
+              if (_cartesian case final c?)
+                '(X, Y, Z) = (${fmt(c.x, 3)}, ${fmt(c.y, 3)}, ${fmt(c.z, 3)}) m',
+            if (_mode == 4)
+              if (_helmertFit case final f?)
+                'dx=${fmt(f.transform.dx, 3)} m, dy=${fmt(f.transform.dy, 3)} m, dz=${fmt(f.transform.dz, 3)} m',
+          ],
+        ),
         _modeSwitch(),
         const SizedBox(height: Insets.m),
         if (_mode == 0) ..._forwardSection(),
@@ -1777,22 +2162,26 @@ class _ProjectionPageState extends State<ProjectionPage>
       InputCard(
         step: 1,
         icon: Icons.map_outlined,
-        title: '大地坐标（B, L）',
-        caption: '默认按十进制度录入（如 39.9 / 116.4），亦支持直填 39 54 00、39.54.00 或切换「度分秒分格」。'
-            '带宽决定分带与中央子午线：3° 带每带 3° 经差。',
+        title: _pl(context, '大地坐标（B, L）', 'Geodetic Coordinates (B, L)'),
+        caption: _pl(
+          context,
+          '默认按十进制度录入（如 39.9 / 116.4），亦支持直填 39 54 00、39.54.00 或切换「度分秒分格」。'
+              '带宽决定分带与中央子午线：3° 带每带 3° 经差。',
+          'Enter B, L in decimal degrees or DMS; zone width sets central meridian.',
+        ),
         fields: [
           _blFormatField(),
           if (_blDmsMode) ...[
             AngleField(
               controller: _lat,
-              label: '纬度 B',
+              label: _pl(context, '纬度 B', 'Latitude B'),
               mode: _blAngleMode,
               secDigits: secDigits,
               onChanged: (_) => _calcForward(),
             ),
             AngleField(
               controller: _lon,
-              label: '经度 L',
+              label: _pl(context, '经度 L', 'Longitude L'),
               mode: _blAngleMode,
               secDigits: secDigits,
               onChanged: (_) => _calcForward(),
@@ -1803,7 +2192,7 @@ class _ProjectionPageState extends State<ProjectionPage>
                 Expanded(
                   child: AngleField(
                     controller: _lat,
-                    label: '纬度 B',
+                    label: _pl(context, '纬度 B', 'Latitude B'),
                     mode: _blAngleMode,
                     secDigits: secDigits,
                     onChanged: (_) => _calcForward(),
@@ -1813,7 +2202,7 @@ class _ProjectionPageState extends State<ProjectionPage>
                 Expanded(
                   child: AngleField(
                     controller: _lon,
-                    label: '经度 L',
+                    label: _pl(context, '经度 L', 'Longitude L'),
                     mode: _blAngleMode,
                     secDigits: secDigits,
                     onChanged: (_) => _calcForward(),
@@ -1831,14 +2220,18 @@ class _ProjectionPageState extends State<ProjectionPage>
           _ellipsoidField(),
           NumberField(
             controller: _fe,
-            label: '假东（y 常数）',
+            label: _pl(context, '假东（y 常数）', 'False Easting'),
             unit: 'm',
-            helper: '国内 3° 带常用 500000，避免 y 为负',
+            helper: _pl(
+              context,
+              '国内 3° 带常用 500000，避免 y 为负',
+              'Standard 500000 m to keep easting positive',
+            ),
             onChanged: (_) => _calcForward(),
           ),
         ],
         action: PrimaryAction(
-          label: '正算',
+          label: _pl(context, '正算', 'Compute Forward'),
           onPressed: () => _calcForward(notify: true),
         ),
       ),
@@ -1848,35 +2241,42 @@ class _ProjectionPageState extends State<ProjectionPage>
         // 带号/中央子午线放 caption（可换行），不用 Pill：320dp + 1.3 倍字体下
         // 这个长度的胶囊会把 SectionHeader 的 Row 顶出去。
         SectionHeader(
-          title: '投影成果',
-          caption: '${p.zone} 带 · 中央子午线 L0 = ${fmt(p.centralMeridianDeg, 3)}°',
+          title: _pl(context, '投影成果', 'Projected Coordinates'),
+          caption: _pl(
+            context,
+            '${p.zone} 带 · 中央子午线 L0 = ${fmt(p.centralMeridianDeg, 3)}°',
+            'Zone ${p.zone} · Central Meridian L0 = ${fmt(p.centralMeridianDeg, 3)}°',
+          ),
         ),
         const SizedBox(height: Insets.s),
         ResultGrid(
           items: [
             ResultTile(
-              label: 'x（北坐标）',
+              label: _pl(context, 'x（北坐标）', 'Northing x'),
               value: fmt(p.x, 3),
               unit: 'm',
               emphasis: true,
             ),
             ResultTile(
-              label: 'y（含假东）',
+              label: _pl(context, 'y（含假东）', 'Easting y'),
               value: fmt(p.y, 3),
               unit: 'm',
               emphasis: true,
             ),
-            ResultTile(label: '带号', value: '${p.zone}'),
             ResultTile(
-              label: '中央子午线',
+              label: _pl(context, '带号', 'Zone'),
+              value: '${p.zone}',
+            ),
+            ResultTile(
+              label: _pl(context, '中央子午线', 'Central Meridian'),
               value: fmt(p.centralMeridianDeg, 3),
               unit: '°',
             ),
             ResultTile(
-              label: '自然坐标 y',
+              label: _pl(context, '自然坐标 y', 'Natural y'),
               value: fmt(p.y - fe, 3),
               unit: 'm',
-              note: '去掉假东后的 y',
+              note: _pl(context, '去掉假东后的 y', 'Easting without false easting'),
             ),
           ],
         ),
@@ -1891,17 +2291,33 @@ class _ProjectionPageState extends State<ProjectionPage>
       InputCard(
         step: 1,
         icon: Icons.map_outlined,
-        title: '高斯平面坐标',
-        caption: '假东沿用「高斯正算」里填的值（默认 500000）。'
-            '中央子午线可手填，也可打开开关按带号推算：'
-            '3° 带 L0 = 3 × 带号，6° 带 L0 = 6 × 带号 − 3。',
+        title: _pl(context, '高斯平面坐标', 'Gauss Plane Coordinates'),
+        caption: _pl(
+          context,
+          '假东沿用「高斯正算」里填的值（默认 500000）。'
+              '中央子午线可手填，也可打开开关按带号推算：'
+              '3° 带 L0 = 3 × 带号，6° 带 L0 = 6 × 带号 − 3。',
+          'Uses False Easting from Forward tab (default 500000). '
+              '3° zone L0 = 3×zone; 6° zone L0 = 6×zone − 3.',
+        ),
+        trailing: TextButton.icon(
+          onPressed: () async {
+            final pt = await showControlPointPicker(context);
+            if (pt == null || !mounted) return;
+            _invX.text = fmt(pt.x, 3);
+            _invY.text = fmt(pt.y, 3);
+            _calcInverse();
+          },
+          icon: const Icon(Icons.my_location_outlined, size: 16),
+          label: Text(_pl(context, '选控制点', 'Pick Point')),
+        ),
         fields: [
           Row(
             children: [
               Expanded(
                 child: NumberField(
                   controller: _invX,
-                  label: 'x（北坐标）',
+                  label: _pl(context, 'x（北坐标）', 'Northing x'),
                   prefixTag: 'x',
                   unit: 'm',
                   onChanged: (_) => _calcInverse(),
@@ -1911,7 +2327,7 @@ class _ProjectionPageState extends State<ProjectionPage>
               Expanded(
                 child: NumberField(
                   controller: _invY,
-                  label: 'y（东坐标）',
+                  label: _pl(context, 'y（东坐标）', 'Easting y'),
                   prefixTag: 'y',
                   unit: 'm',
                   onChanged: (_) => _calcInverse(),
@@ -1926,13 +2342,17 @@ class _ProjectionPageState extends State<ProjectionPage>
               setState(() => _byZone = v);
               _calcInverse();
             },
-            title: const Text(
-              '按带号推算中央子午线',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            title: Text(
+              _pl(context, '按带号推算中央子午线', 'Derive L0 from Zone'),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            subtitle: const Text(
-              '3° 带 L0 = 3 × 带号；6° 带 L0 = 6 × 带号 − 3',
-              style: TextStyle(fontSize: 11.5),
+            subtitle: Text(
+              _pl(
+                context,
+                '3° 带 L0 = 3 × 带号；6° 带 L0 = 6 × 带号 − 3',
+                '3° zone: L0 = 3×n; 6° zone: L0 = 6×n − 3',
+              ),
+              style: const TextStyle(fontSize: 11.5),
             ),
           ),
           if (_byZone)
@@ -1941,7 +2361,7 @@ class _ProjectionPageState extends State<ProjectionPage>
                 Expanded(
                   child: NumberField(
                     controller: _zone,
-                    label: '带号',
+                    label: _pl(context, '带号', 'Zone'),
                     onChanged: (_) => _calcInverse(),
                   ),
                 ),
@@ -1961,7 +2381,7 @@ class _ProjectionPageState extends State<ProjectionPage>
             _blFormatField(),
             AngleField(
               controller: _l0,
-              label: '中央子午线 L0',
+              label: _pl(context, '中央子午线 L0', 'Central Meridian L0'),
               mode: _blAngleMode,
               secDigits: SettingsScope.of(context).angleSecDigits,
               onChanged: (_) => _calcInverse(),
@@ -1970,7 +2390,7 @@ class _ProjectionPageState extends State<ProjectionPage>
           _ellipsoidField(),
         ],
         action: PrimaryAction(
-          label: '反算',
+          label: _pl(context, '反算', 'Compute Inverse'),
           onPressed: () => _calcInverse(notify: true),
         ),
       ),
@@ -1978,7 +2398,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       if (ll != null) ...[
         const SizedBox(height: Insets.l),
         SectionHeader(
-          title: '大地坐标',
+          title: _pl(context, '大地坐标', 'Geodetic Coordinates'),
           actions: [
             if (l0 != null)
               Pill(label: 'L0 = ${fmt(l0, 3)}°', tone: PillTone.info),
@@ -1988,23 +2408,23 @@ class _ProjectionPageState extends State<ProjectionPage>
         ResultGrid(
           items: [
             ResultTile(
-              label: '纬度 B（十进制度）',
+              label: _pl(context, '纬度 B（十进制度）', 'Latitude B (DD)'),
               value: fmt(ll.latDeg, 8),
               unit: '°',
               emphasis: true,
             ),
             ResultTile(
-              label: '经度 L（十进制度）',
+              label: _pl(context, '经度 L（十进制度）', 'Longitude L (DD)'),
               value: fmt(ll.lonDeg, 8),
               unit: '°',
               emphasis: true,
             ),
             ResultTile(
-              label: '纬度 B（度分秒）',
+              label: _pl(context, '纬度 B（度分秒）', 'Latitude B (DMS)'),
               value: fmtAngle(ll.latDeg, secDigits: 2),
             ),
             ResultTile(
-              label: '经度 L（度分秒）',
+              label: _pl(context, '经度 L（度分秒）', 'Longitude L (DMS)'),
               value: fmtAngle(ll.lonDeg, secDigits: 2),
             ),
           ],
@@ -2017,28 +2437,43 @@ class _ProjectionPageState extends State<ProjectionPage>
     final fit = _fit;
     final rows = _residualRows();
     final applied = _applyResult;
+    final isZh = SurveyStrings.of(context).languageCode == 'zh';
+    final resCols = isZh
+        ? _residualColumns
+        : const ['Point', 'ΔX (m)', 'ΔY (m)', 'Residual (m)'];
     return [
       InputCard(
         step: 1,
         icon: Icons.transform_outlined,
-        title: '公共点（每行 点名, X, Y, X′, Y′）',
-        caption: '至少 2 个点（建议 3 个以上并均匀分布）。拟合模型：'
-            'X′ = dx + k·(X·cosθ − Y·sinθ)，Y′ = dy + k·(X·sinθ + Y·cosθ)，'
-            'θ 为逆时针旋转角、k 为尺度。',
+        title: _pl(context, '公共点（每行 点名, X, Y, X′, Y′）', 'Common Points (Name, X, Y, X′, Y′)'),
+        caption: _pl(
+          context,
+          '至少 2 个点（建议 3 个以上并均匀分布）。拟合模型：'
+              'X′ = dx + k·(X·cosθ − Y·sinθ)，Y′ = dy + k·(X·sinθ + Y·cosθ)，'
+              'θ 为逆时针旋转角、k 为尺度。',
+          'At least 2 common points. Model: X′ = dx + k(X cosθ − Y sinθ), Y′ = dy + k(X sinθ + Y cosθ).',
+        ),
         fields: [
           TableInputSheet(
-            label: '公共点（至少 2 组）',
+            label: _pl(context, '公共点（至少 2 组）', 'Common Points (min 2)'),
             unit: 'm',
-            helper: '按公共点对应填写源坐标 X/Y 与目标坐标 X′/Y′（新增行自动递增点名）',
-            addLabel: '添加公共点',
+            helper: _pl(
+              context,
+              '按公共点对应填写源坐标 X/Y 与目标坐标 X′/Y′（新增行自动递增点名）',
+              'Enter source X/Y and target X′/Y′ pairs',
+            ),
+            addLabel: _pl(context, '添加公共点', 'Add Point'),
             minRows: 2,
             showRowIndex: false,
             controllers: [_pairs],
-            countLabelBuilder: () =>
-                '${_parseCommonPoints(_pairs.text).length} 点',
-            columns: const [
+            countLabelBuilder: () => _pl(
+              context,
+              '${_parseCommonPoints(_pairs.text).length} 点',
+              '${_parseCommonPoints(_pairs.text).length} pts',
+            ),
+            columns: [
               TableInputColumn(
-                title: '点名',
+                title: _pl(context, '点名', 'Name'),
                 kind: TableCellKind.text,
                 width: 68,
                 hint: 'A',
@@ -2046,21 +2481,29 @@ class _ProjectionPageState extends State<ProjectionPage>
                 autoNamePrefix: 'P',
                 autoNameSingleLetter: true,
               ),
-              TableInputColumn(title: 'X (m)', width: 100, hint: '1000.000'),
-              TableInputColumn(title: 'Y (m)', width: 100, hint: '2000.000'),
-              TableInputColumn(title: 'X′ (m)', width: 100, hint: '2217.197'),
-              TableInputColumn(title: 'Y′ (m)', width: 100, hint: '-336.781'),
+              const TableInputColumn(title: 'X (m)', width: 100, hint: '1000.000'),
+              const TableInputColumn(title: 'Y (m)', width: 100, hint: '2000.000'),
+              const TableInputColumn(title: 'X′ (m)', width: 100, hint: '2217.197'),
+              const TableInputColumn(title: 'Y′ (m)', width: 100, hint: '-336.781'),
             ],
             parseRows: (texts) => _parseNamedTupleRows(texts[0], 4),
             serializeRows: (rows) => [_serializeNamedTupleRows(rows, 4)],
             textFallbackBuilder: (context) => DataTextField(
               controller: _pairs,
-              label: '公共点数据',
-              fieldLabel: '公共点',
+              label: _pl(context, '公共点数据', 'Common Points'),
+              fieldLabel: _pl(context, '公共点', 'Common Points'),
               unit: 'm',
-              formatHint: '每行：点名, X, Y, X′, Y′（至少 2 组）',
+              formatHint: _pl(
+                context,
+                '每行：点名, X, Y, X′, Y′（至少 2 组）',
+                'Name, X, Y, X′, Y′ (min 2 pairs)',
+              ),
               hint: 'A, 1000.000, 2000.000, 2217.197, -336.781',
-              countLabel: (t) => '${_parseCommonPoints(t).length} 点',
+              countLabel: (t) => _pl(
+                context,
+                '${_parseCommonPoints(t).length} 点',
+                '${_parseCommonPoints(t).length} pts',
+              ),
               minLines: 5,
               maxLines: 8,
               onChanged: (_) => _calcFit(),
@@ -2069,7 +2512,7 @@ class _ProjectionPageState extends State<ProjectionPage>
           ),
         ],
         action: PrimaryAction(
-          label: '拟合四参数',
+          label: _pl(context, '拟合四参数', 'Fit 4-Parameter'),
           onPressed: () => _calcFit(notify: true),
         ),
       ),
@@ -2077,58 +2520,64 @@ class _ProjectionPageState extends State<ProjectionPage>
       if (fit != null) ...[
         const SizedBox(height: Insets.l),
         SectionHeader(
-          title: '转换参数',
+          title: _pl(context, '转换参数', 'Transformation Parameters'),
           actions: [
-            Pill(label: '${fit.count} 个公共点', tone: PillTone.info),
+            Pill(
+              label: _pl(context, '${fit.count} 个公共点', '${fit.count} pts'),
+              tone: PillTone.info,
+            ),
           ],
         ),
         const SizedBox(height: Insets.s),
         ResultGrid(
           items: [
             ResultTile(
-              label: '平移 dx',
+              label: _pl(context, '平移 dx', 'Translation dx'),
               value: fmt(fit.transform.dx, 4),
               unit: 'm',
               emphasis: true,
             ),
             ResultTile(
-              label: '平移 dy',
+              label: _pl(context, '平移 dy', 'Translation dy'),
               value: fmt(fit.transform.dy, 4),
               unit: 'm',
               emphasis: true,
             ),
             ResultTile(
-              label: '尺度 k',
+              label: _pl(context, '尺度 k', 'Scale k'),
               value: fmt(fit.transform.scale, 9),
               emphasis: true,
             ),
             ResultTile(
-              label: '尺度差',
+              label: _pl(context, '尺度差', 'Scale Diff'),
               value: fmt((fit.transform.scale - 1) * 1e6, 4),
               unit: 'ppm',
             ),
             ResultTile(
-              label: '旋转 θ（度分秒）',
+              label: _pl(context, '旋转 θ（度分秒）', 'Rotation θ (DMS)'),
               value: fmtAngle(fit.transform.rotationDeg, secDigits: 2),
             ),
             ResultTile(
-              label: '旋转 θ（度）',
+              label: _pl(context, '旋转 θ（度）', 'Rotation θ (DD)'),
               value: fmt(fit.transform.rotationDeg, 6),
               unit: '°',
             ),
             ResultTile(
-              label: '中误差 rms',
+              label: _pl(context, '中误差 rms', 'RMS Error'),
               value: fmt(fit.rms, 6),
               unit: 'm',
             ),
-            ResultTile(label: '点数', value: '${fit.count}'),
+            ResultTile(
+              label: _pl(context, '点数', 'Points'),
+              value: '${fit.count}',
+            ),
           ],
         ),
         const SizedBox(height: Insets.l),
         _residualVectorCard(
           context: context,
-          title: '残差矢量分布图',
-          exportTitle: '四参数残差矢量图',
+          title: _pl(context, '残差矢量分布图', 'Residual Vector Plot'),
+          exportTitle: _pl(context, '四参数残差矢量图', '4-Param Residual Plot'),
           surveyNorthUp: true,
           samples: [
             for (var i = 0; i < _fitPoints.length; i++)
@@ -2148,19 +2597,27 @@ class _ProjectionPageState extends State<ProjectionPage>
         ),
         const SizedBox(height: Insets.l),
         SectionHeader(
-          title: '逐点残差',
-          caption: 'ΔX/ΔY = 参数回代值 − 已知值；残差列取 core 的标量残差',
+          title: _pl(context, '逐点残差', 'Point Residuals'),
+          caption: _pl(
+            context,
+            'ΔX/ΔY = 参数回代值 − 已知值；残差列取 core 的标量残差',
+            'ΔX/ΔY = predicted − observed',
+          ),
           actions: [
             ExportCsvButton(
-              columns: _residualColumns,
+              columns: resCols,
               rows: rows,
-              tooltip: '复制四参数逐点残差 CSV（点名/ΔX/ΔY/残差）',
+              tooltip: _pl(
+                context,
+                '复制四参数逐点残差 CSV（点名/ΔX/ΔY/残差）',
+                'Copy 4-param residuals CSV',
+              ),
             ),
           ],
         ),
         const SizedBox(height: Insets.s),
         DataSheet(
-          columns: _residualColumns,
+          columns: resCols,
           widths: const [1.0, 1.1, 1.1, 1.1],
           rows: rows,
         ),
@@ -2168,8 +2625,23 @@ class _ProjectionPageState extends State<ProjectionPage>
         InputCard(
           step: 2,
           icon: Icons.calculate_outlined,
-          title: '用参数正算一个点',
-          caption: '即时用上面拟合出的参数把 (X, Y) 换算成 (X′, Y′)，不用再按按钮',
+          title: _pl(context, '用参数正算一个点', 'Transform a Point'),
+          caption: _pl(
+            context,
+            '即时用上面拟合出的参数把 (X, Y) 换算成 (X′, Y′)，不用再按按钮',
+            'Apply fitted 4-parameter transform to (X, Y) immediately',
+          ),
+          trailing: TextButton.icon(
+            onPressed: () async {
+              final pt = await showControlPointPicker(context);
+              if (pt == null || !mounted) return;
+              _applyX.text = fmt(pt.x, 3);
+              _applyY.text = fmt(pt.y, 3);
+              setState(() {});
+            },
+            icon: const Icon(Icons.my_location_outlined, size: 16),
+            label: Text(_pl(context, '选控制点', 'Pick Point')),
+          ),
           fields: [
             Row(
               children: [
@@ -2202,13 +2674,13 @@ class _ProjectionPageState extends State<ProjectionPage>
             child: ResultGrid(
               items: [
                 ResultTile(
-                  label: 'X′（正算结果）',
+                  label: _pl(context, 'X′（正算结果）', 'X′ (Result)'),
                   value: fmt(applied.x, 4),
                   unit: 'm',
                   emphasis: true,
                 ),
                 ResultTile(
-                  label: 'Y′（正算结果）',
+                  label: _pl(context, 'Y′（正算结果）', 'Y′ (Result)'),
                   value: fmt(applied.y, 4),
                   unit: 'm',
                   emphasis: true,
