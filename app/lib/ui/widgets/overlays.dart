@@ -796,7 +796,7 @@ abstract final class SurveyModal {
     bool destructive = false,
     IconData? icon,
   }) async {
-    if (destructive && usesCompactWorkspaceControls(context)) {
+    if (destructive && usesWorkspaceControls(context)) {
       return await showCupertinoDialog<bool>(
             context: context,
             builder: (dialogContext) => CupertinoAlertDialog(
@@ -892,7 +892,7 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
 
   Future<void> _open() async {
     if (!widget.enabled) return;
-    if (widget.destructive && usesCompactWorkspaceControls(context)) {
+    if (widget.destructive && usesWorkspaceControls(context)) {
       final confirmed = await SurveyModal.confirm(
         context,
         title: widget.title,

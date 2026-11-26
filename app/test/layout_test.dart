@@ -272,7 +272,8 @@ void main() {
     tester.view.physicalSize = const Size(1200, 750);
     await tester.pumpAndSettle();
     expect(find.byTooltip('展开侧边栏'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
+    await tester.tap(
+        find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -313,7 +314,8 @@ void main() {
       SurveyApp(settings: AppSettings(), drafts: DraftStore()),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
+    await tester.tap(
+        find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
     await tester.enterText(
         find.descendant(
@@ -403,7 +405,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('宽屏 (>=840dp) 双栏侧边栏与 ◨ LivePlot 分栏联动，840dp 切换保留输入状态',
+  testWidgets('宽屏 (>=720dp) 双栏侧边栏与 ◨ LivePlot 分栏联动，720dp 切换保留输入状态',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(1200, 800);
@@ -416,45 +418,119 @@ void main() {
 
     // 宽屏显示 workspace-sidebar 与 LivePlot 分栏切换按钮
     expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
-    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
+    expect(
+        find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
     await tester.tap(find.byTooltip('LivePlot').first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
     expect(find.byType(WorkspaceLivePlotPanel), findsOneWidget);
 
-    // 打开坐标反算并修改 A 点 X，验证跨 840dp 断点缩放不丢输入状态
-    await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
+    // 打开坐标反算并修改 A 点 X，验证跨 720dp 断点缩放不丢输入状态
+    await tester.tap(
+        find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+      find.descendant(
+          of: find.byType(Dialog), matching: find.byType(TextField)),
       '坐标反算',
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
 
-    final firstField = find.descendant(
-      of: find.byType(InversePage),
-      matching: find.byType(TextField),
-    ).first;
+    final firstField = find
+        .descendant(
+          of: find.byType(InversePage),
+          matching: find.byType(TextField),
+        )
+        .first;
     await tester.enterText(firstField, '1234.567');
     await tester.pumpAndSettle();
 
-    // 缩窄到 <840dp：切换为窄屏二级顶栏，输入保留
-    tester.view.physicalSize = const Size(839, 800);
+    // 缩窄到 <720dp：切换为窄屏二级顶栏，输入保留
+    tester.view.physicalSize = const Size(719, 800);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workspace-detail-header')), findsOneWidget);
-    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
+    expect(
+        find.byKey(const ValueKey('workspace-detail-header')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
     expect(tester.widget<TextField>(firstField).controller!.text, '1234.567');
 
-    // 拉宽回 >=840dp：恢复双栏与分栏 LivePlot，输入仍保留
-    tester.view.physicalSize = const Size(840, 800);
+    // 拉宽回 >=720dp：恢复双栏与分栏 LivePlot，输入仍保留
+    tester.view.physicalSize = const Size(720, 800);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
-    expect(find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
     expect(tester.widget<TextField>(firstField).controller!.text, '1234.567');
     expect(tester.takeException(), isNull);
   });
+
+  for (final size in [
+    const Size(640, 360),
+    const Size(800, 360),
+    const Size(915, 412),
+    const Size(1024, 640),
+  ]) {
+    testWidgets(
+        'Landscape ${size.width}×${size.height} keeps a fixed split and clears the dock',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 14);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 14);
+      addTearDown(tester.view.reset);
+      final settings = AppSettings();
+      await settings.setLanguage(AppLanguage.chinese);
+      await tester
+          .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
+      await tester.pumpAndSettle();
+
+      final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+      final content = find.byKey(const ValueKey('workspace-content'));
+      const toggle = ValueKey('sidebar-toggle-btn');
+      expect(tester.getSize(sidebar).width, 56);
+      await tester.tap(find.byKey(toggle));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(sidebar).width, 240);
+      expect(tester.getRect(sidebar).right, tester.getRect(content).left);
+      expect(find.byKey(const ValueKey('workspace-root-header')), findsNothing);
+      expect(find.byType(Drawer), findsNothing);
+      expect(find.byTooltip('关闭菜单'), findsNothing);
+      final contentBeforeSwipe = tester.getRect(content);
+      await tester.dragFrom(const Offset(5, 160), const Offset(170, 0));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(content), contentBeforeSwipe);
+      expect(find.byType(Drawer), findsNothing);
+      expect(find.byKey(const ValueKey('workspace-liveplot-toggle')),
+          findsOneWidget);
+
+      final home = find.byType(HomePage);
+      final scroller =
+          find.descendant(of: home, matching: find.byType(Scrollable)).first;
+      final position = tester.state<ScrollableState>(scroller).position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final lastTitle = find.descendant(of: home, matching: find.text('土方量计算'));
+      final lastRow =
+          find.ancestor(of: lastTitle, matching: find.byType(ListTile));
+      final dock = find.byKey(const ValueKey('workspace-command-dock'));
+      expect(lastRow, findsOneWidget);
+      expect(tester.getRect(lastRow).bottom,
+          lessThanOrEqualTo(tester.getRect(dock).top - 24));
+      expect(tester.getRect(lastRow).center.dx,
+          closeTo(tester.getRect(content).center.dx, 1));
+      expect(tester.getRect(dock).center.dx,
+          closeTo(tester.getRect(content).center.dx, 1));
+      await tester.tap(find.byKey(const ValueKey('workspace-liveplot-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('workspace-liveplot-split')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('320x640 @ 1.3x 字号下中英文外壳均无溢出', (tester) async {
     for (final lang in [AppLanguage.chinese, AppLanguage.english]) {

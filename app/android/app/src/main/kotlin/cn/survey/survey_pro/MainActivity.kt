@@ -33,7 +33,10 @@ class MainActivity : FlutterActivity() {
         val content = findViewById<View>(android.R.id.content)
         content.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
             val density = view.resources.displayMetrics.density
-            if (view.width / density >= 840 || view.height == 0) {
+            val landscape = view.width > view.height
+            val widthDp = view.width / density
+            val compact = widthDp < 720 && (!landscape || widthDp < 640)
+            if (!compact || view.height == 0) {
                 view.systemGestureExclusionRects = emptyList()
             } else {
                 // Android reserves part of each edge for system Back. Give the

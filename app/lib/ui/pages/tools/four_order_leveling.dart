@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import '../../widgets/compact_controls.dart';
+import '../../../theme/workspace_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
@@ -330,7 +331,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
             ],
           ),
         ),
-        desktopDrawer: true);
+        useBottomSheet: true);
     if (!mounted || choice == null || !_rows.contains(row)) return;
     if (choice == 'ignore') {
       setState(() => _ignoredIssues.add(row));
@@ -375,12 +376,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     }
     row.focusFor(controller).unfocus();
     if (!result.ok && !_ignoredIssues.contains(row)) {
-      if (usesCompactWorkspaceControls(context)) unawaited(_pulseLimit());
+      if (Platform.isAndroid) unawaited(_pulseLimit());
       await _showStationLimits(index);
       return;
     }
     if (result.ok) {
-      if (usesCompactWorkspaceControls(context)) {
+      if (Platform.isAndroid) {
         unawaited(HapticFeedback.lightImpact());
       }
       SurveyToast.info(
@@ -846,7 +847,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           ],
         );
       }),
-      desktopDrawer: true,
+      useBottomSheet: true,
     );
     if (mounted && load == true) {
       _loadExample();
@@ -1473,7 +1474,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
 
   Widget _settingBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final compact = usesCompactWorkspaceControls(context);
+    final compact =
+        workspaceUsesCompactLayout(context) && usesWorkspaceControls(context);
     final choices = <(String, Widget)>[
       (
         '等级',

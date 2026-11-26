@@ -5,6 +5,7 @@ import '../../nav/tools.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import '../../theme/workspace_layout.dart';
 import '../page_scaffold.dart';
 import '../tool_router.dart';
 import '../widgets/outline_symbol.dart';
@@ -36,8 +37,7 @@ class HomePage extends StatelessWidget {
         draftId == null ? null : drafts?.value(draftId, 'lastStation');
     final tools =
         settings.pinnedTools.map(toolById).whereType<ToolDef>().toList();
-    final compact =
-        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+    final compact = workspaceUsesCompactLayout(context);
     Widget toolTile(ToolDef tool) => ListTile(
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -51,13 +51,14 @@ class HomePage extends StatelessWidget {
     return PageScaffold(
       title: '工程测量',
       topReserve: underFloatingHeader && compact ? 54 : 0,
-      overlayReserve: QuickCommandBar.reserve,
+      overlayReserve: QuickCommandBar.bottomClearance(context),
       trailing: [
-        IconButton(
-          tooltip: 'LivePlot',
-          onPressed: () => showWorkspacePlot(context),
-          icon: const OutlineSymbol(Icons.polyline_outlined),
-        ),
+        if (compact)
+          IconButton(
+            tooltip: 'LivePlot',
+            onPressed: () => showWorkspacePlot(context),
+            icon: const OutlineSymbol(Icons.polyline_outlined),
+          ),
         IconButton(
           tooltip: context.tr('更多'),
           onPressed: onOpenSettings,
@@ -100,15 +101,13 @@ class HomePage extends StatelessWidget {
             ],
           ),
         ),
-        if (!compact) const SizedBox(height: 24),
         SectionHeader(
             title: '常用工具',
             trailing: TextButton(
               onPressed: () => onNavigate(3),
               child: const LocalText('工具库'),
             )),
-        if (!compact) const SizedBox(height: 8),
-        if (compact && tools.isNotEmpty)
+        if (tools.isNotEmpty)
           SurfaceCard(
             padding: EdgeInsets.zero,
             child: Column(
@@ -128,22 +127,6 @@ class HomePage extends StatelessWidget {
               ],
             ),
           )
-        else
-          LayoutBuilder(builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 900 ? 4 : 2;
-            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final tool in tools)
-                  SizedBox(
-                      width: width,
-                      child: SurfaceCard(
-                          padding: EdgeInsets.zero, child: toolTile(tool))),
-              ],
-            );
-          }),
       ],
     );
   }

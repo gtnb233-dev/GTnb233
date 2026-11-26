@@ -176,6 +176,15 @@ void main() {
         secDigits: 1,
         date: date,
       ),
+      SurveyForms.buildIntersectionFormSheet(
+        distResult:
+            distanceIntersection(a: a, b: b, distanceAp: 110, distanceBp: 112),
+        a: a,
+        b: b,
+        coordDigits: 3,
+        secDigits: 1,
+        date: date,
+      ),
       SurveyForms.buildCurveFormSheet(
         title: '圆曲线要素及主点桩号计算表',
         paramSummary: '半径 R = 200.000 m',
@@ -188,6 +197,9 @@ void main() {
     final texts =
         SurveyFormImageRenderer.extractRenderTexts(sheets, strings: strings);
     expect(texts.where(_cjk.hasMatch), isEmpty);
+    expect(
+        texts.any((value) => value.contains('observed side of the baseline')),
+        isTrue);
     expect(texts.any((value) => value.contains('2026-11-26')), isTrue);
     expect(texts.any((value) => value.contains('Checked')), isTrue);
     expect(texts.any((value) => value.contains('120.000')), isTrue);

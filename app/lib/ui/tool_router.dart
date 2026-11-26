@@ -5,7 +5,6 @@ import 'workspace_page_route.dart';
 
 import '../nav/tools.dart';
 import '../state/settings.dart';
-import '../theme/tokens.dart';
 import 'pages/tools/batch_tools.dart';
 import 'pages/tools/control_points_page.dart';
 import 'pages/tools/control_tools.dart';
@@ -34,12 +33,11 @@ Future<void> openTool(
           ? settings.lastDraftId
           : null);
   final name = 'tool/${tool.id}';
-  final compact = MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
   final observer = navigator.widget.observers
       .whereType<WorkspaceNavigatorObserver>()
       .firstOrNull;
   final current = observer?.topRoute ?? ModalRoute.of(context);
-  if ((compact || replaceExistingTool) &&
+  if ((observer != null || replaceExistingTool) &&
       current?.settings.name == name &&
       current?.settings.arguments == resume) {
     return;
@@ -66,9 +64,7 @@ Future<void> openWorkspacePage(
   final observer = navigator.widget.observers
       .whereType<WorkspaceNavigatorObserver>()
       .firstOrNull;
-  final shallow = replaceExistingTool ||
-      (observer != null &&
-          MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth);
+  final shallow = replaceExistingTool || observer != null;
   final current = observer?.topRoute ?? ModalRoute.of(context);
   if (shallow &&
       current?.settings.name == name &&

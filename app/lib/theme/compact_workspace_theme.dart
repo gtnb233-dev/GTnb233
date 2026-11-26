@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-ThemeData compactWorkspaceTheme(ThemeData theme) {
+ThemeData workspaceTheme(ThemeData theme) {
   final dark = theme.brightness == Brightness.dark;
   final canvas = dark ? Colors.black : const Color(0xFFF2F2F7);
   final group = dark ? const Color(0xFF1C1C1E) : Colors.white;

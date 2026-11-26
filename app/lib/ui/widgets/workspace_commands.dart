@@ -11,6 +11,7 @@ import '../../state/drafts.dart';
 import '../../state/live_plot_controller.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import '../../theme/workspace_layout.dart';
 import '../tool_router.dart';
 import '../pages/tools/tin_workspace.dart';
 import 'command_palette.dart';
@@ -43,9 +44,7 @@ class WorkspacePanelBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final route = ModalRoute.of(context);
-    final canAnimate =
-        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth &&
-            !MediaQuery.disableAnimationsOf(context);
+    final canAnimate = !MediaQuery.disableAnimationsOf(context);
     final ValueListenable<bool> visible = route == null
         ? const AlwaysStoppedAnimation(false)
         : _workspaceSheets[route] ??= ValueNotifier(false);
@@ -63,40 +62,48 @@ class WorkspacePanelBackground extends StatelessWidget {
   }
 }
 
-Future<T?> showWorkspaceBottomSheet<T>(
+Future<T?> _withWorkspaceDepth<T>(
   BuildContext context,
-  WidgetBuilder builder,
+  Future<T?> Function() show,
 ) async {
   final route = ModalRoute.of(context);
   final visible = route == null ? null : _workspaceSheets[route];
   visible?.value = true;
   try {
-    return await showModalBottomSheet<T>(
-      context: context,
-      useRootNavigator: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final animation = ModalRoute.of(context)?.animation;
-        if (animation == null) return builder(context);
-        return AnimatedBuilder(
-          animation: animation,
-          child: builder(context),
-          builder: (context, child) => GlassBlurSuspensionScope(
-            suspended: !animation.isCompleted,
-            child: child!,
-          ),
-        );
-      },
-    );
+    return await show();
   } finally {
     visible?.value = false;
   }
 }
 
+Future<T?> showWorkspaceBottomSheet<T>(
+  BuildContext context,
+  WidgetBuilder builder,
+) =>
+    _withWorkspaceDepth<T>(
+        context,
+        () => showModalBottomSheet<T>(
+              context: context,
+              useRootNavigator: true,
+              useSafeArea: true,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) {
+                final animation = ModalRoute.of(context)?.animation;
+                if (animation == null) return builder(context);
+                return AnimatedBuilder(
+                  animation: animation,
+                  child: builder(context),
+                  builder: (context, child) => GlassBlurSuspensionScope(
+                    suspended: !animation.isCompleted,
+                    child: child!,
+                  ),
+                );
+              },
+            ));
+
 Future<T?> workspacePanel<T>(BuildContext context, String title, Widget content,
-    {bool desktopDrawer = false}) async {
+    {bool useBottomSheet = false}) async {
   Widget panel(BuildContext context) {
     final settings = SettingsScope.of(context);
     return LiquidGlassSurface(
@@ -137,37 +144,8 @@ Future<T?> workspacePanel<T>(BuildContext context, String title, Widget content,
     );
   }
 
-  if (MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth) {
+  if (useBottomSheet || workspaceUsesCompactLayout(context)) {
     return showWorkspaceBottomSheet<T>(context, panel);
-  }
-  if (desktopDrawer) {
-    final barrierLabel =
-        MaterialLocalizations.of(context).modalBarrierDismissLabel;
-    return showGeneralDialog<T>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: barrierLabel,
-      barrierColor: Colors.black26,
-      transitionDuration: Motion.base,
-      pageBuilder: (context, _, __) => SafeArea(
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: 392,
-              child: Material(color: Colors.transparent, child: panel(context)),
-            ),
-          ),
-        ),
-      ),
-      transitionBuilder: (context, animation, _, child) => SlideTransition(
-        position: animation.drive(
-            Tween(begin: const Offset(0.46, 0), end: Offset.zero)
-                .chain(CurveTween(curve: Curves.easeOutCubic))),
-        child: child,
-      ),
-    );
   }
   return showDialog<T>(
     context: context,
@@ -421,6 +399,9 @@ class QuickCommandBar extends StatefulWidget {
   final bool secondary;
   static const double reserve = 132;
 
+  static double bottomClearance(BuildContext context) =>
+      reserve + 24 + MediaQuery.viewPaddingOf(context).bottom;
+
   @override
   State<QuickCommandBar> createState() => _QuickCommandBarState();
 }
@@ -490,111 +471,110 @@ class _QuickCommandBarState extends State<QuickCommandBar> {
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final narrow = MediaQuery.sizeOf(context).width < 480;
-    final bar = SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: Center(
-        heightFactor: 1,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: LiquidGlassSurface(
-            borderRadius: BorderRadius.circular(24),
-            blurSigma: settings.floatingGlassNav ? 18 : 0,
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  key: const ValueKey('workspace-command-input'),
-                  controller: _input,
-                  textInputAction: TextInputAction.go,
-                  onSubmitted: (_) => _run(),
-                  decoration: InputDecoration(
-                    isDense: false,
-                    hintText:
-                        context.tr(narrow ? '搜工具、点号或算式' : '搜索工具、输入点号、坐标或算式'),
-                    prefixIcon: const Center(
-                        widthFactor: 1,
-                        heightFactor: 1,
-                        child: OutlineSymbol(Icons.search, size: 18)),
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: context.tr('新建草稿'),
-                      onPressed: () => showWorkspaceCreate(context),
-                      icon: const OutlineSymbol(Icons.add),
+    return LayoutBuilder(builder: (context, constraints) {
+      final narrow = constraints.maxWidth < 480;
+      final bar = SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: LiquidGlassSurface(
+              key: const ValueKey('workspace-command-dock'),
+              borderRadius: BorderRadius.circular(24),
+              blurSigma: settings.floatingGlassNav ? 18 : 0,
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    key: const ValueKey('workspace-command-input'),
+                    controller: _input,
+                    textInputAction: TextInputAction.go,
+                    onSubmitted: (_) => _run(),
+                    decoration: InputDecoration(
+                      isDense: false,
+                      hintText:
+                          context.tr(narrow ? '搜工具、点号或算式' : '搜索工具、输入点号、坐标或算式'),
+                      prefixIcon: const Center(
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: OutlineSymbol(Icons.search, size: 18)),
                     ),
-                    if (narrow) ...[
+                  ),
+                  Row(
+                    children: [
                       IconButton(
-                        tooltip: context.tr('四等水准'),
-                        onPressed: () =>
-                            openTool(context, toolById('leveling4')!),
-                        icon: const OutlineSymbol(Icons.rule),
+                        tooltip: context.tr('新建草稿'),
+                        onPressed: () => showWorkspaceCreate(context),
+                        icon: const OutlineSymbol(Icons.add),
                       ),
-                      IconButton(
-                        tooltip: 'LivePlot',
-                        onPressed: () => showWorkspacePlot(context),
-                        icon: const OutlineSymbol(Icons.polyline_outlined),
-                      ),
-                    ] else ...[
-                      TextButton(
+                      if (narrow) ...[
+                        IconButton(
+                          tooltip: context.tr('四等水准'),
                           onPressed: () =>
                               openTool(context, toolById('leveling4')!),
-                          child: const LocalText('四等水准')),
-                      TextButton(
+                          icon: const OutlineSymbol(Icons.rule),
+                        ),
+                        IconButton(
+                          tooltip: 'LivePlot',
                           onPressed: () => showWorkspacePlot(context),
-                          child: const Text('LivePlot')),
-                    ],
-                    const Spacer(),
-                    PopupMenuButton<AngleInputMode>(
-                      tooltip: context.tr('角度输入格式'),
-                      onSelected: settings.setAngleMode,
-                      itemBuilder: (_) => [
-                        for (final mode in AngleInputMode.values)
-                          PopupMenuItem(value: mode, child: Text(mode.symbol)),
+                          icon: const OutlineSymbol(Icons.polyline_outlined),
+                        ),
+                      ] else ...[
+                        TextButton(
+                            onPressed: () =>
+                                openTool(context, toolById('leveling4')!),
+                            child: const LocalText('四等水准')),
+                        TextButton(
+                            onPressed: () => showWorkspacePlot(context),
+                            child: const Text('LivePlot')),
                       ],
-                      child: ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(minWidth: 48, minHeight: 48),
-                        child: Center(child: Text(settings.angleMode.symbol)),
+                      const Spacer(),
+                      PopupMenuButton<AngleInputMode>(
+                        tooltip: context.tr('角度输入格式'),
+                        onSelected: settings.setAngleMode,
+                        itemBuilder: (_) => [
+                          for (final mode in AngleInputMode.values)
+                            PopupMenuItem(
+                                value: mode, child: Text(mode.symbol)),
+                        ],
+                        child: ConstrainedBox(
+                          constraints:
+                              const BoxConstraints(minWidth: 48, minHeight: 48),
+                          child: Center(child: Text(settings.angleMode.symbol)),
+                        ),
                       ),
-                    ),
-                    if (widget.secondary &&
-                        MediaQuery.sizeOf(context).width <
-                            kSidebarNavigationMinWidth)
-                      IconButton(
-                        tooltip: context.tr('执行'),
-                        onPressed: _run,
-                        icon: const OutlineSymbol(Icons.arrow_upward),
-                      )
-                    else
-                      IconButton.filled(
-                        tooltip: context.tr('执行'),
-                        onPressed: _run,
-                        icon: const OutlineSymbol(Icons.arrow_upward),
-                      ),
-                  ],
-                ),
-              ],
+                      if (widget.secondary)
+                        IconButton(
+                          tooltip: context.tr('执行'),
+                          onPressed: _run,
+                          icon: const OutlineSymbol(Icons.arrow_upward),
+                        )
+                      else
+                        IconButton.filled(
+                          tooltip: context.tr('执行'),
+                          onPressed: _run,
+                          icon: const OutlineSymbol(Icons.arrow_upward),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-    if (MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth) {
-      return bar;
-    }
-    return Stack(
-      children: [
-        Positioned.fill(
-          child:
-              ScrollEdgeFade(color: Theme.of(context).scaffoldBackgroundColor),
-        ),
-        bar,
-      ],
-    );
+      );
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: ScrollEdgeFade(
+                color: Theme.of(context).scaffoldBackgroundColor),
+          ),
+          bar,
+        ],
+      );
+    });
   }
 }

@@ -15,6 +15,18 @@ const surveyFormTerms = <String, (String, String, String, String)>{
   '小组': ('Group', 'Groupe', 'Grupo', 'Grupo'),
   '天气': ('Weather', 'Météo', 'Tempo', 'Tiempo'),
   '当前': ('Current', 'Actuel', 'Atual', 'Actual'),
+  '距离交会检核': (
+    'Distance intersection check',
+    'Contrôle de l’intersection par distances',
+    'Verificação da interseção por distâncias',
+    'Comprobación de la intersección por distancias',
+  ),
+  '两组圆交点解已列出，请结合现场左右侧判别选用。': (
+    'Two circle intersections are listed. Choose the solution on the observed side of the baseline.',
+    'Deux intersections sont indiquées. Choisissez celle du côté observé de la base.',
+    'São indicadas duas interseções. Escolha a solução do lado observado da base.',
+    'Se muestran dos intersecciones. Elija la solución del lado observado de la base.',
+  ),
   '闭合差判定': (
     'Misclosure check',
     'Contrôle de fermeture',

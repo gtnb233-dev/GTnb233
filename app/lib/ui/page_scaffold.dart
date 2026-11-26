@@ -6,6 +6,7 @@ import '../l10n/survey_strings.dart';
 import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
+import '../theme/workspace_layout.dart';
 import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/command_palette.dart';
@@ -50,8 +51,7 @@ class PageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final compact =
-        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+    final compact = workspaceUsesCompactLayout(context);
     final bottomReserve = overlayReserve ?? glassNavBottomReserve(context);
     return Scaffold(
       // 不能留 transparent：一旦外层没有不透明底色，窗口黑底会透出来。
@@ -73,7 +73,7 @@ class PageScaffold extends StatelessWidget {
                 pad,
                 Insets.l + topReserve,
                 pad,
-                Insets.xxxl + bottomReserve,
+                overlayReserve ?? Insets.xxxl + bottomReserve,
               ),
               child: Center(
                 child: ConstrainedBox(
@@ -349,34 +349,27 @@ class _DetailScaffoldState extends State<DetailScaffold> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildLayout);
+
+  Widget _buildLayout(BuildContext context, BoxConstraints constraints) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final showCommandBar = widget.commandBar &&
+    final compact = workspaceUsesCompactLayout(context);
+    final size = MediaQuery.sizeOf(context);
+    final canPop = Navigator.canPop(context);
+    final showCommandBar = (widget.commandBar || canPop) &&
         WorkspaceCommandsEnabled.of(context) &&
-        MediaQuery.sizeOf(context).height >= 480;
-    final bottomReserve = showCommandBar &&
-            MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth
-        ? QuickCommandBar.reserve
-        : 0.0;
+        size.height >= 320 &&
+        MediaQuery.viewInsetsOf(context).bottom == 0;
+    final bottomReserve =
+        showCommandBar ? QuickCommandBar.bottomClearance(context) : Insets.xxl;
     final twoPane =
-        widget.sideVisual != null && MediaQuery.sizeOf(context).width >= 980;
+        !compact && widget.sideVisual != null && constraints.maxWidth >= 880;
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
     final resultsInRightPane = twoPane && widget.resultsBesideInputs;
-    final canPop = Navigator.canPop(context);
-    final compact =
-        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
     final tutorial = widget.children.whereType<PageTutorial>().firstOrNull;
     final livePlot = LivePlotScope.maybeOf(context);
-    final desktopHeader = Container(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: IosColors.separator(scheme.brightness),
-            width: 1.0,
-          ),
-        ),
-      ),
+    final desktopHeader = Padding(
       padding: const EdgeInsets.fromLTRB(Insets.l, 8, Insets.l, 8),
       child: Center(
         child: ConstrainedBox(
@@ -562,10 +555,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       Insets.l,
       Insets.s,
       Insets.l,
-      Insets.xxl + bottomReserve,
+      bottomReserve,
     );
     final detail = Scaffold(
-      extendBody: compact && showCommandBar && widget.bottomBar == null,
+      extendBody: showCommandBar && widget.bottomBar == null,
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
@@ -630,7 +623,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                   ),
                 ),
     );
-    if (MediaQuery.sizeOf(context).width < 1140 || widget.desktopRail == null) {
+    if (compact || constraints.maxWidth < 1140 || widget.desktopRail == null) {
       return WorkspacePanelBackground(child: detail);
     }
     return Scaffold(
@@ -714,6 +707,6 @@ double glassNavBottomReserve(BuildContext context) {
   final settings =
       context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier;
   if (settings == null || !settings.floatingGlassNav) return 0;
-  if (MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth) return 0;
+  if (!workspaceUsesCompactLayout(context)) return 0;
   return GlassNavBar.bottomReserve;
 }

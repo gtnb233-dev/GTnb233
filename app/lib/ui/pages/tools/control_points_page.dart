@@ -10,6 +10,7 @@ import '../../../state/control_points.dart';
 import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
+import '../../../theme/workspace_layout.dart';
 import '../../page_scaffold.dart';
 import '../../widgets/outline_symbol.dart';
 import '../../widgets/widgets.dart';
@@ -29,8 +30,7 @@ Future<ControlPoint?> showControlPointPicker(BuildContext context) async {
   }
   if (!context.mounted) return null;
 
-  final isNarrow =
-      MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+  final isNarrow = workspaceUsesCompactLayout(context);
   if (isNarrow) {
     return showWorkspaceBottomSheet<ControlPoint>(
       context,

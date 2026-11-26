@@ -64,7 +64,7 @@ class SurfaceCard extends StatelessWidget {
       color: IosColors.separator(scheme.brightness),
       width: 1.0,
     );
-    final compact = usesCompactWorkspaceControls(context);
+    final compact = usesWorkspaceControls(context);
     final decoration = BoxDecoration(
       color: bg,
       borderRadius: BorderRadius.circular(radius),

@@ -872,7 +872,7 @@ class SurveyForms {
       for (var i = 0; i < distResult.solutions.length; i++) {
         rowHeights[cursor] = 21;
         final pt = distResult.solutions[i];
-        add(cursor, 0, '解${i + 1}', style: XlsxCellStyle.cellSummary, forceString: true);
+        add(cursor, 0, '${i + 1}', style: XlsxCellStyle.cellSummary, forceString: true);
         add(cursor, 1, 'Xp${i + 1} (m)', style: XlsxCellStyle.cellCenter, forceString: true);
         add(cursor, 2, fmt(pt.x, coordDigits), style: XlsxCellStyle.cellBoldCenter, forceString: true);
         add(cursor, 3, 'Yp${i + 1} (m)', style: XlsxCellStyle.cellCenter, forceString: true);

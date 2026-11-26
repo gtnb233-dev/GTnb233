@@ -376,7 +376,7 @@ class _PageActionsState extends State<PageActions> {
           child: TextButton.icon(
             onPressed: () async {
               final confirm =
-                  widget.confirmClear || usesCompactWorkspaceControls(context);
+                  widget.confirmClear || usesWorkspaceControls(context);
               if (confirm) {
                 final ok = await SurveyModal.confirm(
                   context,

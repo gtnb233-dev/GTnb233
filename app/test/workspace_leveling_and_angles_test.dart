@@ -226,16 +226,13 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.next);
       await tester.pumpAndSettle();
       expect(find.text('测站检核超限'), findsOneWidget);
-      if (width < 840) {
-        expect(find.byType(BottomSheet), findsOneWidget);
-        expect(
-            find.byWidgetPredicate(
-                (widget) => widget is AnimatedScale && widget.scale < 1),
-            findsOneWidget);
-      } else {
-        final panel = tester.getCenter(find.text('测站检核超限'));
-        expect(panel.dx, greaterThan(width / 2));
-      }
+      final limitsSheet = find.byType(BottomSheet);
+      expect(limitsSheet, findsOneWidget);
+      expect(tester.getCenter(limitsSheet).dx, closeTo(width / 2, 1));
+      expect(
+          find.byWidgetPredicate(
+              (widget) => widget is AnimatedScale && widget.scale == .94),
+          findsOneWidget);
       await tester.tap(find.text('定位修改'));
       await tester.pumpAndSettle();
       expect(

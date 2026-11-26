@@ -13,6 +13,7 @@ import 'state/drafts.dart';
 import 'state/live_plot_controller.dart';
 import 'state/settings.dart';
 import 'theme/app_theme.dart';
+import 'theme/compact_workspace_theme.dart';
 import 'theme/monet.dart';
 import 'theme/ui_style.dart';
 import 'ui/shell.dart';
@@ -159,7 +160,7 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: const Color(0x00000000),
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: Color(isDark ? 0xFF141415 : 0xFFFAFAFA),
+      systemNavigationBarColor: Color(isDark ? 0xFF000000 : 0xFFF2F2F7),
       systemNavigationBarIconBrightness:
           isDark ? Brightness.light : Brightness.dark,
     ));
@@ -190,44 +191,45 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
           child: SettingsScope(
             settings: settings,
             child: AnimatedBuilder(
-          animation: settings,
-          builder: (context, _) {
-            final style = settings.uiStyle;
-            final seed = settings.monet
-                ? Monet.resolveSeed(settings.monetSeed, _systemAccent)
-                : kSeed;
-            return MaterialApp(
-              onGenerateTitle: (context) => context.tr('工程测量'),
-              debugShowCheckedModeBanner: false,
-              scrollBehavior: const _AppScrollBehavior(),
-              theme: buildAppTheme(Brightness.light, seed: seed, style: style),
-              darkTheme:
-                  buildAppTheme(Brightness.dark, seed: seed, style: style),
-              themeMode: settings.themeMode,
-              locale: settings.language.locale,
-              localeListResolutionCallback: (locales, _) =>
-                  AppLanguage.resolve(locales),
-              supportedLocales: AppLanguage.supportedLocales,
-              localizationsDelegates: SurveyStrings.delegates,
-              home: const AppShell(),
-              builder: (context, child) {
-                // 统一限制系统字体缩放上限，避免超大字号把测量结果挤坏版式。
-                final mq = MediaQuery.of(context);
-                return MediaQuery(
-                  data: mq.copyWith(
-                    textScaler: mq.textScaler.clamp(
-                      minScaleFactor: 0.9,
-                      maxScaleFactor: 1.3,
-                    ),
-                  ),
-                  child: WorkspaceCommandsEnabled(
-                      child: child ?? const SizedBox.shrink()),
+              animation: settings,
+              builder: (context, _) {
+                final style = settings.uiStyle;
+                final seed = settings.monet
+                    ? Monet.resolveSeed(settings.monetSeed, _systemAccent)
+                    : kSeed;
+                return MaterialApp(
+                  onGenerateTitle: (context) => context.tr('工程测量'),
+                  debugShowCheckedModeBanner: false,
+                  scrollBehavior: const _AppScrollBehavior(),
+                  theme: workspaceTheme(buildAppTheme(Brightness.light,
+                      seed: seed, style: style)),
+                  darkTheme: workspaceTheme(
+                      buildAppTheme(Brightness.dark, seed: seed, style: style)),
+                  themeMode: settings.themeMode,
+                  locale: settings.language.locale,
+                  localeListResolutionCallback: (locales, _) =>
+                      AppLanguage.resolve(locales),
+                  supportedLocales: AppLanguage.supportedLocales,
+                  localizationsDelegates: SurveyStrings.delegates,
+                  home: const AppShell(),
+                  builder: (context, child) {
+                    // 统一限制系统字体缩放上限，避免超大字号把测量结果挤坏版式。
+                    final mq = MediaQuery.of(context);
+                    return MediaQuery(
+                      data: mq.copyWith(
+                        textScaler: mq.textScaler.clamp(
+                          minScaleFactor: 0.9,
+                          maxScaleFactor: 1.3,
+                        ),
+                      ),
+                      child: WorkspaceCommandsEnabled(
+                          child: child ?? const SizedBox.shrink()),
+                    );
+                  },
                 );
               },
-            );
-          },
-        ),
-      ),
+            ),
+          ),
         ),
       ),
     );

@@ -1,12 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/tokens.dart';
 import 'workspace_commands.dart';
 
-bool usesCompactWorkspaceControls(BuildContext context) =>
-    WorkspaceCommandsEnabled.of(context) &&
-    MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+bool usesWorkspaceControls(BuildContext context) =>
+    WorkspaceCommandsEnabled.of(context);
 
 /// Keep the same selection contract across compact and desktop controls.
 class SurveySegmentedControl<T> extends StatelessWidget {
@@ -27,7 +25,7 @@ class SurveySegmentedControl<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!usesCompactWorkspaceControls(context)) {
+    if (!usesWorkspaceControls(context)) {
       return SegmentedButton<T>(
         segments: segments,
         selected: selected,
@@ -96,7 +94,7 @@ class SurveySwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!usesCompactWorkspaceControls(context)) {
+    if (!usesWorkspaceControls(context)) {
       return SwitchListTile.adaptive(
         value: value,
         onChanged: onChanged,

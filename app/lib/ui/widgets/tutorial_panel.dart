@@ -41,7 +41,7 @@ class PageTutorial extends StatefulWidget {
           liveCalcBuilder: liveCalcBuilder,
           onLoadSample: onLoadSample,
         ),
-        desktopDrawer: true,
+        useBottomSheet: true,
       );
 
   @override
@@ -328,13 +328,15 @@ class _PageTutorialState extends State<PageTutorial> {
             color: Theme.of(context).colorScheme.tertiary,
           ),
           const SizedBox(width: 5),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
-              color: Theme.of(context).colorScheme.onSurface,
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
         ],

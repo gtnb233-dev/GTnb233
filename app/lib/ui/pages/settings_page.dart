@@ -7,6 +7,7 @@ import '../../app_info.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import '../../theme/workspace_layout.dart';
 import '../../theme/ui_style.dart';
 import '../page_scaffold.dart';
 import '../widgets/widgets.dart';
@@ -18,7 +19,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = SettingsScope.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth;
+    final wide = !workspaceUsesCompactLayout(context);
     final drafts = DraftScope.maybeOf(context);
     final savedDraftCount = drafts?.savedCount ?? 0;
     final scheme = Theme.of(context).colorScheme;
