@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'foundation.dart';
+import 'measurement_columns.dart';
 import 'overlays.dart';
 
 /// 单个成果项：左标签、右数值（支持桌面悬停高亮与复制提示、次要备注 [note]）。
@@ -244,11 +245,20 @@ class DataSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final flex = _flex;
+    final numeric = [
+      for (var c = 0; c < columns.length; c++)
+        c > 0 && isMeasureColumn(rows.map((row) => row[c])),
+    ];
+    final decimalPlaces = [
+      for (var c = 0; c < columns.length; c++)
+        numeric[c] ? measurementPrecision(rows.map((row) => row[c])) : 0,
+    ];
 
     Widget headCell(int i) => Expanded(
           flex: (flex[i] * 100).round(),
           child: Text(
             context.tr(columns[i]),
+            textAlign: numeric[i] ? TextAlign.right : TextAlign.start,
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
@@ -260,17 +270,29 @@ class DataSheet extends StatelessWidget {
 
     Widget bodyCell(int r, int c) => Expanded(
           flex: (flex[c] * 100).round(),
-          child: Text(
-            context.tr(rows[r][c]),
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight:
-                  highlightRows.contains(r) ? FontWeight.w700 : FontWeight.w500,
-              color:
-                  highlightRows.contains(r) ? scheme.primary : scheme.onSurface,
-              fontFamily: kSurveyMono,
-              fontFamilyFallback: const ['Noto Sans SC'],
-              fontFeatures: const [FontFeature.tabularFigures()],
+          child: Padding(
+            padding: EdgeInsets.only(
+                right: measurementDecimalInset(
+              context,
+              rows[r][c],
+              decimalPlaces[c],
+              12.5,
+            )),
+            child: Text(
+              context.tr(rows[r][c]),
+              textAlign: numeric[c] ? TextAlign.right : TextAlign.start,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: highlightRows.contains(r)
+                    ? FontWeight.w700
+                    : FontWeight.w500,
+                color: highlightRows.contains(r)
+                    ? scheme.primary
+                    : scheme.onSurface,
+                fontFamily: kSurveyMono,
+                fontFamilyFallback: const ['Noto Sans SC'],
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         );

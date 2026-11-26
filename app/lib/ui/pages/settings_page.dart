@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/compact_controls.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../l10n/survey_strings.dart';
@@ -73,7 +74,7 @@ class SettingsPage extends StatelessWidget {
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: Insets.s),
-              SegmentedButton<ThemeMode>(
+              SurveySegmentedControl<ThemeMode>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(
@@ -113,7 +114,7 @@ class SettingsPage extends StatelessWidget {
           ),
           child: Column(
             children: [
-              SwitchListTile.adaptive(
+              SurveySwitchTile(
                 contentPadding: EdgeInsets.zero,
                 value: s.floatingGlassNav,
                 onChanged: s.setGlassNav,
@@ -165,7 +166,7 @@ class SettingsPage extends StatelessWidget {
                                 fontSize: 14, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: Insets.s),
-                          SegmentedButton<UiStyle>(
+                          SurveySegmentedControl<UiStyle>(
                             showSelectedIcon: false,
                             style: const ButtonStyle(
                               visualDensity: VisualDensity.compact,
@@ -199,7 +200,7 @@ class SettingsPage extends StatelessWidget {
                       height: 0.5,
                       thickness: 0.5,
                     ),
-                    SwitchListTile.adaptive(
+                    SurveySwitchTile(
                       contentPadding: EdgeInsets.zero,
                       value: s.monet,
                       onChanged: s.setMonet,
@@ -266,7 +267,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: Insets.s),
-              SegmentedButton<AngleInputMode>(
+              SurveySegmentedControl<AngleInputMode>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(
@@ -301,7 +302,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: Insets.s),
-              SegmentedButton<LengthUnit>(
+              SurveySegmentedControl<LengthUnit>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(
@@ -355,7 +356,7 @@ class SettingsPage extends StatelessWidget {
             horizontal: Insets.l,
             vertical: Insets.s,
           ),
-          child: SwitchListTile.adaptive(
+          child: SurveySwitchTile(
             contentPadding: EdgeInsets.zero,
             value: s.haptic,
             onChanged: s.setHaptic,
@@ -644,8 +645,7 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
                 const LocalText('限差公式说明', style: TextStyle(fontSize: 12.5)),
                 const SizedBox(width: 4),
                 InfoHintTooltip(
-                  message: context.tr(
-                      '四等水准限差 ±20√L mm；视距差单站 ≤ 5 m，累计 ≤ 10 m。'),
+                  message: context.tr('四等水准限差 ±20√L mm；视距差单站 ≤ 5 m，累计 ≤ 10 m。'),
                 ),
               ],
             ),
@@ -654,8 +654,8 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
               child: OutlinedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.touch_app_outlined, size: 15),
-                label:
-                    const LocalText('悬停 / 长按触发', style: TextStyle(fontSize: 12)),
+                label: const LocalText('悬停 / 长按触发',
+                    style: TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
@@ -679,25 +679,29 @@ class _OverlayShowcaseBodyState extends State<_OverlayShowcaseBody> {
               onPressed: () => SurveyToast.info(context, '已切换输入量级为 厘米 (cm)'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const LocalText('信息 Toast', style: TextStyle(fontSize: 12)),
+              child:
+                  const LocalText('信息 Toast', style: TextStyle(fontSize: 12)),
             ),
             FilledButton.tonal(
               onPressed: () => SurveyToast.success(context, '成果表已复制到剪贴板'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const LocalText('成功 Toast', style: TextStyle(fontSize: 12)),
+              child:
+                  const LocalText('成功 Toast', style: TextStyle(fontSize: 12)),
             ),
             FilledButton.tonal(
               onPressed: () => SurveyToast.warning(context, '请先填满至少一组完整测站'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const LocalText('警告 Toast', style: TextStyle(fontSize: 12)),
+              child:
+                  const LocalText('警告 Toast', style: TextStyle(fontSize: 12)),
             ),
             FilledButton.tonal(
               onPressed: () => SurveyToast.error(context, '导出失败：无目标写入权限'),
               style:
                   FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const LocalText('错误 Toast', style: TextStyle(fontSize: 12)),
+              child:
+                  const LocalText('错误 Toast', style: TextStyle(fontSize: 12)),
             ),
           ],
         ),

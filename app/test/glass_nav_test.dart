@@ -32,13 +32,14 @@ const List<GlassNavItem> _items = [
 Rect _glassRect(WidgetTester tester) => tester.getRect(
       find.descendant(
         of: find.byType(GlassNavBar),
-        matching: find.byType(BackdropFilter),
+        matching: find.byType(ClipRRect),
       ),
     );
 
 void main() {
   setUp(() {
-    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    final dispatcher =
+        TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
     dispatcher.localesTestValue = const [Locale('zh', 'CN')];
     addTearDown(dispatcher.clearLocalesTestValue);
   });
@@ -144,7 +145,8 @@ void main() {
       tester.view.reset();
       tester.platformDispatcher.clearTextScaleFactorTestValue();
     });
-    await tester.pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
+    await tester
+        .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('设置'));
@@ -167,8 +169,7 @@ void main() {
     final lastLine = find.text('版本 $kAppVersion · 离线计算');
     expect(lastLine, findsOneWidget);
     final lastRect = tester.getRect(lastLine);
-    expect(lastRect.center.dy, lessThan(glass.top),
-        reason: '滚到底后最后一张卡被玻璃条挡住了');
+    expect(lastRect.center.dy, lessThan(glass.top), reason: '滚到底后最后一张卡被玻璃条挡住了');
     expect(lastRect.bottom, lessThanOrEqualTo(glass.top + 0.5));
 
     // 开关真的能点到（没有被玻璃条截获）。

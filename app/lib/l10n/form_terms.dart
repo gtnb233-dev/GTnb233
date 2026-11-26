@@ -1,4 +1,20 @@
 const surveyFormTerms = <String, (String, String, String, String)>{
+  '日期': ('Date', 'Date', 'Data', 'Fecha'),
+  '制表': ('Prepared', 'Établi', 'Elaborado', 'Elaborado'),
+  '观测': ('Observed', 'Observé', 'Observação', 'Observación'),
+  '记录': ('Recorded', 'Noté', 'Registo', 'Registro'),
+  '计算': ('Computed', 'Calculé', 'Cálculo', 'Cálculo'),
+  '复核': ('Checked', 'Vérifié', 'Revisto', 'Revisado'),
+  '指导教师': ('Instructor', 'Enseignant', 'Orientador', 'Docente'),
+  '班级/工程': (
+    'Class/Project',
+    'Classe/Projet',
+    'Turma/Projeto',
+    'Clase/Proyecto'
+  ),
+  '小组': ('Group', 'Groupe', 'Grupo', 'Grupo'),
+  '天气': ('Weather', 'Météo', 'Tempo', 'Tiempo'),
+  '当前': ('Current', 'Actuel', 'Atual', 'Actual'),
   '闭合差判定': (
     'Misclosure check',
     'Contrôle de fermeture',

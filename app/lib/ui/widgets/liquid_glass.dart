@@ -285,3 +285,35 @@ class _GlassIconOrbState extends State<GlassIconOrb> {
     );
   }
 }
+
+/// Soft separation where scroll content passes underneath a floating control.
+class ScrollEdgeFade extends StatelessWidget {
+  const ScrollEdgeFade({
+    super.key,
+    required this.color,
+    this.progress = 1,
+    this.atTop = false,
+  });
+
+  final Color color;
+  final double progress;
+  final bool atTop;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: atTop ? Alignment.topCenter : Alignment.bottomCenter,
+              end: atTop ? Alignment.bottomCenter : Alignment.topCenter,
+              colors: [
+                color.withValues(alpha: progress),
+                color.withValues(alpha: progress * .86),
+                color.withValues(alpha: 0),
+              ],
+              stops: const [0, .48, 1],
+            ),
+          ),
+        ),
+      );
+}

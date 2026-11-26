@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../workspace_page_route.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../l10n/survey_strings.dart';
@@ -338,20 +337,15 @@ class _ToolRow extends StatelessWidget {
                       : scheme.onSurfaceVariant.withValues(alpha: 0.65),
                 ),
                 onPressed: () async {
-                  final ok = await SettingsScope.read(context)
-                      .togglePinnedTool(tool.id);
+                  await SettingsScope.read(context).togglePinnedTool(tool.id);
                   if (!context.mounted) return;
-                  if (!ok) {
-                    SurveyToast.warning(context, '首页至少保留 1 个常用工具');
-                  } else {
-                    SurveyToast.info(
-                      context,
-                      context.tr(
-                        pinned ? '已从首页常用移除「{tool}」' : '已固定「{tool}」到首页常用',
-                        {'tool': context.tr(tool.title)},
-                      ),
-                    );
-                  }
+                  SurveyToast.info(
+                    context,
+                    context.tr(
+                      pinned ? '已从首页常用移除「{tool}」' : '已固定「{tool}」到首页常用',
+                      {'tool': context.tr(tool.title)},
+                    ),
+                  );
                 },
               ),
             const SizedBox(width: Insets.xs),
@@ -614,10 +608,11 @@ class _FormulaPageState extends State<FormulaPage> {
                   title: f.name,
                   subtitle: f.expression,
                   icon: Icons.functions,
-                  onTap: () => Navigator.of(context).push(
-                    WorkspacePageRoute(
-                      builder: (_) => FormulaDetailPage(formula: f),
-                    ),
+                  onTap: () => openWorkspacePage(
+                    context,
+                    name: 'tool/formula/detail',
+                    argument: f.id,
+                    builder: (_) => FormulaDetailPage(formula: f),
                   ),
                   dense: true,
                 ),

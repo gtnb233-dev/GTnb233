@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../widgets/compact_controls.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
@@ -288,16 +289,18 @@ class _QuadrantPageState extends State<QuadrantPage> {
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: SegmentedButton<int>(
+                child: SurveySegmentedControl<int>(
                   showSelectedIcon: false,
                   segments: [
                     ButtonSegment(
                       value: 0,
-                      label: Text(_ql(context, '方位角 → 象限角', 'Azimuth → Bearing')),
+                      label:
+                          Text(_ql(context, '方位角 → 象限角', 'Azimuth → Bearing')),
                     ),
                     ButtonSegment(
                       value: 1,
-                      label: Text(_ql(context, '象限角 → 方位角', 'Bearing → Azimuth')),
+                      label:
+                          Text(_ql(context, '象限角 → 方位角', 'Bearing → Azimuth')),
                     ),
                   ],
                   selected: {_mode},
@@ -345,7 +348,7 @@ class _QuadrantPageState extends State<QuadrantPage> {
                           'Ⅰ 北东 / Ⅱ 南东 / Ⅲ 南西 / Ⅳ 北西',
                           'I NE / II SE / III SW / IV NW',
                         ),
-                        child: SegmentedButton<Quadrant>(
+                        child: SurveySegmentedControl<Quadrant>(
                           showSelectedIcon: false,
                           segments: [
                             for (final q in Quadrant.values)

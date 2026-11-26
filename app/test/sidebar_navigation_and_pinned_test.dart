@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,8 +40,8 @@ void main() {
         .tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
     await tester.pumpAndSettle();
     expect(settings.sidebarCollapsed, isFalse);
-    expect(find.byKey(const ValueKey('sidebar-customize-pinned')),
-        findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('sidebar-customize-pinned')), findsOneWidget);
 
     // (a) Clicking the same sidebar tool repeatedly does not stack duplicates.
     final leveling4Item = find.descendant(
@@ -88,6 +89,73 @@ void main() {
     expect(find.byType(FourOrderLevelingPage), findsNothing);
     expect(find.byType(BatchStakeoutPage), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact command bar deduplicates and replaces tools',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = AppSettings();
+    await settings.load();
+    await settings.setLanguage(AppLanguage.chinese);
+    await tester
+        .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('打开工作区菜单'));
+    await tester.pumpAndSettle();
+    final drawer = find.byType(Drawer);
+    expect(
+        find.descendant(
+            of: drawer,
+            matching: find.byKey(
+              const ValueKey('drawer-search-btn'),
+            )),
+        findsOneWidget);
+    final leveling = find.descendant(
+      of: drawer,
+      matching: find.text('四等水准测量'),
+    );
+    await tester.ensureVisible(leveling);
+    await tester.tap(leveling);
+    await tester.pumpAndSettle();
+    expect(find.byType(FourOrderLevelingPage), findsOneWidget);
+    expect(find.byType(CupertinoSlidingSegmentedControl<int>), findsWidgets);
+    expect(find.byType(Drawer), findsNothing);
+
+    Future<void> command(String text) async {
+      await tester.enterText(
+        find.byKey(const ValueKey('workspace-command-input')),
+        text,
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await tester.pumpAndSettle();
+    }
+
+    await command('四等水准测量');
+    expect(find.byType(FourOrderLevelingPage, skipOffstage: false),
+        findsOneWidget);
+    await command('坐标转换');
+    expect(find.byType(ProjectionPage), findsOneWidget);
+    expect(
+        find.byType(FourOrderLevelingPage, skipOffstage: false), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectionPage), findsNothing);
+    expect(find.byKey(const ValueKey('workspace-root-header')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('a deliberately empty pin list survives a restart', () async {
+    final settings = AppSettings();
+    await settings.load();
+    await settings.setPinnedToolIds(['area']);
+    await settings.togglePinnedTool('area');
+    expect(settings.pinnedToolIds, isEmpty);
+    final reloaded = AppSettings();
+    await reloaded.load();
+    expect(reloaded.pinnedToolIds, isEmpty);
   });
 
   testWidgets('customizing pinnedToolIds updates sidebar and persists',

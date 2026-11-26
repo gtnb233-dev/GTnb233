@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
-import '../workspace_page_route.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../l10n/survey_strings.dart';
@@ -54,13 +53,45 @@ class WorkspacePanelBackground extends StatelessWidget {
       valueListenable: visible,
       child: child,
       builder: (context, open, child) => AnimatedScale(
-        scale: canAnimate && open ? .975 : 1,
+        scale: canAnimate && open ? .94 : 1,
         alignment: Alignment.topCenter,
         duration: Motion.base,
         curve: Motion.ease,
         child: child,
       ),
     );
+  }
+}
+
+Future<T?> showWorkspaceBottomSheet<T>(
+  BuildContext context,
+  WidgetBuilder builder,
+) async {
+  final route = ModalRoute.of(context);
+  final visible = route == null ? null : _workspaceSheets[route];
+  visible?.value = true;
+  try {
+    return await showModalBottomSheet<T>(
+      context: context,
+      useRootNavigator: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final animation = ModalRoute.of(context)?.animation;
+        if (animation == null) return builder(context);
+        return AnimatedBuilder(
+          animation: animation,
+          child: builder(context),
+          builder: (context, child) => GlassBlurSuspensionScope(
+            suspended: !animation.isCompleted,
+            child: child!,
+          ),
+        );
+      },
+    );
+  } finally {
+    visible?.value = false;
   }
 }
 
@@ -107,21 +138,7 @@ Future<T?> workspacePanel<T>(BuildContext context, String title, Widget content,
   }
 
   if (MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth) {
-    final route = ModalRoute.of(context);
-    final visible = route == null ? null : _workspaceSheets[route];
-    visible?.value = true;
-    try {
-      return await showModalBottomSheet<T>(
-        context: context,
-        useRootNavigator: true,
-        useSafeArea: true,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: panel,
-      );
-    } finally {
-      visible?.value = false;
-    }
+    return showWorkspaceBottomSheet<T>(context, panel);
   }
   if (desktopDrawer) {
     final barrierLabel =
@@ -399,7 +416,9 @@ class WorkspaceCommandsEnabled extends InheritedWidget {
 }
 
 class QuickCommandBar extends StatefulWidget {
-  const QuickCommandBar({super.key});
+  const QuickCommandBar({super.key, this.secondary = false});
+
+  final bool secondary;
   static const double reserve = 132;
 
   @override
@@ -434,9 +453,8 @@ class _QuickCommandBarState extends State<QuickCommandBar> {
       return;
     }
     if (text.toLowerCase() == 'tin') {
-      await Navigator.of(context).push(WorkspacePageRoute<void>(
-        builder: (_) => const TinWorkspacePage(),
-      ));
+      await openWorkspacePage(context,
+          name: 'tool/earthwork/tin', builder: (_) => const TinWorkspacePage());
       return;
     }
     final matches = searchTools(text, strings: SurveyStrings.of(context));
@@ -473,7 +491,7 @@ class _QuickCommandBarState extends State<QuickCommandBar> {
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
     final narrow = MediaQuery.sizeOf(context).width < 480;
-    return SafeArea(
+    final bar = SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Center(
@@ -544,11 +562,20 @@ class _QuickCommandBarState extends State<QuickCommandBar> {
                         child: Center(child: Text(settings.angleMode.symbol)),
                       ),
                     ),
-                    IconButton.filled(
-                      tooltip: context.tr('执行'),
-                      onPressed: _run,
-                      icon: const OutlineSymbol(Icons.arrow_upward),
-                    ),
+                    if (widget.secondary &&
+                        MediaQuery.sizeOf(context).width <
+                            kSidebarNavigationMinWidth)
+                      IconButton(
+                        tooltip: context.tr('执行'),
+                        onPressed: _run,
+                        icon: const OutlineSymbol(Icons.arrow_upward),
+                      )
+                    else
+                      IconButton.filled(
+                        tooltip: context.tr('执行'),
+                        onPressed: _run,
+                        icon: const OutlineSymbol(Icons.arrow_upward),
+                      ),
                   ],
                 ),
               ],
@@ -556,6 +583,18 @@ class _QuickCommandBarState extends State<QuickCommandBar> {
           ),
         ),
       ),
+    );
+    if (MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth) {
+      return bar;
+    }
+    return Stack(
+      children: [
+        Positioned.fill(
+          child:
+              ScrollEdgeFade(color: Theme.of(context).scaffoldBackgroundColor),
+        ),
+        bar,
+      ],
     );
   }
 }

@@ -12,6 +12,7 @@ import '../state/drafts.dart';
 import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
+import '../theme/compact_workspace_theme.dart';
 import 'pages/home_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/tools_page.dart';
@@ -20,7 +21,6 @@ import 'widgets/command_palette.dart';
 import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/outline_symbol.dart';
-import 'widgets/overlays.dart';
 import 'widgets/push_aside_drawer.dart';
 import 'widgets/sliding_bottom_nav.dart';
 import 'widgets/workspace_commands.dart';
@@ -49,41 +49,15 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _ShellNavigatorObserver extends NavigatorObserver {
-  _ShellNavigatorObserver(this.onChanged);
-  final VoidCallback onChanged;
-  String? currentRouteName;
-
-  void _sync(Route<dynamic>? topRoute) {
-    currentRouteName = topRoute?.settings.name;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onChanged());
-  }
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _sync(route);
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _sync(previousRoute);
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _sync(previousRoute);
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
-      _sync(newRoute);
-}
-
 class _AppShellState extends State<AppShell> {
   final _drawer = GlobalKey<PushAsideDrawerState>();
   final _workspaceNavigator = GlobalKey<NavigatorState>();
   final _destination = ValueNotifier(0);
+  final _homeScroll = ValueNotifier(0.0);
   final List<int> _tabHistory = <int>[0];
   int _tabCursor = 0;
   bool _isMaximized = false;
-  late final _navObserver = _ShellNavigatorObserver(() {
+  late final _navObserver = WorkspaceNavigatorObserver(() {
     if (mounted) setState(() {});
   });
 
@@ -134,7 +108,7 @@ class _AppShellState extends State<AppShell> {
 
   void _openSidebarTool(ToolDef tool) {
     _drawer.currentState?.close();
-    if (_navObserver.currentRouteName == 'tool/${tool.id}') return;
+    if (_navObserver.topRoute?.settings.name == 'tool/${tool.id}') return;
     openTool(_workspaceContext, tool, replaceExistingTool: true);
   }
 
@@ -165,6 +139,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     _destination.dispose();
+    _homeScroll.dispose();
     super.dispose();
   }
 
@@ -189,7 +164,9 @@ class _AppShellState extends State<AppShell> {
                         index: index,
                         children: [
                           HomePage(
-                              onNavigate: _go, onOpenSettings: () => _go(4)),
+                              onNavigate: _go,
+                              onOpenSettings: () => _go(4),
+                              underFloatingHeader: true),
                           const CoordPage(),
                           const FormulaPage(),
                           const ToolsPage(),
@@ -215,7 +192,7 @@ class _AppShellState extends State<AppShell> {
       _ProjectsPanel(
         drawer: drawer,
         index: _index,
-        activeRouteName: _navObserver.currentRouteName,
+        activeRouteName: _navObserver.topRoute?.settings.name,
         onPage: _go,
         onOpenTool: _openSidebarTool,
         onToggleSidebar: () =>
@@ -237,7 +214,10 @@ class _AppShellState extends State<AppShell> {
             ? SafeArea(
                 top: false,
                 child: GlassNavBar(
-                    index: _index, items: _glassItems, onSelect: _go),
+                    index: _index,
+                    items: _glassItems,
+                    onSelect: _go,
+                    blurSigma: 0),
               )
             : DecoratedBox(
                 decoration: BoxDecoration(
@@ -289,55 +269,116 @@ class _AppShellState extends State<AppShell> {
       ),
       child: Scaffold(
         bottomNavigationBar: bottom,
-        body: Column(
-          children: [
-            if (compact)
-              SafeArea(
-                bottom: false,
-                child: Padding(
-                  key: const ValueKey('workspace-root-header'),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                  child: Row(
-                    children: [
-                      WorkspaceGlassButton(
-                        icon: Icons.drag_handle_rounded,
-                        label: context.tr('打开工作区菜单'),
-                        onPressed: () => _drawer.currentState?.open(),
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: TextButton(
-                            onPressed: () => _drawer.currentState?.open(),
-                            child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('Survey Pro',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.w700)),
-                                    const SizedBox(width: 3),
-                                    const Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        size: 16),
-                                  ],
-                                )),
-                          ),
+        body: compact && _index == 0
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification.depth == 0 &&
+                          notification.metrics.axis == Axis.vertical) {
+                        _homeScroll.value = notification.metrics.pixels;
+                      }
+                      return false;
+                    },
+                    child: pages,
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _homeScroll,
+                      builder: (context, offset, _) => _mobileHeader(
+                          context, ((offset - 12) / 44).clamp(0.0, 1.0)),
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                children: [
+                  if (compact) _mobileHeader(context, 0),
+                  Expanded(child: pages),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _mobileHeader(BuildContext context, double progress) {
+    final theme = Theme.of(context);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ScrollEdgeFade(
+              color: theme.scaffoldBackgroundColor,
+              progress: progress,
+              atTop: true),
+        ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            key: const ValueKey('workspace-root-header'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            child: Row(
+              children: [
+                WorkspaceGlassButton(
+                  icon: Icons.drag_handle_rounded,
+                  label: context.tr('打开工作区菜单'),
+                  onPressed: () => _drawer.currentState?.open(),
+                ),
+                Expanded(
+                  child: Center(
+                    child: TextButton(
+                      onPressed: () => _drawer.currentState?.open(),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                for (final (label, opacity, offset) in [
+                                  ('Survey Pro', 1 - progress, -4 * progress),
+                                  (
+                                    context.tr('工程测量'),
+                                    progress,
+                                    4 * (1 - progress)
+                                  ),
+                                ])
+                                  if (opacity > 0)
+                                    ExcludeSemantics(
+                                      excluding: opacity < .5,
+                                      child: Opacity(
+                                        opacity: opacity,
+                                        child: Transform.translate(
+                                          offset: Offset(0, offset),
+                                          child: Text(label,
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w700)),
+                                        ),
+                                      ),
+                                    ),
+                              ],
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down_rounded,
+                                size: 16),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 48),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            Expanded(child: pages),
-          ],
+                const SizedBox(width: 48),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -376,11 +417,10 @@ class _AppShellState extends State<AppShell> {
                       if (wide)
                         _IconRail(
                           index: _index,
-                          activeRouteName: _navObserver.currentRouteName,
+                          activeRouteName: _navObserver.topRoute?.settings.name,
                           sidebarCollapsed: settings.sidebarCollapsed,
                           splitOpen: livePlot?.splitOpen ?? false,
-                          onSearch: () =>
-                              showCommandPalette(_workspaceContext),
+                          onSearch: () => showCommandPalette(_workspaceContext),
                           onHome: () => _go(0),
                           onTools: () => _go(3),
                           onLeveling4: () =>
@@ -390,8 +430,7 @@ class _AppShellState extends State<AppShell> {
                           onToggleLivePlot: livePlot == null
                               ? () => showWorkspacePlot(_workspaceContext)
                               : livePlot.toggleSplit,
-                          onHistory: () =>
-                              showDraftHistory(_workspaceContext),
+                          onHistory: () => showDraftHistory(_workspaceContext),
                           onSettings: () => _go(4),
                           onToggleSidebar: () => settings
                               .setSidebarCollapsed(!settings.sidebarCollapsed),
@@ -421,7 +460,12 @@ class _AppShellState extends State<AppShell> {
                         ),
                       Expanded(
                         key: const ValueKey('workspace-content'),
-                        child: _workspacePages(),
+                        child: Theme(
+                          data: wide
+                              ? Theme.of(context)
+                              : compactWorkspaceTheme(Theme.of(context)),
+                          child: _workspacePages(),
+                        ),
                       ),
                       if (wide && (livePlot?.splitOpen ?? false))
                         Container(
@@ -657,9 +701,8 @@ class _IconRail extends StatelessWidget {
           const SizedBox(height: 4),
           _RailButton(
             tooltip: context.tr('工具库'),
-            icon: (onRoot && index == 3)
-                ? Icons.widgets
-                : Icons.widgets_outlined,
+            icon:
+                (onRoot && index == 3) ? Icons.widgets : Icons.widgets_outlined,
             selected: onRoot && index == 3,
             onTap: onTools,
           ),
@@ -799,13 +842,9 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
     final compact =
         MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
     if (compact) {
-      await showModalBottomSheet<void>(
-        context: context,
-        useRootNavigator: true,
-        useSafeArea: true,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const _CustomizePinnedSheet(isSheet: true),
+      await showWorkspaceBottomSheet<void>(
+        context,
+        (_) => const _CustomizePinnedSheet(isSheet: true),
       );
     } else {
       await showDialog<void>(
@@ -886,17 +925,10 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                         : const ValueKey('sidebar-search-btn'),
                     tooltip: context.tr('搜索工具与公式'),
                     visualDensity: VisualDensity.compact,
-                    onPressed: () =>
-                        _action(() => showCommandPalette(widget.actionContext())),
+                    onPressed: () => _action(
+                        () => showCommandPalette(widget.actionContext())),
                     icon: const OutlineSymbol(Icons.search, size: 17),
                   ),
-                  if (widget.drawer)
-                    IconButton(
-                      tooltip: context.tr('关闭菜单'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: widget.onClose,
-                      icon: const OutlineSymbol(Icons.close, size: 18),
-                    ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -1003,8 +1035,8 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                       for (final project in projects) ...[
                         _ProjectFolderGroup(
                           project: project,
-                          expanded:
-                              q.isNotEmpty || _expandedProjects.contains(project),
+                          expanded: q.isNotEmpty ||
+                              _expandedProjects.contains(project),
                           onToggle: () => setState(() {
                             if (!_expandedProjects.remove(project)) {
                               _expandedProjects.add(project);
@@ -1015,8 +1047,8 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                               .toList(growable: false),
                           activeId: active,
                           drafts: drafts,
-                          onOpenDraft: (id) => _action(
-                              () => openWorkspaceDraft(widget.actionContext(), id)),
+                          onOpenDraft: (id) => _action(() =>
+                              openWorkspaceDraft(widget.actionContext(), id)),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -1060,8 +1092,8 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                         _SidebarEntry(
                           title: draftTitle(context, drafts, id),
                           icon: Icons.description_outlined,
-                          onTap: () => _action(
-                              () => openWorkspaceDraft(widget.actionContext(), id)),
+                          onTap: () => _action(() =>
+                              openWorkspaceDraft(widget.actionContext(), id)),
                           selected: id == active,
                         ),
                     ],
@@ -1099,6 +1131,12 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                       tooltip: context.tr('设置'),
                       onPressed: () => widget.onPage(4),
                       icon: const OutlineSymbol(Icons.settings_outlined),
+                    ),
+                  if (widget.drawer)
+                    IconButton(
+                      tooltip: context.tr('关闭菜单'),
+                      onPressed: widget.onClose,
+                      icon: const OutlineSymbol(Icons.close, size: 18),
                     )
                   else
                     IconButton(
@@ -1144,7 +1182,8 @@ class _CustomizePinnedSheet extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 460,
-          maxHeight: MediaQuery.sizeOf(context).height * (isSheet ? 0.78 : 0.72),
+          maxHeight:
+              MediaQuery.sizeOf(context).height * (isSheet ? 0.78 : 0.72),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1196,9 +1235,7 @@ class _CustomizePinnedSheet extends StatelessWidget {
                       for (final t in reordered)
                         if (pinnedIds.contains(t.id)) t.id,
                     ];
-                    if (nextPinned.isNotEmpty) {
-                      settings.setPinnedToolIds(nextPinned);
-                    }
+                    settings.setPinnedToolIds(nextPinned);
                   },
                   itemBuilder: (context, i) {
                     final tool = orderedTools[i];
@@ -1209,12 +1246,7 @@ class _CustomizePinnedSheet extends StatelessWidget {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                       leading: Checkbox(
                         value: checked,
-                        onChanged: (_) async {
-                          final ok = await settings.togglePinnedTool(tool.id);
-                          if (!ok && context.mounted) {
-                            SurveyToast.warning(context, '至少保留 1 个工具');
-                          }
-                        },
+                        onChanged: (_) => settings.togglePinnedTool(tool.id),
                       ),
                       title: Text(
                         context.tr(tool.title),

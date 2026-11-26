@@ -97,7 +97,8 @@ class PushAsideDrawerState extends State<PushAsideDrawer>
           builder: (context, child) {
             final progress = widget.enabled ? _progress.value : 0.0;
             return GlassBlurSuspensionScope(
-              suspended: progress > 0 && progress < 1,
+              suspended: (progress > 0 && progress < 1) ||
+                  GlassBlurSuspensionScope.isSuspended(context),
               child: Stack(
                 fit: StackFit.expand,
                 children: [

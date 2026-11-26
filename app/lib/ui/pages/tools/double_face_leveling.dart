@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../widgets/compact_controls.dart';
 import 'package:survey_core/survey_core.dart';
 import '../../../l10n/survey_strings.dart';
 
@@ -147,7 +148,8 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
   String _l(BuildContext context, String zh, String en) =>
       SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
 
-  String _formatStationIssues(BuildContext context, DoubleStaffStationResult st) =>
+  String _formatStationIssues(
+          BuildContext context, DoubleStaffStationResult st) =>
       st.structuredIssues
           .map((e) => context.trError(e.code.name, e.args, e.defaultMessage))
           .join(' · ');
@@ -283,13 +285,15 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
       final out = await ExportService.export(
         table.localizeLabels(strings.translate),
         format: format,
+        strings: strings,
         fileNameHint: '三四等水准测量观测手簿',
       );
       if (!mounted) return;
       if (!out.ok) {
         SurveyToast.error(
           context,
-          _l(context, '导出失败：${out.error ?? ''}', 'Export failed: ${out.error ?? ''}'),
+          _l(context, '导出失败：${out.error ?? ''}',
+              'Export failed: ${out.error ?? ''}'),
         );
         return;
       }
@@ -298,11 +302,11 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
           : _l(context, '手簿 Excel', 'handbook Excel');
       SurveyToast.success(
         context,
-        _l(context, '已导出标准水准$kindLabel：${out.path}', 'Exported $kindLabel: ${out.path}'),
+        _l(context, '已导出标准水准$kindLabel：${out.path}',
+            'Exported $kindLabel: ${out.path}'),
         duration: const Duration(seconds: 4),
-        actionLabel: Platform.isWindows && out.path != null
-            ? context.tr('打开文件夹')
-            : null,
+        actionLabel:
+            Platform.isWindows && out.path != null ? context.tr('打开文件夹') : null,
         onAction: () => ExportService.openFolder(out.path!),
       );
     } catch (e) {
@@ -376,7 +380,7 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
               helper: '常用同尺 4687/4787，或后 4787/前 4687（红黑面常数差 100）',
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: SegmentedButton<_DoubleFaceKMode>(
+                child: SurveySegmentedControl<_DoubleFaceKMode>(
                   showSelectedIcon: false,
                   segments: [
                     for (final m in _DoubleFaceKMode.values)
@@ -477,7 +481,8 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
               children: [
                 ActionChip(
                   avatar: const Icon(Icons.label_outline, size: 15),
-                  label: const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
+                  label:
+                      const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
                   visualDensity: VisualDensity.compact,
                   onPressed: _openPointNamesDialog,
                 ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../workspace_page_route.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
@@ -91,10 +90,11 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
     if (entry.tool != null) {
       openTool(nav.context, entry.tool!);
     } else if (entry.formula != null) {
-      nav.push(
-        WorkspacePageRoute<void>(
-          builder: (_) => FormulaDetailPage(formula: entry.formula!),
-        ),
+      openWorkspacePage(
+        nav.context,
+        name: 'tool/formula/detail',
+        argument: entry.formula!.id,
+        builder: (_) => FormulaDetailPage(formula: entry.formula!),
       );
     }
   }

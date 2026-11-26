@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:survey_core/survey_core.dart';
 import 'package:survey_pro/export/export_service.dart';
@@ -9,7 +11,10 @@ import 'package:survey_pro/l10n/survey_strings.dart';
 final RegExp _cjk = RegExp(r'[\u4e00-\u9fff]');
 
 void main() {
-  test('SurveyFormImageRenderer.extractRenderTexts has zero CJK in English across Traverse, Leveling4, and generic tables', () {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+      'SurveyFormImageRenderer.extractRenderTexts has zero CJK in English across Traverse, Leveling4, and generic tables',
+      () {
     final en = const SurveyStrings('en').translate;
 
     // 1. Traverse
@@ -153,5 +158,50 @@ void main() {
     for (final t in genericTexts) {
       expect(_cjk.hasMatch(t), isFalse, reason: 'CJK in generic PNG: $t');
     }
+  });
+  test(
+      'English intersection and curve PNG use the same localized model and raster output',
+      () async {
+    const locale = Locale('en');
+    const a = Point2(100, 100);
+    const b = Point2(200, 180);
+    final date = DateTime(2026, 11, 26);
+    final strings = SurveyStrings(locale.languageCode);
+    final sheets = [
+      SurveyForms.buildIntersectionFormSheet(
+        table: forwardIntersectionTable(a: a, b: b, alphaDeg: 52, betaDeg: 64),
+        a: a,
+        b: b,
+        coordDigits: 3,
+        secDigits: 1,
+        date: date,
+      ),
+      SurveyForms.buildCurveFormSheet(
+        title: '圆曲线要素及主点桩号计算表',
+        paramSummary: '半径 R = 200.000 m',
+        elements: const [('切线长', '120.000', 'm')],
+        chainages: const [('ZY', 'JD − T', 1380, '直圆点')],
+        checkNotes: const ['合格'],
+        date: date,
+      ),
+    ];
+    final texts =
+        SurveyFormImageRenderer.extractRenderTexts(sheets, strings: strings);
+    expect(texts.where(_cjk.hasMatch), isEmpty);
+    expect(texts.any((value) => value.contains('2026-11-26')), isTrue);
+    expect(texts.any((value) => value.contains('Checked')), isTrue);
+    expect(texts.any((value) => value.contains('120.000')), isTrue);
+    final spanish = SurveyFormImageRenderer.extractRenderTexts(
+      sheets,
+      strings: const SurveyStrings('es'),
+    );
+    expect(
+        spanish.any((value) =>
+            value.contains('Fecha:') && value.contains('2026-11-26')),
+        isTrue);
+    expect(spanish.any((value) => value.contains('Revisado')), isTrue);
+    final png = await SurveyFormImageRenderer.renderWorkbook(sheets,
+        pixelRatio: 2, strings: strings);
+    expect(png.take(8), [137, 80, 78, 71, 13, 10, 26, 10]);
   });
 }

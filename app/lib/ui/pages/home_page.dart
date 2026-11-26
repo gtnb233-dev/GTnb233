@@ -13,9 +13,13 @@ import '../widgets/workspace_commands.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage(
-      {super.key, required this.onNavigate, required this.onOpenSettings});
+      {super.key,
+      required this.onNavigate,
+      required this.onOpenSettings,
+      this.underFloatingHeader = false});
   final ValueChanged<int> onNavigate;
   final VoidCallback onOpenSettings;
+  final bool underFloatingHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -30,9 +34,23 @@ class HomePage extends StatelessWidget {
     final saved = draftId == null ? null : drafts?.savedAt(draftId);
     final station =
         draftId == null ? null : drafts?.value(draftId, 'lastStation');
-    final tools = settings.pinnedTools.map(toolById).whereType<ToolDef>();
+    final tools =
+        settings.pinnedTools.map(toolById).whereType<ToolDef>().toList();
+    final compact =
+        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+    Widget toolTile(ToolDef tool) => ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: OutlineSymbol(tool.icon, color: theme.colorScheme.primary),
+          title: LocalText(tool.title),
+          subtitle: LocalText(tool.subtitle,
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+          trailing: const OutlineSymbol(Icons.chevron_right, size: 16),
+          onTap: () => openTool(context, tool),
+        );
     return PageScaffold(
       title: '工程测量',
+      topReserve: underFloatingHeader && compact ? 54 : 0,
       overlayReserve: QuickCommandBar.reserve,
       trailing: [
         IconButton(
@@ -82,49 +100,50 @@ class HomePage extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        if (!compact) const SizedBox(height: 24),
         SectionHeader(
             title: '常用工具',
             trailing: TextButton(
               onPressed: () => onNavigate(3),
               child: const LocalText('工具库'),
             )),
-        const SizedBox(height: 8),
-        LayoutBuilder(builder: (context, constraints) {
-          final columns =
-              MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth
-                  ? 1
-                  : (constraints.maxWidth >= 900 ? 4 : 2);
-          final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              for (final tool in tools)
-                SizedBox(
-                  width: width,
-                  child: SurfaceCard(
-                    padding: EdgeInsets.zero,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
-                      leading: OutlineSymbol(tool.icon,
-                          color: theme.colorScheme.primary),
-                      title: LocalText(tool.title),
-                      subtitle: LocalText(
-                        tool.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing:
-                          const OutlineSymbol(Icons.chevron_right, size: 16),
-                      onTap: () => openTool(context, tool),
+        if (!compact) const SizedBox(height: 8),
+        if (compact && tools.isNotEmpty)
+          SurfaceCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < tools.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: .5,
+                      thickness: .5,
+                      indent: 52,
+                      endIndent: 16,
+                      color: theme.colorScheme.outlineVariant
+                          .withValues(alpha: .35),
                     ),
-                  ),
-                ),
-            ],
-          );
-        }),
+                  toolTile(tools[i]),
+                ],
+              ],
+            ),
+          )
+        else
+          LayoutBuilder(builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 900 ? 4 : 2;
+            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final tool in tools)
+                  SizedBox(
+                      width: width,
+                      child: SurfaceCard(
+                          padding: EdgeInsets.zero, child: toolTile(tool))),
+              ],
+            );
+          }),
       ],
     );
   }

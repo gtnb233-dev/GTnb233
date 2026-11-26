@@ -26,6 +26,7 @@ class PageScaffold extends StatelessWidget {
     this.header,
     this.fab,
     this.overlayReserve,
+    this.topReserve = 0,
     this.toolbar,
     this.maxWidth = Insets.contentMaxWidth,
   });
@@ -42,12 +43,15 @@ class PageScaffold extends StatelessWidget {
   final Widget? header;
   final Widget? fab;
   final double? overlayReserve;
+  final double topReserve;
   final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final compact =
+        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
     final bottomReserve = overlayReserve ?? glassNavBottomReserve(context);
     return Scaffold(
       // 不能留 transparent：一旦外层没有不透明底色，窗口黑底会透出来。
@@ -59,11 +63,15 @@ class PageScaffold extends StatelessWidget {
           builder: (context, constraints) {
             final pad = constraints.maxWidth >= 900 ? Insets.xxl : Insets.l;
             return SingleChildScrollView(
+              physics: compact
+                  ? const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics())
+                  : null,
               // 玻璃导航悬浮在内容之上：把让位放进滚动内容，滚到底时
               // 最后一张卡片会停在条子上方，不会被永久遮住。
               padding: EdgeInsets.fromLTRB(
                 pad,
-                Insets.l,
+                Insets.l + topReserve,
                 pad,
                 Insets.xxxl + bottomReserve,
               ),
@@ -255,21 +263,11 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 animation: _scrollCtrl,
                 builder: (context, _) {
                   final fade = (_scrollOffset / 36).clamp(0.0, 1.0);
-                  return DecoratedBox(
-                      decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        theme.scaffoldBackgroundColor
-                            .withValues(alpha: fade * .98),
-                        theme.scaffoldBackgroundColor
-                            .withValues(alpha: fade * .90),
-                        theme.scaffoldBackgroundColor.withValues(alpha: 0),
-                      ],
-                      stops: const [0, .72, 1],
-                    ),
-                  ));
+                  return ScrollEdgeFade(
+                    color: theme.scaffoldBackgroundColor,
+                    progress: fade,
+                    atTop: true,
+                  );
                 },
               ),
             ),
@@ -357,7 +355,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final showCommandBar = widget.commandBar &&
         WorkspaceCommandsEnabled.of(context) &&
         MediaQuery.sizeOf(context).height >= 480;
-    final bottomReserve = 0.0;
+    final bottomReserve = showCommandBar &&
+            MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth
+        ? QuickCommandBar.reserve
+        : 0.0;
     final twoPane =
         widget.sideVisual != null && MediaQuery.sizeOf(context).width >= 980;
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
@@ -564,11 +565,14 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       Insets.xxl + bottomReserve,
     );
     final detail = Scaffold(
+      extendBody: compact && showCommandBar && widget.bottomBar == null,
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: compact
             ? CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics()),
                 controller: _scrollCtrl,
                 slivers: [
                   SliverPersistentHeader(
@@ -603,7 +607,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       bottomNavigationBar: showCommandBar
           ? Column(mainAxisSize: MainAxisSize.min, children: [
               if (widget.bottomBar != null) widget.bottomBar!,
-              const QuickCommandBar(),
+              const QuickCommandBar(secondary: true),
             ])
           : widget.bottomBar == null
               ? null

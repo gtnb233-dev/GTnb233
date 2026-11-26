@@ -29,15 +29,12 @@ Future<ControlPoint?> showControlPointPicker(BuildContext context) async {
   }
   if (!context.mounted) return null;
 
-  final isNarrow = MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+  final isNarrow =
+      MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
   if (isNarrow) {
-    return showModalBottomSheet<ControlPoint>(
-      context: context,
-      useRootNavigator: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _ControlPointPickerSheet(isSheet: true),
+    return showWorkspaceBottomSheet<ControlPoint>(
+      context,
+      (_) => const _ControlPointPickerSheet(isSheet: true),
     );
   }
   return showDialog<ControlPoint>(
@@ -460,7 +457,8 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
       final y = double.parse(yCtrl.text.trim());
       final hText = hCtrl.text.trim();
       final h = hText.isEmpty ? null : double.parse(hText);
-      final group = groupCtrl.text.trim().isEmpty ? '默认' : groupCtrl.text.trim();
+      final group =
+          groupCtrl.text.trim().isEmpty ? '默认' : groupCtrl.text.trim();
       final note = noteCtrl.text.trim();
 
       if (existing == null) {
@@ -612,9 +610,11 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
   }
 
   Future<void> _exportCsvFile(ControlPointStore store) async {
-    final digits =
-        context.getInheritedWidgetOfExactType<SettingsScope>()?.notifier?.coordDigits ??
-            3;
+    final digits = context
+            .getInheritedWidgetOfExactType<SettingsScope>()
+            ?.notifier
+            ?.coordDigits ??
+        3;
     final points = _filtered(store);
     if (points.isEmpty) {
       SurveyToast.info(context, '暂无可导出的控制点');
@@ -658,9 +658,11 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
   }
 
   Future<void> _exportCassFile(ControlPointStore store) async {
-    final digits =
-        context.getInheritedWidgetOfExactType<SettingsScope>()?.notifier?.coordDigits ??
-            3;
+    final digits = context
+            .getInheritedWidgetOfExactType<SettingsScope>()
+            ?.notifier
+            ?.coordDigits ??
+        3;
     final cass = store.toCassCsv(group: _selectedGroup, digits: digits);
     if (cass.trim().isEmpty) {
       SurveyToast.info(context, '暂无可导出的控制点');
@@ -762,9 +764,11 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
   @override
   Widget build(BuildContext context) {
     final store = ControlPointScope.of(context);
-    final digits =
-        context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier?.coordDigits ??
-            3;
+    final digits = context
+            .dependOnInheritedWidgetOfExactType<SettingsScope>()
+            ?.notifier
+            ?.coordDigits ??
+        3;
     final filtered = _filtered(store);
     final groups = store.groups;
     final scheme = Theme.of(context).colorScheme;
@@ -821,10 +825,10 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
                       for (final g in groups) ...[
                         const SizedBox(width: Insets.xs),
                         ChoiceChip(
-                          label: Text(g == '默认' ? _l(context, '默认', 'Default') : g),
+                          label: Text(
+                              g == '默认' ? _l(context, '默认', 'Default') : g),
                           selected: _selectedGroup == g,
-                          onSelected: (_) =>
-                              setState(() => _selectedGroup = g),
+                          onSelected: (_) => setState(() => _selectedGroup = g),
                         ),
                       ],
                     ],
@@ -921,8 +925,10 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
                   ),
                   FilledButton.tonalIcon(
                     onPressed: () => _projectToLivePlot(store),
-                    icon: const OutlineSymbol(Icons.polyline_outlined, size: 18),
-                    label: Text(_l(context, '投影到 LivePlot', 'Project to LivePlot')),
+                    icon:
+                        const OutlineSymbol(Icons.polyline_outlined, size: 18),
+                    label: Text(
+                        _l(context, '投影到 LivePlot', 'Project to LivePlot')),
                   ),
                 ],
               ),

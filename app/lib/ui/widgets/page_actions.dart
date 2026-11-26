@@ -9,6 +9,7 @@ import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
+import 'compact_controls.dart';
 import 'overlays.dart';
 
 /// 计算页顶部工具条：草稿保存状态 + 量级选择 (m/cm/mm) + 角度格式切换 + 导出 + 清空草稿。
@@ -75,7 +76,8 @@ class _PageActionsState extends State<PageActions> {
       final drafts = DraftScope.read(context);
       await drafts.flushAll();
       if (!mounted) return;
-      final table = build().localizeLabels(SurveyStrings.of(context).translate);
+      final strings = SurveyStrings.of(context);
+      final table = build().localizeLabels(strings.translate);
       final onlyHeaderRow = table.rows.length <= 1 &&
           table.xlsxBuilder == null &&
           table.formSheetsBuilder == null;
@@ -85,7 +87,8 @@ class _PageActionsState extends State<PageActions> {
         }
         return;
       }
-      final result = await ExportService.export(table, format: format);
+      final result =
+          await ExportService.export(table, format: format, strings: strings);
       if (!mounted) return;
       if (!result.ok) {
         SurveyToast.error(
@@ -372,7 +375,9 @@ class _PageActionsState extends State<PageActions> {
           message: '恢复默认值并清空本页草稿',
           child: TextButton.icon(
             onPressed: () async {
-              if (widget.confirmClear) {
+              final confirm =
+                  widget.confirmClear || usesCompactWorkspaceControls(context);
+              if (confirm) {
                 final ok = await SurveyModal.confirm(
                   context,
                   title: '清空本页草稿？',
@@ -383,8 +388,9 @@ class _PageActionsState extends State<PageActions> {
                 if (!ok || !context.mounted) return;
               }
               await drafts.clear(widget.pageId);
+              if (!context.mounted) return;
               widget.onClear!.call();
-              if (widget.confirmClear && context.mounted) {
+              if (confirm && context.mounted) {
                 SurveyToast.info(context, '已清空本页草稿');
               }
             },

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../../widgets/compact_controls.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../engine/rust_bridge.dart';
@@ -13,6 +14,7 @@ import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
+import '../../workspace_page_route.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/point_names_dialog.dart';
@@ -312,7 +314,7 @@ class _TraversePageState extends State<TraversePage>
         drafts.put(draftPageId, 'tableAngleMode', mode.name);
       }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _calc());
+    afterWorkspaceEntrance(this, _calc);
   }
 
   @override
@@ -521,7 +523,8 @@ class _TraversePageState extends State<TraversePage>
           )
         : await ExportService.export(
                 _exportTable().localizeLabels(strings.translate),
-                format: ExportFormat.values.byName(choice))
+                format: ExportFormat.values.byName(choice),
+                strings: strings)
             .then((result) => (path: result.path, error: result.error));
     if (!mounted) return;
     if (response.path case final path?) {
@@ -966,7 +969,7 @@ class _TraversePageState extends State<TraversePage>
         Row(
           children: [
             Expanded(
-              child: SegmentedButton<bool>(
+              child: SurveySegmentedControl<bool>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: true, label: LocalText('闭合导线')),
@@ -1114,7 +1117,7 @@ class _TraversePageState extends State<TraversePage>
               child: Row(
                 children: [
                   Expanded(
-                    child: SegmentedButton<bool>(
+                    child: SurveySegmentedControl<bool>(
                       showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(value: true, label: LocalText('左角')),
@@ -1143,7 +1146,7 @@ class _TraversePageState extends State<TraversePage>
                 child: Row(
                   children: [
                     Expanded(
-                      child: SegmentedButton<AngleConvention?>(
+                      child: SurveySegmentedControl<AngleConvention?>(
                         showSelectedIcon: false,
                         segments: const [
                           ButtonSegment<AngleConvention?>(
@@ -1172,10 +1175,10 @@ class _TraversePageState extends State<TraversePage>
             FieldShell(
               label: '角度闭合差限差',
               helper: _l(
-              context,
-              '按限差 ±${_angleLimitCoef.toStringAsFixed(0)}″√n 判定测角精度等级',
-              'Check angular misclosure against ±${_angleLimitCoef.toStringAsFixed(0)}″√n',
-            ),
+                context,
+                '按限差 ±${_angleLimitCoef.toStringAsFixed(0)}″√n 判定测角精度等级',
+                'Check angular misclosure against ±${_angleLimitCoef.toStringAsFixed(0)}″√n',
+              ),
               child: Wrap(
                 spacing: Insets.xs,
                 runSpacing: Insets.xs,
@@ -1208,7 +1211,7 @@ class _TraversePageState extends State<TraversePage>
               child: Row(
                 children: [
                   Expanded(
-                    child: SegmentedButton<MisclosureDistribution>(
+                    child: SurveySegmentedControl<MisclosureDistribution>(
                       showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(
@@ -1273,8 +1276,8 @@ class _TraversePageState extends State<TraversePage>
                   isCellEnabled: (row, count) => _closed || row < count - 1,
                 ),
                 TableInputColumn(
-                  title: _l(context, '边长 D (${u.symbol})',
-                      'Length D (${u.symbol})'),
+                  title: _l(
+                      context, '边长 D (${u.symbol})', 'Length D (${u.symbol})'),
                   kind: TableCellKind.number,
                   width: 112,
                   flex: 5,
@@ -1755,7 +1758,11 @@ class _LevelingPageState extends State<LevelingPage>
     if (r.elevations.isNotEmpty) {
       var cumDistM = 0.0;
       final pts = <LivePlotPointData>[
-        LivePlotPointData(x: 0, y: r.elevations.first, label: _levelingPointName(0, r.elevations.length), emphasis: true),
+        LivePlotPointData(
+            x: 0,
+            y: r.elevations.first,
+            label: _levelingPointName(0, r.elevations.length),
+            emphasis: true),
         for (var i = 0; i < km.length && i + 1 < r.elevations.length; i++) ...[
           () {
             cumDistM += km[i] * 1000.0;
@@ -1793,7 +1800,7 @@ class _LevelingPageState extends State<LevelingPage>
     // 两段标签都不短，320dp + 大字号下放进横向滚动容器更稳。
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: SegmentedButton<int>(
+      child: SurveySegmentedControl<int>(
         showSelectedIcon: false,
         segments: const [
           ButtonSegment(value: 0, label: LocalText('等级水准平差')),
@@ -2019,7 +2026,7 @@ class _LevelingPageState extends State<LevelingPage>
         Row(
           children: [
             Expanded(
-              child: SegmentedButton<bool>(
+              child: SurveySegmentedControl<bool>(
                 segments: const [
                   ButtonSegment(value: true, label: LocalText('闭合水准')),
                   ButtonSegment(value: false, label: LocalText('附合水准')),

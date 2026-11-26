@@ -197,9 +197,7 @@ class AppSettings extends ChangeNotifier {
     _monet = p.getBool(_kMonet) ?? false;
     _monetSeed = MonetSeed.parse(p.getString(_kMonetSeed));
     final pinned = p.getStringList(_kPinnedTools);
-    if (pinned != null && pinned.isNotEmpty) {
-      _pinnedTools = List<String>.of(pinned);
-    }
+    _pinnedTools = List<String>.of(pinned ?? kDefaultPinnedTools);
     notifyListeners();
   }
 
@@ -322,36 +320,21 @@ class AppSettings extends ChangeNotifier {
   }
 
   /// 切换首页「常用工具」固定状态（至少保留 1 个工具）。
-  Future<bool> togglePinnedTool(String toolId) async {
-    if (_pinnedTools.contains(toolId)) {
-      if (_pinnedTools.length <= 1) return false;
-      _pinnedTools.remove(toolId);
-    } else {
-      _pinnedTools.add(toolId);
-    }
-    notifyListeners();
-    await _persist((p) => p.setStringList(_kPinnedTools, _pinnedTools));
-    return true;
-  }
+  Future<void> togglePinnedTool(String toolId) => setPinnedToolIds([
+        for (final id in _pinnedTools)
+          if (id != toolId) id,
+        if (!isPinned(toolId)) toolId,
+      ]);
 
-  /// 更新「常用工具」选中集合与排序（至少保留 1 个工具）。
   Future<void> setPinnedToolIds(List<String> ids) async {
-    final next = <String>[];
-    for (final id in ids) {
-      if (id.isNotEmpty && !next.contains(id)) next.add(id);
-    }
-    if (next.isEmpty) return;
+    final next = ids.where((id) => id.isNotEmpty).toSet().toList();
     _pinnedTools = next;
     notifyListeners();
-    await _persist((p) => p.setStringList(_kPinnedTools, _pinnedTools));
+    await _persist((p) => p.setStringList(_kPinnedTools, next));
   }
 
   /// 恢复默认「常用工具」列表。
-  Future<void> resetPinnedTools() async {
-    _pinnedTools = List<String>.of(kDefaultPinnedTools);
-    notifyListeners();
-    await _persist((p) => p.setStringList(_kPinnedTools, _pinnedTools));
-  }
+  Future<void> resetPinnedTools() => setPinnedToolIds(kDefaultPinnedTools);
 
   /// 恢复默认录入与显示参数（米制 · 度分秒 · 坐标 3 位 · 秒 1 位）。
   Future<void> resetInputDefaults() async {

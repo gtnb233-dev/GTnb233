@@ -1010,6 +1010,8 @@ class _LivePlotState extends State<LivePlot>
                                     unit: widget.unit,
                                     translate:
                                         SurveyStrings.of(context).translate,
+                                    languageCode:
+                                        SurveyStrings.of(context).languageCode,
                                     fontFamily: DefaultTextStyle.of(context)
                                         .style
                                         .fontFamily,
@@ -1414,6 +1416,7 @@ class _PlotPainter extends CustomPainter {
     this.surveyNorthUp = false,
     required this.unit,
     this.translate,
+    this.languageCode,
     this.fontFamily,
     this.fontFamilyFallback,
     this.selectedIndex,
@@ -1450,6 +1453,7 @@ class _PlotPainter extends CustomPainter {
   final bool surveyNorthUp;
   final String unit;
   final String Function(String)? translate;
+  final String? languageCode;
   final String? fontFamily;
   final List<String>? fontFamilyFallback;
 
@@ -2016,6 +2020,7 @@ class _PlotPainter extends CustomPainter {
       old.showCanvasOverlays != showCanvasOverlays ||
       old.surveyNorthUp != surveyNorthUp ||
       old.unit != unit ||
+      old.languageCode != languageCode ||
       old.fontFamily != fontFamily ||
       !_listEq(
           old.fontFamilyFallback ?? const [], fontFamilyFallback ?? const []) ||

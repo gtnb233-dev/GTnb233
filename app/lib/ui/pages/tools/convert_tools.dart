@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../workspace_page_route.dart';
+import '../../widgets/compact_controls.dart';
+import '../../tool_router.dart';
 import 'package:survey_core/survey_core.dart';
 import '../../../l10n/survey_strings.dart';
 
@@ -398,7 +399,7 @@ class _ConvertPageState extends State<ConvertPage>
             Row(
               children: [
                 Expanded(
-                  child: SegmentedButton<int>(
+                  child: SurveySegmentedControl<int>(
                     showSelectedIcon: false,
                     segments: const [
                       ButtonSegment(value: 0, label: Text('%')),
@@ -468,7 +469,7 @@ class _ConvertPageState extends State<ConvertPage>
             // 5 段在窄屏（320dp）会超出可用宽度，放进横向滚动容器里。
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: SegmentedButton<int>(
+              child: SurveySegmentedControl<int>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: 0, label: Text('m')),
@@ -527,10 +528,10 @@ class _ConvertPageState extends State<ConvertPage>
               'Bidirectional 4-quadrant bearing / azimuth conversion',
             ),
             icon: Icons.explore_outlined,
-            onTap: () => Navigator.of(context).push(
-              WorkspacePageRoute<void>(
-                builder: (_) => const QuadrantPage(),
-              ),
+            onTap: () => openWorkspacePage(
+              context,
+              name: 'tool/quadrant',
+              builder: (_) => const QuadrantPage(),
             ),
           ),
         ),

@@ -12,6 +12,7 @@ import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
 import 'control_points_page.dart';
+import '../../widgets/compact_controls.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
@@ -1222,7 +1223,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       child: Row(
         children: [
           Expanded(
-            child: SegmentedButton<int>(
+            child: SurveySegmentedControl<int>(
               showSelectedIcon: false,
               style: const ButtonStyle(
                 visualDensity: VisualDensity.compact,
@@ -1266,7 +1267,7 @@ class _ProjectionPageState extends State<ProjectionPage>
               '十进制度（默认，如 39.9）；亦支持直填 39 54 00 或 39.54.00',
               'Decimal degrees (default, e.g. 39.9); also accepts 39 54 00',
             ),
-      child: SegmentedButton<bool>(
+      child: SurveySegmentedControl<bool>(
         showSelectedIcon: false,
         style: const ButtonStyle(
           visualDensity: VisualDensity.compact,
@@ -1988,7 +1989,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          SegmentedButton<int>(
+          SurveySegmentedControl<int>(
             showSelectedIcon: false,
             // 三个中文标签在 320dp + 1.3 倍字体下会撑破一行，字号收一档；
             // 外面再包一层横向滚动做兜底。
@@ -2070,7 +2071,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       child: Row(
         children: [
           Expanded(
-            child: SegmentedButton<int>(
+            child: SurveySegmentedControl<int>(
               showSelectedIcon: false,
               style: const ButtonStyle(visualDensity: VisualDensity.compact),
               segments: [

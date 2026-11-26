@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../widgets/compact_controls.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
@@ -373,10 +375,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     }
     row.focusFor(controller).unfocus();
     if (!result.ok && !_ignoredIssues.contains(row)) {
+      if (usesCompactWorkspaceControls(context)) unawaited(_pulseLimit());
       await _showStationLimits(index);
       return;
     }
     if (result.ok) {
+      if (usesCompactWorkspaceControls(context)) {
+        unawaited(HapticFeedback.lightImpact());
+      }
       SurveyToast.info(
           context, result.cumulativeWarning ? '累计视距差达到预警值' : '本站检核合格，已自动保存');
     }
@@ -384,6 +390,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       final next = _rows[index + 1];
       next.focusFor(next.entryOrder(_electronic).first).requestFocus();
     }
+  }
+
+  Future<void> _pulseLimit() async {
+    await HapticFeedback.lightImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 75));
+    if (mounted) await HapticFeedback.lightImpact();
   }
 
   double get _kBack => _rodMode == _RodKMode.back4787Front4687 ? 4787 : 4687;
@@ -704,8 +716,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         _route = null;
         _stationResults = const <DoubleStaffStationResult>[];
         _completeRows = const <int>[];
-        _error = _l(context, '附合路线需填写终点高程',
-            'Connecting route requires end elevation');
+        _error = _l(
+            context, '附合路线需填写终点高程', 'Connecting route requires end elevation');
       });
       return;
     }
@@ -739,9 +751,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       _stationResults = perStation;
       _completeRows = idx;
       _route = route;
-      _error = anyBad
-          ? context.tr('有测站检核超限（行下已标红），路线成果仅供参考')
-          : null;
+      _error = anyBad ? context.tr('有测站检核超限（行下已标红），路线成果仅供参考') : null;
     });
     final localPoints = readWorkspacePoints(drafts);
     final pointsByRoute =
@@ -915,9 +925,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   }
 
   Future<void> _exportHandbook(ExportFormat format) async {
+    final strings = SurveyStrings.of(context);
     final res = await ExportService.export(
-      _exportTable().localizeLabels(SurveyStrings.of(context).translate),
+      _exportTable().localizeLabels(strings.translate),
       format: format,
+      strings: strings,
       fileNameHint: '三四等水准测量观测手簿',
     );
     if (!mounted) return;
@@ -940,9 +952,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       _l(context, '已导出标准水准$kindLabel：${res.path}',
           'Exported $kindLabel: ${res.path}'),
       duration: const Duration(seconds: 4),
-      actionLabel: Platform.isWindows && res.path != null
-          ? context.tr('打开文件夹')
-          : null,
+      actionLabel:
+          Platform.isWindows && res.path != null ? context.tr('打开文件夹') : null,
       onAction: () => ExportService.openFolder(res.path!),
     );
   }
@@ -1428,14 +1439,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                       TextButton.icon(
                         onPressed: () => _exportHandbook(ExportFormat.xlsx),
                         icon: const Icon(Icons.table_view_rounded, size: 16),
-                        label: Text(_l(context, '导出标准手簿 Excel',
-                            'Export Handbook Excel')),
+                        label: Text(_l(
+                            context, '导出标准手簿 Excel', 'Export Handbook Excel')),
                       ),
                       TextButton.icon(
                         onPressed: () => _exportHandbook(ExportFormat.png),
                         icon: const Icon(Icons.image_outlined, size: 16),
-                        label: Text(_l(context, '导出标准手簿图片',
-                            'Export Handbook Image')),
+                        label: Text(
+                            _l(context, '导出标准手簿图片', 'Export Handbook Image')),
                       ),
                     ],
                   ),
@@ -1462,6 +1473,80 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
 
   Widget _settingBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final compact = usesCompactWorkspaceControls(context);
+    final choices = <(String, Widget)>[
+      (
+        '等级',
+        SurveySegmentedControl<LevelingGrade>(
+          showSelectedIcon: false,
+          segments: [
+            for (final g in LevelingGrade.values)
+              ButtonSegment(value: g, label: LocalText(g.label)),
+          ],
+          selected: {_grade},
+          onSelectionChanged: (v) => setState(() {
+            _grade = v.first;
+            _persistRowCount();
+            _calc();
+          }),
+        )
+      ),
+      (
+        '路线',
+        SurveySegmentedControl<bool>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: true, label: LocalText('闭合环')),
+            ButtonSegment(value: false, label: LocalText('附合')),
+          ],
+          selected: {_closed},
+          onSelectionChanged: (v) => setState(() {
+            _closed = v.first;
+            _persistRowCount();
+            _calc();
+          }),
+        )
+      ),
+      (
+        '分配',
+        SurveySegmentedControl<bool>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: true, label: LocalText('按距离')),
+            ButtonSegment(value: false, label: LocalText('按站数')),
+          ],
+          selected: {_byDistance},
+          onSelectionChanged: (v) => setState(() {
+            _byDistance = v.first;
+            _persistRowCount();
+            _calc();
+          }),
+        )
+      ),
+      (
+        '尺常数 K',
+        SurveySegmentedControl<_RodKMode>(
+          showSelectedIcon: false,
+          segments: [
+            for (final m in _RodKMode.values)
+              ButtonSegment(
+                value: m,
+                label: Text(
+                  m == _RodKMode.same4687
+                      ? _l(context, '同尺4687', 'Same 4687')
+                      : m.label,
+                ),
+              ),
+          ],
+          selected: {_rodMode},
+          onSelectionChanged: (v) => setState(() {
+            _rodMode = v.first;
+            _persistRowCount();
+            _calc();
+          }),
+        )
+      ),
+    ];
     return SurfaceCard(
       padding: const EdgeInsets.all(Insets.m),
       child: Column(
@@ -1473,7 +1558,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _label(scheme, '视图'),
-              SegmentedButton<bool>(
+              SurveySegmentedControl<bool>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: false, label: LocalText('手簿表')),
@@ -1488,79 +1573,34 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
             ],
           ),
           const SizedBox(height: Insets.s),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          if (compact)
+            Wrap(
+              spacing: Insets.m,
+              runSpacing: Insets.s,
               children: [
-                _label(scheme, '等级'),
-                SegmentedButton<LevelingGrade>(
-                  showSelectedIcon: false,
-                  segments: [
-                    for (final g in LevelingGrade.values)
-                      ButtonSegment(value: g, label: LocalText(g.label)),
-                  ],
-                  selected: {_grade},
-                  onSelectionChanged: (v) => setState(() {
-                    _grade = v.first;
-                    _persistRowCount();
-                    _calc();
-                  }),
-                ),
-                const SizedBox(width: Insets.m),
-                _label(scheme, '路线'),
-                SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: true, label: LocalText('闭合环')),
-                    ButtonSegment(value: false, label: LocalText('附合')),
-                  ],
-                  selected: {_closed},
-                  onSelectionChanged: (v) => setState(() {
-                    _closed = v.first;
-                    _persistRowCount();
-                    _calc();
-                  }),
-                ),
-                const SizedBox(width: Insets.m),
-                _label(scheme, '分配'),
-                SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: true, label: LocalText('按距离')),
-                    ButtonSegment(value: false, label: LocalText('按站数')),
-                  ],
-                  selected: {_byDistance},
-                  onSelectionChanged: (v) => setState(() {
-                    _byDistance = v.first;
-                    _persistRowCount();
-                    _calc();
-                  }),
-                ),
-                const SizedBox(width: Insets.m),
-                _label(scheme, '尺常数 K'),
-                SegmentedButton<_RodKMode>(
-                  showSelectedIcon: false,
-                  segments: [
-                    for (final m in _RodKMode.values)
-                      ButtonSegment(
-                        value: m,
-                        label: Text(
-                          m == _RodKMode.same4687
-                              ? _l(context, '同尺4687', 'Same 4687')
-                              : m.label,
-                        ),
-                      ),
-                  ],
-                  selected: {_rodMode},
-                  onSelectionChanged: (v) => setState(() {
-                    _rodMode = v.first;
-                    _persistRowCount();
-                    _calc();
-                  }),
-                ),
+                for (final (label, control) in choices)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _label(scheme, label),
+                      Flexible(child: control),
+                    ],
+                  ),
               ],
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final (label, control) in choices) ...[
+                    _label(scheme, label),
+                    control,
+                    const SizedBox(width: Insets.m),
+                  ],
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: Insets.s),
           Wrap(
             spacing: 8,
@@ -1973,7 +2013,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
             padding: const EdgeInsets.symmetric(
                 horizontal: Insets.m, vertical: Insets.s),
             decoration: BoxDecoration(
-              color: IosColors.orange(scheme.brightness).withValues(alpha: 0.12),
+              color:
+                  IosColors.orange(scheme.brightness).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(Radii.field),
               border: Border.all(
                 color:

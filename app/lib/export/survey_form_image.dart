@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/survey_strings.dart';
 import 'xlsx_writer.dart';
 
 /// 高清工程测量打印表图片（PNG）离屏渲染器。
@@ -30,32 +31,41 @@ class SurveyFormImageRenderer {
   static const double _kMaxBitmapWidth = 8192.0;
   static const double _kMaxBitmapHeight = 16384.0;
 
+  static List<XlsxSheetData> _renderSheets(
+    List<XlsxSheetData> sheets,
+    String Function(String)? translate,
+  ) {
+    final list = sheets.isEmpty
+        ? const [XlsxSheetData(sheetName: 'Sheet1', cells: [])]
+        : sheets;
+    return translate == null
+        ? list
+        : [for (final sheet in list) sheet.localizeLabels(translate)];
+  }
+
+  static String _northLabel(String Function(String)? translate) {
+    final label = translate?.call('北 N') ?? '北 N';
+    if (label == '北 N' && translate != null && translate('点号') != '点号') {
+      return 'N';
+    }
+    return label;
+  }
+
   /// 提取渲染到 PNG 画布上的所有文本（供单元测试验证多语言零中文残留）。
   static List<String> extractRenderTexts(
     List<XlsxSheetData> sheets, {
     String Function(String)? translate,
+    SurveyStrings? strings,
   }) {
-    final rawList = sheets.isEmpty
-        ? const <XlsxSheetData>[
-            XlsxSheetData(sheetName: 'Sheet1', cells: <XlsxCell>[]),
-          ]
-        : sheets;
-    final list = translate == null
-        ? rawList
-        : <XlsxSheetData>[
-            for (final s in rawList) s.localizeLabels(translate),
-          ];
-    final isNonCjk = translate != null &&
-        (translate('点号') != '点号' || translate('合格') != '合格');
+    final translator = strings?.translate ?? translate;
+    final list = _renderSheets(sheets, translator);
     final texts = <String>[];
     for (final s in list) {
       if (s.sheetName.trim().isNotEmpty) texts.add(s.sheetName);
       for (final cell in s.cells) {
         if (cell.value.trim().isEmpty) continue;
         final isSketch = s.sketches.any(
-          (sk) =>
-              sk.r1 == cell.row &&
-              sk.c1 == cell.col,
+          (sk) => sk.r1 == cell.row && sk.c1 == cell.col,
         );
         if (!isSketch) texts.add(cell.value);
       }
@@ -71,10 +81,10 @@ class SurveyFormImageRenderer {
               texts.add(l.label!);
             }
           }
-          if (inner.startNorthRay) {
-            final north = translate?.call('北 N') ?? '北 N';
-            texts.add((isNonCjk && north == '北 N') ? 'N' : north);
+          if (inner.startNorthRay && inner.points.isNotEmpty) {
+            texts.add(_northLabel(translator));
           }
+          if (inner.showNorthArrow) texts.add(_northLabel(translator));
         } else if (inner is LevelingRouteSketch) {
           for (final name in inner.pointNames) {
             if (name.trim().isNotEmpty) texts.add(name);
@@ -90,17 +100,10 @@ class SurveyFormImageRenderer {
     List<XlsxSheetData> sheets, {
     double pixelRatio = 2.5,
     String Function(String)? translate,
+    SurveyStrings? strings,
   }) async {
-    final rawList = sheets.isEmpty
-        ? const <XlsxSheetData>[
-            XlsxSheetData(sheetName: 'Sheet1', cells: <XlsxCell>[]),
-          ]
-        : sheets;
-    final list = translate == null
-        ? rawList
-        : <XlsxSheetData>[
-            for (final s in rawList) s.localizeLabels(translate),
-          ];
+    final translator = strings?.translate ?? translate;
+    final list = _renderSheets(sheets, translator);
 
     final layouts = <_SheetLayout>[
       for (final s in list) _computeLayout(s),
@@ -117,12 +120,10 @@ class SurveyFormImageRenderer {
         (layouts.length - 1) * _kSheetGap;
 
     final targetScale = pixelRatio.clamp(2.0, 3.0);
-    final double scaleH = rawHeight > 0
-        ? (_kMaxBitmapHeight / rawHeight)
-        : targetScale;
-    final double scaleW = maxPageWidth > 0
-        ? (_kMaxBitmapWidth / maxPageWidth)
-        : targetScale;
+    final double scaleH =
+        rawHeight > 0 ? (_kMaxBitmapHeight / rawHeight) : targetScale;
+    final double scaleW =
+        maxPageWidth > 0 ? (_kMaxBitmapWidth / maxPageWidth) : targetScale;
     final double scale =
         math.min(targetScale, math.min(scaleH, scaleW)).clamp(0.5, 3.0);
 
@@ -139,8 +140,7 @@ class SurveyFormImageRenderer {
     canvas.drawRect(
       Rect.fromLTWH(0, 0, maxPageWidth, rawHeight),
       Paint()
-        ..color =
-            multiPage ? const Color(0xFFE5E7EB) : const Color(0xFFFFFFFF),
+        ..color = multiPage ? const Color(0xFFE5E7EB) : const Color(0xFFFFFFFF),
     );
 
     var yCursor = 0.0;
@@ -153,7 +153,7 @@ class SurveyFormImageRenderer {
         canvas,
         layout,
         drawPageCard: multiPage,
-        translate: translate,
+        translate: translator,
       );
       canvas.restore();
       yCursor += layout.pageHeight + _kSheetGap;
@@ -212,9 +212,8 @@ class SurveyFormImageRenderer {
     ];
     final rawTableW = rawColWidths.fold<double>(0.0, (a, b) => a + b);
     final minTableW = _kMinPageWidth - _kPageMarginX * 2;
-    final double colScale = rawTableW < minTableW && rawTableW > 0
-        ? minTableW / rawTableW
-        : 1.0;
+    final double colScale =
+        rawTableW < minTableW && rawTableW > 0 ? minTableW / rawTableW : 1.0;
     final colWidths = <double>[for (final w in rawColWidths) w * colScale];
 
     final colStarts = <double>[0.0];
@@ -246,7 +245,8 @@ class SurveyFormImageRenderer {
         );
         if (isSketchCell) continue;
 
-        final spanW = (colStarts[c2 + 1] - colStarts[c1] - 12.0).clamp(24.0, 4000.0);
+        final spanW =
+            (colStarts[c2 + 1] - colStarts[c1] - 12.0).clamp(24.0, 4000.0);
         final tp = _buildTextPainter(cell.value, cell.style, spanW);
         final neededH = tp.height + 10.0;
 
@@ -400,9 +400,12 @@ class SurveyFormImageRenderer {
     }
 
     // Pass 3: 主表 2.2px 粗黑外框
-    final outerStartR = sheet.tableOuterStartRow ?? (maxBorderR >= minBorderR ? minBorderR : null);
-    final outerEndR = sheet.tableOuterEndRow ?? (maxBorderR >= minBorderR ? maxBorderR : null);
-    final outerEndC = sheet.tableOuterEndCol ?? (maxBorderC >= 0 ? maxBorderC : null);
+    final outerStartR = sheet.tableOuterStartRow ??
+        (maxBorderR >= minBorderR ? minBorderR : null);
+    final outerEndR = sheet.tableOuterEndRow ??
+        (maxBorderR >= minBorderR ? maxBorderR : null);
+    final outerEndC =
+        sheet.tableOuterEndCol ?? (maxBorderC >= 0 ? maxBorderC : null);
     if (outerStartR != null &&
         outerEndR != null &&
         outerEndC != null &&
@@ -423,7 +426,8 @@ class SurveyFormImageRenderer {
       final cell = e.cell;
       if (cell == null || cell.value.isEmpty) continue;
       final isSketch = sheet.sketches.any(
-        (sk) => sk.r1 == e.r1 && sk.c1 == e.c1 && sk.r2 == e.r2 && sk.c2 == e.c2,
+        (sk) =>
+            sk.r1 == e.r1 && sk.c1 == e.c1 && sk.r2 == e.r2 && sk.c2 == e.c2,
       );
       if (isSketch) continue;
       _paintCellText(canvas, e.rect, cell.value, e.style);
@@ -459,7 +463,8 @@ class SurveyFormImageRenderer {
       default:
         dx = rect.left + (rect.width - tp.width) / 2;
     }
-    dx = dx.clamp(rect.left + 2.0, math.max(rect.left + 2.0, rect.right - tp.width - 2.0));
+    dx = dx.clamp(rect.left + 2.0,
+        math.max(rect.left + 2.0, rect.right - tp.width - 2.0));
 
     final double dy;
     if (style == XlsxCellStyle.cellLeftTop) {
@@ -481,19 +486,84 @@ class SurveyFormImageRenderer {
   ) {
     final (double size, FontWeight weight, Color color, double height) =
         switch (style) {
-      XlsxCellStyle.title => (21.0, FontWeight.w700, const Color(0xFF111827), 1.25),
-      XlsxCellStyle.sectionTitle => (15.0, FontWeight.w700, const Color(0xFF1E293B), 1.3),
-      XlsxCellStyle.metaLine => (12.5, FontWeight.w500, const Color(0xFF374151), 1.35),
-      XlsxCellStyle.headerCenter => (13.0, FontWeight.w700, const Color(0xFF111827), 1.25),
-      XlsxCellStyle.headerSub => (12.0, FontWeight.w700, const Color(0xFF374151), 1.2),
-      XlsxCellStyle.boldHeader => (13.5, FontWeight.w700, const Color(0xFF111827), 1.3),
-      XlsxCellStyle.cellBoldCenter => (13.5, FontWeight.w700, const Color(0xFF111827), 1.3),
-      XlsxCellStyle.cellCenterRed => (13.0, FontWeight.w700, const Color(0xFFC62828), 1.3),
-      XlsxCellStyle.cellCenterGreen => (13.0, FontWeight.w700, const Color(0xFF2E7D32), 1.3),
-      XlsxCellStyle.cellCenterBlue => (13.0, FontWeight.w700, const Color(0xFF1565C0), 1.3),
-      XlsxCellStyle.cellError => (12.5, FontWeight.w700, const Color(0xFFB71C1C), 1.3),
-      XlsxCellStyle.cellSummary => (13.0, FontWeight.w700, const Color(0xFF111827), 1.3),
-      XlsxCellStyle.note => (12.0, FontWeight.w400, const Color(0xFF4B5563), 1.4),
+      XlsxCellStyle.title => (
+          21.0,
+          FontWeight.w700,
+          const Color(0xFF111827),
+          1.25
+        ),
+      XlsxCellStyle.sectionTitle => (
+          15.0,
+          FontWeight.w700,
+          const Color(0xFF1E293B),
+          1.3
+        ),
+      XlsxCellStyle.metaLine => (
+          12.5,
+          FontWeight.w500,
+          const Color(0xFF374151),
+          1.35
+        ),
+      XlsxCellStyle.headerCenter => (
+          13.0,
+          FontWeight.w700,
+          const Color(0xFF111827),
+          1.25
+        ),
+      XlsxCellStyle.headerSub => (
+          12.0,
+          FontWeight.w700,
+          const Color(0xFF374151),
+          1.2
+        ),
+      XlsxCellStyle.boldHeader => (
+          13.5,
+          FontWeight.w700,
+          const Color(0xFF111827),
+          1.3
+        ),
+      XlsxCellStyle.cellBoldCenter => (
+          13.5,
+          FontWeight.w700,
+          const Color(0xFF111827),
+          1.3
+        ),
+      XlsxCellStyle.cellCenterRed => (
+          13.0,
+          FontWeight.w700,
+          const Color(0xFFC62828),
+          1.3
+        ),
+      XlsxCellStyle.cellCenterGreen => (
+          13.0,
+          FontWeight.w700,
+          const Color(0xFF2E7D32),
+          1.3
+        ),
+      XlsxCellStyle.cellCenterBlue => (
+          13.0,
+          FontWeight.w700,
+          const Color(0xFF1565C0),
+          1.3
+        ),
+      XlsxCellStyle.cellError => (
+          12.5,
+          FontWeight.w700,
+          const Color(0xFFB71C1C),
+          1.3
+        ),
+      XlsxCellStyle.cellSummary => (
+          13.0,
+          FontWeight.w700,
+          const Color(0xFF111827),
+          1.3
+        ),
+      XlsxCellStyle.note => (
+          12.0,
+          FontWeight.w400,
+          const Color(0xFF4B5563),
+          1.4
+        ),
       _ => (13.0, FontWeight.w400, const Color(0xFF111827), 1.32),
     };
     final tp = TextPainter(
@@ -595,9 +665,8 @@ class SurveyFormImageRenderer {
 
     final nodes = <Offset>[];
     if (sketch.isClosed) {
-      final count = pts.length > 2 && pts.first == pts.last
-          ? pts.length - 1
-          : pts.length;
+      final count =
+          pts.length > 2 && pts.first == pts.last ? pts.length - 1 : pts.length;
       final cx = rect.center.dx;
       final cy = rect.center.dy + 4;
       final rx = rect.width * 0.36;
@@ -755,7 +824,8 @@ class SurveyFormImageRenderer {
 
     if (sketch.curvePath.length >= 2) {
       final path = Path();
-      final first = toCanvas(sketch.curvePath.first.x, sketch.curvePath.first.y);
+      final first =
+          toCanvas(sketch.curvePath.first.x, sketch.curvePath.first.y);
       path.moveTo(first.dx, first.dy);
       for (var i = 1; i < sketch.curvePath.length; i++) {
         final p = toCanvas(sketch.curvePath[i].x, sketch.curvePath[i].y);
@@ -809,7 +879,8 @@ class SurveyFormImageRenderer {
           canvas,
           pt.label,
           pos + const Offset(0, -14),
-          color: pt.emphasis ? const Color(0xFFC62828) : const Color(0xFF111827),
+          color:
+              pt.emphasis ? const Color(0xFFC62828) : const Color(0xFF111827),
           bold: pt.emphasis,
         );
       }
@@ -817,7 +888,8 @@ class SurveyFormImageRenderer {
 
     if (sketch.startNorthRay && mappedPts.isNotEmpty) {
       final startPos = mappedPts.first;
-      final rayLen = math.max(26.0, math.min(54.0, startPos.dy - (rect.top + 10.0)));
+      final rayLen =
+          math.max(26.0, math.min(54.0, startPos.dy - (rect.top + 10.0)));
       final rayTip = Offset(startPos.dx, startPos.dy - rayLen);
       final northPaint = Paint()
         ..color = const Color(0xFFD32F2F)
@@ -831,13 +903,9 @@ class SurveyFormImageRenderer {
         ..lineTo(rayTip.dx + 4.0, rayTip.dy + 4.0)
         ..close();
       canvas.drawPath(head, Paint()..color = const Color(0xFFD32F2F));
-      final isNonCjk = translate != null &&
-          (translate('点号') != '点号' || translate('合格') != '合格');
-      final northRaw = translate?.call('北 N') ?? '北 N';
-      final northLabel = (isNonCjk && northRaw == '北 N') ? 'N' : northRaw;
       _paintSmallLabel(
         canvas,
-        northLabel,
+        _northLabel(translate),
         Offset(rayTip.dx + 14.0, rayTip.dy + 2.0),
         color: const Color(0xFFD32F2F),
         bold: true,
@@ -856,7 +924,7 @@ class SurveyFormImageRenderer {
       canvas.drawLine(top, top + const Offset(4, 6), np);
       _paintSmallLabel(
         canvas,
-        'N',
+        _northLabel(translate),
         top + const Offset(0, -8),
         color: const Color(0xFF334155),
         bold: true,
@@ -953,7 +1021,8 @@ class SurveyFormImageRenderer {
       textDirection: TextDirection.ltr,
     );
     tp.layout(maxWidth: 140);
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    tp.paint(
+        canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
   }
 }
 

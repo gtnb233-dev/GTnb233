@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../platform/native_bridge_contract.dart';
+import '../l10n/survey_strings.dart';
 import 'survey_form_image.dart';
 import 'survey_forms.dart';
 import 'xlsx_writer.dart';
@@ -186,6 +187,7 @@ class ExportService {
     SheetTable table, {
     required ExportFormat format,
     String? fileNameHint,
+    SurveyStrings? strings,
   }) async {
     if (table.isEmpty) {
       return ExportResult(
@@ -225,6 +227,7 @@ class ExportService {
           final bytes = await SurveyFormImageRenderer.renderWorkbook(
             sheets,
             translate: table._translateLabel,
+            strings: strings,
           );
           final saved = await _savePngPlatform(
             bytes: bytes,

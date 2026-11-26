@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../widgets/compact_controls.dart';
 import '../../workspace_page_route.dart';
+import '../../tool_router.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
@@ -59,9 +61,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
     final s = SettingsScope.read(context);
     final u = s.lengthUnit;
     final isZh = SurveyStrings.of(context).languageCode == 'zh';
-    final coordCols = isZh
-        ? const ['点号', 'X', 'Y']
-        : const ['Point', 'X', 'Y'];
+    final coordCols = isZh ? const ['点号', 'X', 'Y'] : const ['Point', 'X', 'Y'];
     final base = SheetTable(
       title: isZh ? '面积计算' : 'Polygon Area & Perimeter',
       rows: <List<String>>[
@@ -745,7 +745,7 @@ class _EarthworkPageState extends State<EarthworkPage>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _calc());
+    afterWorkspaceEntrance(this, _calc);
   }
 
   @override
@@ -1091,8 +1091,9 @@ class _EarthworkPageState extends State<EarthworkPage>
       title: _el(context, '土方计算', 'Earthwork Volume'),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).push(WorkspacePageRoute<void>(
-              builder: (_) => const TinWorkspacePage())),
+          onPressed: () => openWorkspacePage(context,
+              name: 'tool/earthwork/tin',
+              builder: (_) => const TinWorkspacePage()),
           child: const Text('TIN'),
         )
       ],
@@ -1134,7 +1135,7 @@ class _EarthworkPageState extends State<EarthworkPage>
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: SegmentedButton<int>(
+                child: SurveySegmentedControl<int>(
                   showSelectedIcon: false,
                   segments: [
                     ButtonSegment(
@@ -1252,7 +1253,8 @@ class _EarthworkPageState extends State<EarthworkPage>
                   children: [
                     DataTextField(
                       controller: _areas,
-                      label: _el(context, '各断面面积（每行一个）', 'Section Areas (one per line)'),
+                      label: _el(context, '各断面面积（每行一个）',
+                          'Section Areas (one per line)'),
                       unit: u.areaSymbol,
                       formatHint: _el(
                         context,
@@ -1272,9 +1274,11 @@ class _EarthworkPageState extends State<EarthworkPage>
                     const SizedBox(height: Insets.s),
                     DataTextField(
                       controller: _spacings,
-                      label: _el(context, '相邻断面间距（每行一个）', 'Spacings (one per line)'),
+                      label: _el(
+                          context, '相邻断面间距（每行一个）', 'Spacings (one per line)'),
                       unit: u.symbol,
-                      formatHint: _el(context, '支持换行或逗号分隔', 'Newline or comma separated'),
+                      formatHint: _el(
+                          context, '支持换行或逗号分隔', 'Newline or comma separated'),
                       hint: u == LengthUnit.meter ? '20\n20' : '2000\n2000',
                       countLabel: (t) => _el(
                         context,

@@ -9,6 +9,7 @@ import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
+import '../../workspace_page_route.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
@@ -75,7 +76,7 @@ class _TinWorkspaceViewState extends State<TinWorkspaceView>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _calculate());
+    afterWorkspaceEntrance(this, _calculate);
   }
 
   @override

@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../workspace_page_route.dart';
+import '../../widgets/compact_controls.dart';
+import '../../tool_router.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../l10n/survey_strings.dart';
+import '../../../nav/tools.dart';
 import '../../../export/export_service.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
@@ -18,7 +20,6 @@ import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
 import 'control_points_page.dart';
 import 'intersection_table.dart';
-import 'resection_page.dart';
 
 String _l(BuildContext context, String zh, String en) =>
     SurveyStrings.of(context).languageCode == 'zh' ? zh : en;
@@ -111,7 +112,11 @@ class _InversePageState extends State<InversePage>
           u.symbol
         ],
         ['方位角 α', r == null ? '' : fmtAzimuth(r.azimuthDeg, secDigits: sd), ''],
-        ['象限角', r == null ? '' : _localizedQuadrant(context, r.azimuthDeg, sd), ''],
+        [
+          '象限角',
+          r == null ? '' : _localizedQuadrant(context, r.azimuthDeg, sd),
+          ''
+        ],
       ],
       notes: const ['ΔX = XB − XA，ΔY = YB − YA；α 自北方向顺时针量取。'],
     );
@@ -2151,7 +2156,7 @@ class _IntersectionPageState extends State<IntersectionPage>
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SegmentedButton<int>(
+          child: SurveySegmentedControl<int>(
             showSelectedIcon: false,
             segments: const [
               ButtonSegment(value: 0, label: LocalText('前方交会')),
@@ -2170,10 +2175,8 @@ class _IntersectionPageState extends State<IntersectionPage>
             icon: const Icon(Icons.my_location_outlined, size: 16),
             label: const LocalText('三点后方交会'),
             onPressed: () {
-              SettingsScope.read(context).setLastTool('intersection',
+              openTool(context, toolById('intersection')!,
                   draftId: 'intersection/resection');
-              Navigator.of(context).push(WorkspacePageRoute<void>(
-                  builder: (_) => const ResectionPage()));
             },
           ),
         ),
@@ -2182,8 +2185,8 @@ class _IntersectionPageState extends State<IntersectionPage>
           step: 1,
           title: '已知控制点 A、B',
           caption: abLenDisp == null
-              ? _l(context, '当前量级：${u.label} (${u.symbol})',
-                  'Unit: ${u.symbol}')
+              ? _l(
+                  context, '当前量级：${u.label} (${u.symbol})', 'Unit: ${u.symbol}')
               : _l(
                   context,
                   '基线长 AB = ${fmt(abLenDisp, digits)} ${u.symbol} · 量级：${u.label} (${u.symbol})',

@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
+import 'compact_controls.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/survey_strings.dart';
@@ -793,6 +796,33 @@ abstract final class SurveyModal {
     bool destructive = false,
     IconData? icon,
   }) async {
+    if (destructive && usesCompactWorkspaceControls(context)) {
+      return await showCupertinoDialog<bool>(
+            context: context,
+            builder: (dialogContext) => CupertinoAlertDialog(
+              title: Text(context.tr(title)),
+              content: Text(
+                [
+                  if (subtitle != null) context.tr(subtitle),
+                  context.tr(message)
+                ].join('\n'),
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(context.tr(cancelLabel)),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: Text(context.tr(confirmLabel)),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    }
     final result = await show<bool>(
       context,
       title: title,
@@ -860,8 +890,20 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
   final OverlayPortalController _portalCtrl = OverlayPortalController();
   Rect? _anchorRect;
 
-  void _open() {
+  Future<void> _open() async {
     if (!widget.enabled) return;
+    if (widget.destructive && usesCompactWorkspaceControls(context)) {
+      final confirmed = await SurveyModal.confirm(
+        context,
+        title: widget.title,
+        message: widget.description ?? '',
+        confirmLabel: widget.confirmLabel,
+        cancelLabel: widget.cancelLabel,
+        destructive: true,
+      );
+      if (mounted && confirmed) widget.onConfirm();
+      return;
+    }
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox != null && renderBox.hasSize) {
       final topLeft = renderBox.localToGlobal(Offset.zero);

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'overlays.dart';
+import 'measurement_columns.dart';
 
 /// 宽表：列数多时横向滚动，绝不撑破页面（320dp 也没问题）；
 /// 宽屏时若内容总宽小于容器宽度，则按比例撑满卡片宽度，不留大片空白。
@@ -59,10 +60,6 @@ class WideTable extends StatefulWidget {
 }
 
 class _WideTableState extends State<WideTable> {
-  static final RegExp _numericCellRe = RegExp(
-    r'^[+\-±]?\s*(?:1/)?\d[\d.,°′″"/:%\s]*$',
-  );
-
   final ScrollController _hScroll = ScrollController();
   int? _hoveredRow;
 
@@ -81,26 +78,8 @@ class _WideTableState extends State<WideTable> {
     );
   }
 
-  List<bool> _detectNumericColumns() {
-    final nCols = widget.columns.length;
-    final result = List<bool>.filled(nCols, false);
-    for (var c = 1; c < nCols; c++) {
-      var nonEmpty = 0;
-      var allNumeric = true;
-      for (final row in widget.rows) {
-        if (c >= row.length) continue;
-        final text = row[c].trim();
-        if (text.isEmpty || text == '—' || text == '-') continue;
-        nonEmpty++;
-        if (!_numericCellRe.hasMatch(text)) {
-          allNumeric = false;
-          break;
-        }
-      }
-      result[c] = nonEmpty > 0 && allNumeric;
-    }
-    return result;
-  }
+  Iterable<String> _valuesInColumn(int col) =>
+      widget.rows.where((row) => row.length > col).map((row) => row[col]);
 
   void _copyCell(int col, String text) {
     unawaited(Clipboard.setData(ClipboardData(text: text)));
@@ -136,6 +115,7 @@ class _WideTableState extends State<WideTable> {
     required double width,
     required bool header,
     required bool alignRight,
+    int precision = 0,
     int? row,
     int? col,
     double? fixedHeight,
@@ -153,7 +133,12 @@ class _WideTableState extends State<WideTable> {
     final canSelect = row != null && widget.onRowSelected != null;
 
     final inner = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: EdgeInsets.fromLTRB(
+        8,
+        6,
+        8 + measurementDecimalInset(context, text, precision, 12),
+        6,
+      ),
       child: Align(
         alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
         child: Text(
@@ -196,7 +181,14 @@ class _WideTableState extends State<WideTable> {
     final scheme = Theme.of(context).colorScheme;
     final baseWidths = _baseWidths;
     final baseTotal = baseWidths.fold<double>(0, (a, b) => a + b);
-    final numericCols = _detectNumericColumns();
+    final numericCols = [
+      for (var c = 0; c < widget.columns.length; c++)
+        c > 0 && isMeasureColumn(_valuesInColumn(c)),
+    ];
+    final decimalPlaces = [
+      for (var c = 0; c < widget.columns.length; c++)
+        numericCols[c] ? measurementPrecision(_valuesInColumn(c)) : 0,
+    ];
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final fixedRowHeight = (44.0 * textScale.clamp(1.0, 1.35)).ceilToDouble();
 
@@ -349,6 +341,7 @@ class _WideTableState extends State<WideTable> {
                                             width: widths[c],
                                             header: false,
                                             alignRight: numericCols[c],
+                                            precision: decimalPlaces[c],
                                             row: r,
                                             col: c,
                                             fixedHeight: fixedRowHeight,
@@ -413,6 +406,7 @@ class _WideTableState extends State<WideTable> {
                             width: widths[c],
                             header: false,
                             alignRight: numericCols[c],
+                            precision: decimalPlaces[c],
                             row: r,
                             col: c,
                           ),

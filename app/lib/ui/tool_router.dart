@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'workspace_page_route.dart';
 
 import '../nav/tools.dart';
 import '../state/settings.dart';
+import '../theme/tokens.dart';
 import 'pages/tools/batch_tools.dart';
 import 'pages/tools/control_points_page.dart';
 import 'pages/tools/control_tools.dart';
@@ -23,7 +26,6 @@ Future<void> openTool(
   String? draftId,
   bool replaceExistingTool = false,
 }) async {
-  // 先取好 Navigator，避免在 await 之后再用 context（async gap）。
   final navigator = Navigator.of(context);
   final settings = SettingsScope.read(context);
   final resume = draftId ??
@@ -31,14 +33,54 @@ Future<void> openTool(
               settings.lastDraftId?.startsWith('leveling4/') == true
           ? settings.lastDraftId
           : null);
-  await settings.setLastTool(tool.id, draftId: resume);
-  if (!navigator.mounted) return;
-  final route = WorkspacePageRoute<void>(
-    settings: RouteSettings(name: 'tool/${tool.id}', arguments: resume),
+  final name = 'tool/${tool.id}';
+  final compact = MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+  final observer = navigator.widget.observers
+      .whereType<WorkspaceNavigatorObserver>()
+      .firstOrNull;
+  final current = observer?.topRoute ?? ModalRoute.of(context);
+  if ((compact || replaceExistingTool) &&
+      current?.settings.name == name &&
+      current?.settings.arguments == resume) {
+    return;
+  }
+
+  unawaited(settings.setLastTool(tool.id, draftId: resume));
+  await openWorkspacePage(
+    context,
+    name: name,
+    argument: resume,
     builder: (_) => toolPage(tool, draftId: resume),
+    replaceExistingTool: replaceExistingTool,
   );
-  if (replaceExistingTool && navigator.canPop()) {
-    await navigator.pushAndRemoveUntil(route, (r) => r.isFirst);
+}
+
+Future<void> openWorkspacePage(
+  BuildContext context, {
+  required String name,
+  required WidgetBuilder builder,
+  Object? argument,
+  bool replaceExistingTool = false,
+}) async {
+  final navigator = Navigator.of(context);
+  final observer = navigator.widget.observers
+      .whereType<WorkspaceNavigatorObserver>()
+      .firstOrNull;
+  final shallow = replaceExistingTool ||
+      (observer != null &&
+          MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth);
+  final current = observer?.topRoute ?? ModalRoute.of(context);
+  if (shallow &&
+      current?.settings.name == name &&
+      current?.settings.arguments == argument) {
+    return;
+  }
+  final route = WorkspacePageRoute<void>(
+    settings: RouteSettings(name: name, arguments: argument),
+    builder: builder,
+  );
+  if (shallow && navigator.canPop()) {
+    await navigator.pushAndRemoveUntil(route, (route) => route.isFirst);
   } else {
     await navigator.push(route);
   }

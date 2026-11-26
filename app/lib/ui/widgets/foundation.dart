@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
+import 'compact_controls.dart';
 
 /// 卡片基调。
 enum CardTone {
@@ -63,12 +64,13 @@ class SurfaceCard extends StatelessWidget {
       color: IosColors.separator(scheme.brightness),
       width: 1.0,
     );
+    final compact = usesCompactWorkspaceControls(context);
     final decoration = BoxDecoration(
       color: bg,
       borderRadius: BorderRadius.circular(radius),
-      border: Border.fromBorderSide(border),
+      border: compact ? null : Border.fromBorderSide(border),
       boxShadow: [
-        if (isLight)
+        if (isLight && !compact)
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
             blurRadius: tone == CardTone.raised ? 8 : 2,
@@ -274,7 +276,8 @@ class PrimaryAction extends StatelessWidget {
                 Icon(icon, size: 19),
                 const SizedBox(width: 8),
               ],
-              Text(context.tr(label)),
+              Flexible(
+                  child: Text(context.tr(label), textAlign: TextAlign.center)),
             ],
           );
     return SpringPress(
@@ -393,7 +396,8 @@ class ChoiceTile extends StatelessWidget {
                   width: dense ? 29 : 34,
                   height: dense ? 29 : 34,
                   decoration: BoxDecoration(
-                    color: (iconColor ?? scheme.primary).withValues(alpha: 0.14),
+                    color:
+                        (iconColor ?? scheme.primary).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(dense ? 8 : 9),
                   ),
                   child: Icon(
