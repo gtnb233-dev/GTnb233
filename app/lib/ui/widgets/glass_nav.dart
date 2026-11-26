@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 import 'outline_symbol.dart';
 import 'sliding_bottom_nav.dart';
 
@@ -58,9 +59,41 @@ class GlassNavBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final shape = BorderRadius.circular(radius);
-    final tint = isDark
-        ? IosColors.darkCard.withValues(alpha: 0.94)
-        : Colors.white.withValues(alpha: 0.94);
+    final suspendBlur = GlassBlurSuspensionScope.isSuspended(context);
+    final tint = suspendBlur
+        ? (isDark ? IosColors.darkCard : Colors.white)
+        : (isDark
+            ? IosColors.darkCard.withValues(alpha: 0.94)
+            : Colors.white.withValues(alpha: 0.94));
+    final barContent = Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: shape,
+        border: Border.all(
+          color: IosColors.separator(scheme.brightness),
+          width: 1,
+        ),
+      ),
+      child: SlidingBottomNav(
+        selectedIndex: index,
+        itemCount: items.length,
+        onSelect: onSelect,
+        indicatorColor: scheme.secondaryContainer,
+        liquidGlass: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < items.length; i++)
+              _Item(
+                item: items[i],
+                selected: i == index,
+                onTap: () => onSelect(i),
+              ),
+          ],
+        ),
+      ),
+    );
     return Padding(
       padding: margin,
       // 条子自己吃掉区域内的点击（空白处不穿透到下面的卡片）；
@@ -83,38 +116,13 @@ class GlassNavBar extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: shape,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-              child: Container(
-                height: height,
-                decoration: BoxDecoration(
-                  color: tint,
-                  borderRadius: shape,
-                  border: Border.all(
-                    color: IosColors.separator(scheme.brightness),
-                    width: 1,
+            child: suspendBlur || blurSigma <= 0
+                ? barContent
+                : BackdropFilter(
+                    filter:
+                        ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+                    child: barContent,
                   ),
-                ),
-                child: SlidingBottomNav(
-                  selectedIndex: index,
-                  itemCount: items.length,
-                  onSelect: onSelect,
-                  indicatorColor: scheme.secondaryContainer,
-                  liquidGlass: true,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < items.length; i++)
-                        _Item(
-                          item: items[i],
-                          selected: i == index,
-                          onTap: () => onSelect(i),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           ),
         ),
       ),

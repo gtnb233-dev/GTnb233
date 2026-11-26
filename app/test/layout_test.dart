@@ -210,7 +210,7 @@ void main() {
 
     expect(find.byType(GlassNavBar), findsNothing);
     expect(find.byType(BackdropFilter), findsWidgets);
-    expect(find.byTooltip('展开侧栏'), findsOneWidget);
+    expect(find.byTooltip('展开侧边栏'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -235,7 +235,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GlassNavBar), findsNothing);
     expect(find.byType(NavigationRail), findsNothing);
-    expect(find.byTooltip('展开侧栏'), findsOneWidget);
+    expect(find.byTooltip('展开侧边栏'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -249,11 +249,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('展开侧栏'), findsOneWidget);
-    await tester.tap(find.byTooltip('展开侧栏'));
+    expect(find.byTooltip('展开侧边栏'), findsOneWidget);
+    await tester.tap(find.byTooltip('展开侧边栏'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('收起侧栏'), findsOneWidget);
-    await tester.tap(find.byTooltip('收起侧栏'));
+    expect(find.byTooltip('收起侧边栏'), findsOneWidget);
+    await tester.tap(find.byTooltip('收起侧边栏'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('工具库'));
     await tester.pumpAndSettle();
@@ -271,17 +271,17 @@ void main() {
 
     tester.view.physicalSize = const Size(1200, 750);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('展开侧栏'), findsOneWidget);
-    await tester.tap(find.byTooltip('快速跳转'));
+    expect(find.byTooltip('展开侧边栏'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
 
-    await tester.tap(find.byTooltip('展开侧栏'));
+    await tester.tap(find.byTooltip('展开侧边栏'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('收起侧栏'), findsOneWidget);
+    expect(find.byTooltip('收起侧边栏'), findsOneWidget);
     expect(tester.widget<TextField>(librarySearch).controller!.text, '坐标反算');
     expect(tester.takeException(), isNull);
   });
@@ -313,7 +313,7 @@ void main() {
       SurveyApp(settings: AppSettings(), drafts: DraftStore()),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('快速跳转'));
+    await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
     await tester.enterText(
         find.descendant(
@@ -322,10 +322,10 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
-    expect(find.byTooltip('展开侧栏'), findsOneWidget);
-    await tester.tap(find.byTooltip('展开侧栏'));
+    expect(find.byTooltip('展开侧边栏'), findsOneWidget);
+    await tester.tap(find.byTooltip('展开侧边栏'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('收起侧栏'), findsOneWidget);
+    expect(find.byTooltip('收起侧边栏'), findsOneWidget);
 
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
@@ -423,7 +423,7 @@ void main() {
     expect(find.byType(WorkspaceLivePlotPanel), findsOneWidget);
 
     // 打开坐标反算并修改 A 点 X，验证跨 840dp 断点缩放不丢输入状态
-    await tester.tap(find.byTooltip('快速跳转'));
+    await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),

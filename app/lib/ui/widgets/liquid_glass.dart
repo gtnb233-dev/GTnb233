@@ -4,6 +4,27 @@ import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
 
+/// Suspends expensive [BackdropFilter] blurs during route or drawer animations.
+class GlassBlurSuspensionScope extends InheritedWidget {
+  const GlassBlurSuspensionScope({
+    super.key,
+    required this.suspended,
+    required super.child,
+  });
+
+  final bool suspended;
+
+  static bool isSuspended(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<GlassBlurSuspensionScope>();
+    return scope?.suspended ?? false;
+  }
+
+  @override
+  bool updateShouldNotify(covariant GlassBlurSuspensionScope oldWidget) =>
+      oldWidget.suspended != suspended;
+}
+
 /// Unslop 哑光阶梯表面容器（原 LiquidGlassSurface 兼容接口）。
 ///
 /// 彻底移除毛玻璃模糊、白边折射高光与大面积投影，改为克制的 Graphite 阶梯表面 +
@@ -51,7 +72,8 @@ class LiquidGlassSurface extends StatelessWidget {
       content = Padding(padding: padding!, child: content);
     }
 
-    final translucent = blurSigma > 0;
+    final translucent =
+        blurSigma > 0 && !GlassBlurSuspensionScope.isSuspended(context);
     if (translucent) {
       content = ClipRRect(
         borderRadius: borderRadius,

@@ -6,6 +6,21 @@ import 'package:survey_core/survey_core.dart';
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 
+bool _chartListEq<T>(List<T> a, List<T> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
+bool _chartSetEq<T>(Set<T> a, Set<T> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  return a.containsAll(b);
+}
+
 /// 方格网挖填热力图 + 挖填零线 + 点击格交互明细。
 class EarthworkGridChart extends StatefulWidget {
   const EarthworkGridChart({
@@ -130,20 +145,24 @@ class _EarthworkGridChartState extends State<EarthworkGridChart> {
                       });
                     }
                   },
-                  child: CustomPaint(
-                    size: size,
-                    painter: _EarthworkGridPainter(
-                      cells: cells,
-                      rows: rows,
-                      cols: cols,
-                      maxAbsH: maxAbsH,
-                      selectedIndex: _selectedIndex,
-                      scheme: scheme,
-                      cutColor: cutColor,
-                      fillColor: fillColor,
-                      fontFamily: DefaultTextStyle.of(context).style.fontFamily,
-                      fontFamilyFallback:
-                          DefaultTextStyle.of(context).style.fontFamilyFallback,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      size: size,
+                      painter: _EarthworkGridPainter(
+                        cells: cells,
+                        rows: rows,
+                        cols: cols,
+                        maxAbsH: maxAbsH,
+                        selectedIndex: _selectedIndex,
+                        scheme: scheme,
+                        cutColor: cutColor,
+                        fillColor: fillColor,
+                        fontFamily:
+                            DefaultTextStyle.of(context).style.fontFamily,
+                        fontFamilyFallback: DefaultTextStyle.of(context)
+                            .style
+                            .fontFamilyFallback,
+                      ),
                     ),
                   ),
                 );
@@ -391,10 +410,15 @@ class _EarthworkGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _EarthworkGridPainter old) =>
-      old.cells != cells ||
+      old.rows != rows ||
+      old.cols != cols ||
+      old.maxAbsH != maxAbsH ||
       old.selectedIndex != selectedIndex ||
+      old.cutColor != cutColor ||
+      old.fillColor != fillColor ||
       old.scheme != scheme ||
-      old.fontFamily != fontFamily;
+      old.fontFamily != fontFamily ||
+      !_chartListEq(old.cells, cells);
 }
 
 /// 平均断面法：沿桩号断面面积变化包络图。
@@ -442,8 +466,9 @@ class SectionProfileChart extends StatelessWidget {
           const SizedBox(height: Insets.s),
           SizedBox(
             height: height,
-            child: CustomPaint(
-              painter: _SectionProfilePainter(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _SectionProfilePainter(
                 areas: areas,
                 spacings: spacings,
                 volumes: result.volumes,
@@ -451,6 +476,7 @@ class SectionProfileChart extends StatelessWidget {
                 fontFamily: DefaultTextStyle.of(context).style.fontFamily,
                 fontFamilyFallback:
                     DefaultTextStyle.of(context).style.fontFamilyFallback,
+                ),
               ),
             ),
           ),
@@ -587,9 +613,9 @@ class _SectionProfilePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SectionProfilePainter old) =>
-      old.areas != areas ||
-      old.spacings != spacings ||
-      old.volumes != volumes ||
+      !_chartListEq(old.areas, areas) ||
+      !_chartListEq(old.spacings, spacings) ||
+      !_chartListEq(old.volumes, volumes) ||
       old.scheme != scheme ||
       old.fontFamily != fontFamily;
 }
@@ -654,8 +680,9 @@ class VerticalCurveChart extends StatelessWidget {
           const SizedBox(height: Insets.s),
           SizedBox(
             height: height,
-            child: CustomPaint(
-              painter: _VerticalCurvePainter(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _VerticalCurvePainter(
                 curve: curve,
                 queryStation: queryStation,
                 queryElevation: queryElevation,
@@ -666,6 +693,7 @@ class VerticalCurveChart extends StatelessWidget {
                 fontFamily: DefaultTextStyle.of(context).style.fontFamily,
                 fontFamilyFallback:
                     DefaultTextStyle.of(context).style.fontFamilyFallback,
+                ),
               ),
             ),
           ),
@@ -844,6 +872,9 @@ class _VerticalCurvePainter extends CustomPainter {
       old.curve != curve ||
       old.queryStation != queryStation ||
       old.queryElevation != queryElevation ||
+      old.startLabel != startLabel ||
+      old.vpiLabel != vpiLabel ||
+      old.endLabel != endLabel ||
       old.scheme != scheme ||
       old.fontFamily != fontFamily;
 }
@@ -944,8 +975,10 @@ class LevelingProfileChart extends StatelessWidget {
                         }
                         onStationSelected!(station);
                       },
-                child: CustomPaint(
-                    painter: painter, child: const SizedBox.expand()),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                      painter: painter, child: const SizedBox.expand()),
+                ),
               );
             }),
           ),
@@ -1169,12 +1202,12 @@ class _LevelingProfilePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LevelingProfilePainter old) =>
-      old.heightsM != heightsM ||
-      old.correctionsMm != correctionsMm ||
+      !_chartListEq(old.heightsM, heightsM) ||
+      !_chartListEq(old.correctionsMm, correctionsMm) ||
       old.selectedStation != selectedStation ||
-      old.chainages != chainages ||
+      !_chartListEq(old.chainages, chainages) ||
       old.correctionLabel != correctionLabel ||
-      old.errorStations != errorStations ||
+      !_chartSetEq(old.errorStations, errorStations) ||
       old.scheme != scheme ||
       old.fontFamily != fontFamily;
 }

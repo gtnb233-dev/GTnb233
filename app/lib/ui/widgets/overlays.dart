@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/survey_strings.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 
 /// 1) Tooltip（文字提示）：iOS 风格磨砂悬浮 / 长按说明气泡。
 class SurveyTooltip extends StatelessWidget {
@@ -337,7 +338,89 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
       ToastTone.error => (Icons.error_rounded, IosColors.red(b)),
     };
 
-    final bg = isDark ? const Color(0xE02C2C2E) : const Color(0xF2FFFFFF);
+    final suspendBlur = GlassBlurSuspensionScope.isSuspended(context);
+    final bg = suspendBlur
+        ? (isDark ? IosColors.darkCard : Colors.white)
+        : (isDark ? const Color(0xE02C2C2E) : const Color(0xF2FFFFFF));
+    final toastBody = Stack(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Insets.m + 2,
+            vertical: Insets.s + 2,
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(Radii.pill),
+            border: Border.all(
+              color: accent.withValues(
+                alpha: isDark ? 0.45 : 0.3,
+              ),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: accent),
+              const SizedBox(width: Insets.s),
+              Flexible(
+                child: Text(
+                  context.tr(widget.message),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onSurface,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              if (widget.actionLabel != null && widget.onAction != null) ...[
+                const SizedBox(width: Insets.s),
+                TextButton(
+                  onPressed: () {
+                    widget.onDismissed();
+                    widget.onAction!.call();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: accent,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    context.tr(widget.actionLabel!),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          child: IgnorePointer(
+            child: ColoredBox(
+              color: Colors.white.withValues(
+                alpha: isDark ? 0.14 : 0.72,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
 
     return Positioned(
       top: topOffset,
@@ -370,91 +453,12 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(Radii.pill),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Stack(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Insets.m + 2,
-                                vertical: Insets.s + 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bg,
-                                borderRadius:
-                                    BorderRadius.circular(Radii.pill),
-                                border: Border.all(
-                                  color: accent.withValues(
-                                    alpha: isDark ? 0.45 : 0.3,
-                                  ),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(icon, size: 18, color: accent),
-                                  const SizedBox(width: Insets.s),
-                                  Flexible(
-                                    child: Text(
-                                      context.tr(widget.message),
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w500,
-                                        color: scheme.onSurface,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ),
-                                  if (widget.actionLabel != null &&
-                                      widget.onAction != null) ...[
-                                    const SizedBox(width: Insets.s),
-                                    TextButton(
-                                      onPressed: () {
-                                        widget.onDismissed();
-                                        widget.onAction!.call();
-                                      },
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: accent,
-                                        visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: Text(
-                                        context.tr(widget.actionLabel!),
-                                        style: const TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
+                      child: suspendBlur
+                          ? toastBody
+                          : BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                              child: toastBody,
                             ),
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: 1,
-                              child: IgnorePointer(
-                                child: ColoredBox(
-                                  color: Colors.white.withValues(
-                                    alpha: isDark ? 0.14 : 0.72,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                 ),

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'liquid_glass.dart';
+
 class PushAsideDrawer extends StatefulWidget {
   const PushAsideDrawer({
     super.key,
@@ -91,67 +93,70 @@ class PushAsideDrawerState extends State<PushAsideDrawer>
 
         return AnimatedBuilder(
           animation: _progress,
-          child: widget.child,
+          child: RepaintBoundary(child: widget.child),
           builder: (context, child) {
             final progress = widget.enabled ? _progress.value : 0.0;
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                if (progress > 0)
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    width: width,
-                    child: Transform.translate(
-                      offset: Offset(-width * .14 * (1 - progress), 0),
-                      child: IgnorePointer(
-                        ignoring: progress < .98,
-                        child: widget.drawer,
+            return GlassBlurSuspensionScope(
+              suspended: progress > 0 && progress < 1,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (progress > 0)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      width: width,
+                      child: Transform.translate(
+                        offset: Offset(-width * .14 * (1 - progress), 0),
+                        child: IgnorePointer(
+                          ignoring: progress < .98,
+                          child: RepaintBoundary(child: widget.drawer),
+                        ),
+                      ),
+                    ),
+                  Transform.translate(
+                    offset: Offset(width * progress, 0),
+                    child: ClipRRect(
+                      key: const ValueKey('push-aside-foreground'),
+                      borderRadius: BorderRadius.horizontal(
+                          left: Radius.circular(28 * progress)),
+                      clipBehavior: progress == 0 ? Clip.none : Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ExcludeSemantics(
+                              excluding: progress > .5, child: child!),
+                          if (progress > 0)
+                            GestureDetector(
+                              onTap: close,
+                              onHorizontalDragUpdate: drag,
+                              onHorizontalDragEnd: settle,
+                              onHorizontalDragCancel: () => settle(null),
+                              child: ColoredBox(
+                                  color: Colors.black
+                                      .withValues(alpha: .15 * progress)),
+                            ),
+                        ],
                       ),
                     ),
                   ),
-                Transform.translate(
-                  offset: Offset(width * progress, 0),
-                  child: ClipRRect(
-                    key: const ValueKey('push-aside-foreground'),
-                    borderRadius: BorderRadius.horizontal(
-                        left: Radius.circular(28 * progress)),
-                    clipBehavior: progress == 0 ? Clip.none : Clip.antiAlias,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ExcludeSemantics(
-                            excluding: progress > .5, child: child!),
-                        if (progress > 0)
-                          GestureDetector(
-                            onTap: close,
-                            onHorizontalDragUpdate: drag,
-                            onHorizontalDragEnd: settle,
-                            onHorizontalDragCancel: () => settle(null),
-                            child: ColoredBox(
-                                color: Colors.black
-                                    .withValues(alpha: .15 * progress)),
-                          ),
-                      ],
+                  if (widget.enabled && current && progress < 1)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 20,
+                      child: GestureDetector(
+                        key: const ValueKey('workspace-drawer-edge'),
+                        behavior: HitTestBehavior.translucent,
+                        onHorizontalDragUpdate: drag,
+                        onHorizontalDragEnd: settle,
+                        onHorizontalDragCancel: () => settle(null),
+                      ),
                     ),
-                  ),
-                ),
-                if (widget.enabled && current && progress < 1)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: 20,
-                    child: GestureDetector(
-                      key: const ValueKey('workspace-drawer-edge'),
-                      behavior: HitTestBehavior.translucent,
-                      onHorizontalDragUpdate: drag,
-                      onHorizontalDragEnd: settle,
-                      onHorizontalDragCancel: () => settle(null),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             );
           },
         );

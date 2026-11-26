@@ -134,7 +134,11 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
       controller.addListener(listener);
       _draftListeners[field] = listener;
     });
-    _lastSnapshot = _captureSnapshot();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _lastSnapshot = _captureSnapshot();
+      }
+    });
   }
 
   /// 清空草稿：先同步恢复初值（屏蔽监听避免回写），再异步删掉已存草稿。

@@ -166,6 +166,7 @@ class AppSettings extends ChangeNotifier {
 
   /// 首页「常用工具」固定列表。
   List<String> get pinnedTools => List.unmodifiable(_pinnedTools);
+  List<String> get pinnedToolIds => pinnedTools;
   bool isPinned(String toolId) => _pinnedTools.contains(toolId);
 
   Future<void> load() async {
@@ -331,6 +332,25 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     await _persist((p) => p.setStringList(_kPinnedTools, _pinnedTools));
     return true;
+  }
+
+  /// 更新「常用工具」选中集合与排序（至少保留 1 个工具）。
+  Future<void> setPinnedToolIds(List<String> ids) async {
+    final next = <String>[];
+    for (final id in ids) {
+      if (id.isNotEmpty && !next.contains(id)) next.add(id);
+    }
+    if (next.isEmpty) return;
+    _pinnedTools = next;
+    notifyListeners();
+    await _persist((p) => p.setStringList(_kPinnedTools, _pinnedTools));
+  }
+
+  /// 恢复默认「常用工具」列表。
+  Future<void> resetPinnedTools() async {
+    _pinnedTools = List<String>.of(kDefaultPinnedTools);
+    notifyListeners();
+    await _persist((p) => p.setStringList(_kPinnedTools, _pinnedTools));
   }
 
   /// 恢复默认录入与显示参数（米制 · 度分秒 · 坐标 3 位 · 秒 1 位）。

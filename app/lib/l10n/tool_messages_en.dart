@@ -1372,4 +1372,18 @@ const toolEnglishMessages = <String, String>{
       'Vertical curve profile ({type} · E={ext}m)',
   '凸形': 'Crest',
   '凹形': 'Sag',
+
+  // Real-device regression sprint: sidebar, pinned tools & export
+  '自定义常用工具': 'Customize pinned tools',
+  '自定义': 'Customize',
+  '编辑常用工具': 'Edit pinned tools',
+  '拖动调整顺序': 'Drag to reorder',
+  '至少保留 1 个工具': 'Keep at least 1 tool',
+  '搜索工具与公式': 'Search tools & formulas',
+  '展开侧边栏': 'Expand sidebar',
+  '收起侧边栏': 'Collapse sidebar',
+  '导出成果': 'Export results',
+  '视线高 > 0.2 m（读数 > 200 mm）。': 'Sight height > 0.2 m (reading > 200 mm).',
+  '视线高 > {minSight} m（读数 > {minSightMm} mm）。':
+      'Sight height > {minSight} m (reading > {minSightMm} mm).',
 };

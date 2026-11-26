@@ -197,7 +197,9 @@ class ExportService {
     try {
       final dir = await resolveDirAsync();
       final base = sanitize(fileNameHint ?? table.title);
-      final prefix = '${_stamp()}_${base.isEmpty ? '导出成果' : base}';
+      final fallbackBase = sanitize(table.label('导出成果'));
+      final prefix =
+          '${_stamp()}_${base.isEmpty ? (fallbackBase.isEmpty ? 'export' : fallbackBase) : base}';
       var file =
           File('${dir.path}${Platform.pathSeparator}$prefix.${format.ext}');
       var seq = 1;
@@ -288,12 +290,15 @@ class ExportService {
   /// 将可视化图形渲染出的 PNG 字节保存到同一导出目录（Android 写入相册，Windows 弹出保存对话框）。
   static Future<({String? path, String? error})> savePng(
     Uint8List bytes,
-    String title,
-  ) async {
+    String title, {
+    String Function(String)? translate,
+  }) async {
     try {
       final dir = await resolveDirAsync();
       final base = sanitize(title);
-      final prefix = '${_stamp()}_${base.isEmpty ? '图件' : base}';
+      final fallbackBase = sanitize(translate?.call('图件') ?? '图件');
+      final prefix =
+          '${_stamp()}_${base.isEmpty ? (fallbackBase.isEmpty ? 'plot' : fallbackBase) : base}';
       var file = File('${dir.path}${Platform.pathSeparator}$prefix.png');
       var seq = 1;
       while (await file.exists()) {

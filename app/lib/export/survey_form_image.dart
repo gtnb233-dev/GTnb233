@@ -30,6 +30,61 @@ class SurveyFormImageRenderer {
   static const double _kMaxBitmapWidth = 8192.0;
   static const double _kMaxBitmapHeight = 16384.0;
 
+  /// 提取渲染到 PNG 画布上的所有文本（供单元测试验证多语言零中文残留）。
+  static List<String> extractRenderTexts(
+    List<XlsxSheetData> sheets, {
+    String Function(String)? translate,
+  }) {
+    final rawList = sheets.isEmpty
+        ? const <XlsxSheetData>[
+            XlsxSheetData(sheetName: 'Sheet1', cells: <XlsxCell>[]),
+          ]
+        : sheets;
+    final list = translate == null
+        ? rawList
+        : <XlsxSheetData>[
+            for (final s in rawList) s.localizeLabels(translate),
+          ];
+    final isNonCjk = translate != null &&
+        (translate('点号') != '点号' || translate('合格') != '合格');
+    final texts = <String>[];
+    for (final s in list) {
+      if (s.sheetName.trim().isNotEmpty) texts.add(s.sheetName);
+      for (final cell in s.cells) {
+        if (cell.value.trim().isEmpty) continue;
+        final isSketch = s.sketches.any(
+          (sk) =>
+              sk.r1 == cell.row &&
+              sk.c1 == cell.col,
+        );
+        if (!isSketch) texts.add(cell.value);
+      }
+      for (final sk in s.sketches) {
+        if (sk.headerText.trim().isNotEmpty) texts.add(sk.headerText);
+        final inner = sk.sketch;
+        if (inner is GeometryPlotSketch) {
+          for (final p in inner.points) {
+            if (p.label.trim().isNotEmpty) texts.add(p.label);
+          }
+          for (final l in inner.lines) {
+            if (l.label != null && l.label!.trim().isNotEmpty) {
+              texts.add(l.label!);
+            }
+          }
+          if (inner.startNorthRay) {
+            final north = translate?.call('北 N') ?? '北 N';
+            texts.add((isNonCjk && north == '北 N') ? 'N' : north);
+          }
+        } else if (inner is LevelingRouteSketch) {
+          for (final name in inner.pointNames) {
+            if (name.trim().isNotEmpty) texts.add(name);
+          }
+        }
+      }
+    }
+    return texts;
+  }
+
   /// 将单个或多个工作表渲染为连续纵向排布的 2x–3x HiDPI 高清 PNG 字节流。
   static Future<Uint8List> renderWorkbook(
     List<XlsxSheetData> sheets, {
@@ -776,9 +831,13 @@ class SurveyFormImageRenderer {
         ..lineTo(rayTip.dx + 4.0, rayTip.dy + 4.0)
         ..close();
       canvas.drawPath(head, Paint()..color = const Color(0xFFD32F2F));
+      final isNonCjk = translate != null &&
+          (translate('点号') != '点号' || translate('合格') != '合格');
+      final northRaw = translate?.call('北 N') ?? '北 N';
+      final northLabel = (isNonCjk && northRaw == '北 N') ? 'N' : northRaw;
       _paintSmallLabel(
         canvas,
-        translate?.call('北 N') ?? '北 N',
+        northLabel,
         Offset(rayTip.dx + 14.0, rayTip.dy + 2.0),
         color: const Color(0xFFD32F2F),
         bold: true,

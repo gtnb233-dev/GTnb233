@@ -17,8 +17,12 @@ import 'pages/tools/earthwork_tools.dart';
 import 'pages/tools_page.dart' show FormulaToolPage;
 
 /// 按工具 id 打开对应页面。
-Future<void> openTool(BuildContext context, ToolDef tool,
-    {String? draftId}) async {
+Future<void> openTool(
+  BuildContext context,
+  ToolDef tool, {
+  String? draftId,
+  bool replaceExistingTool = false,
+}) async {
   // 先取好 Navigator，避免在 await 之后再用 context（async gap）。
   final navigator = Navigator.of(context);
   final settings = SettingsScope.read(context);
@@ -29,11 +33,15 @@ Future<void> openTool(BuildContext context, ToolDef tool,
           : null);
   await settings.setLastTool(tool.id, draftId: resume);
   if (!navigator.mounted) return;
-  await navigator.push(
-    WorkspacePageRoute<void>(
-      builder: (_) => toolPage(tool, draftId: resume),
-    ),
+  final route = WorkspacePageRoute<void>(
+    settings: RouteSettings(name: 'tool/${tool.id}', arguments: resume),
+    builder: (_) => toolPage(tool, draftId: resume),
   );
+  if (replaceExistingTool && navigator.canPop()) {
+    await navigator.pushAndRemoveUntil(route, (r) => r.isFirst);
+  } else {
+    await navigator.push(route);
+  }
 }
 
 /// 工具 id → 页面组件。
