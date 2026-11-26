@@ -27,7 +27,143 @@ pub struct FfiEarthworkResult {
 
 #[no_mangle]
 pub extern "C" fn survey_rust_abi_version() -> u32 {
-    1
+    4
+}
+
+/// Distributes traverse misclosure over interleaved (dx, dy, length) rows.
+///
+/// # Safety
+/// Input and output must be disjoint and valid for count × 3 and count × 2
+/// doubles respectively.
+#[no_mangle]
+pub unsafe extern "C" fn survey_traverse_distribute(
+    input: *const f64,
+    output: *mut f64,
+    count: u32,
+    fx: f64,
+    fy: f64,
+    target_x: f64,
+    target_y: f64,
+    by_component: u32,
+) {
+    if input.is_null() || output.is_null() || count == 0 {
+        return;
+    }
+    let input = unsafe { std::slice::from_raw_parts(input, count as usize * 3) };
+    let (sum_x, sum_y, sum_length) = input
+        .chunks_exact(3)
+        .fold((0.0, 0.0, 0.0), |(x, y, length), row| {
+            (x + row[0].abs(), y + row[1].abs(), length + row[2])
+        });
+    let use_component = by_component != 0 && sum_x > 0.0 && sum_y > 0.0;
+    let mut placed_x = 0.0;
+    let mut placed_y = 0.0;
+    for (index, row) in input.chunks_exact(3).take(count as usize - 1).enumerate() {
+        let share = if sum_length <= 0.0 {
+            0.0
+        } else {
+            row[2] / sum_length
+        };
+        let x = row[0]
+            - fx * if use_component {
+                row[0].abs() / sum_x
+            } else {
+                share
+            };
+        let y = row[1]
+            - fy * if use_component {
+                row[1].abs() / sum_y
+            } else {
+                share
+            };
+        unsafe {
+            output.add(index * 2).write(x);
+            output.add(index * 2 + 1).write(y);
+        }
+        placed_x += x;
+        placed_y += y;
+    }
+    let last = (count as usize - 1) * 2;
+    unsafe {
+        output.add(last).write(target_x - placed_x);
+        output.add(last + 1).write(target_y - placed_y);
+    }
+}
+
+#[repr(C)]
+pub struct FfiLevelingStation {
+    pub back_distance: f64,
+    pub front_distance: f64,
+    pub distance_diff: f64,
+    pub cumulative_diff: f64,
+    pub back_constant: f64,
+    pub front_constant: f64,
+    pub black_diff: f64,
+    pub red_diff: f64,
+    pub mean_diff: f64,
+    pub issues: u32,
+}
+
+/// Calculates a route of dual-face stations. Each input row contains two
+/// distances, four face readings, and the backsight and foresight constants.
+///
+/// # Safety
+/// The input and output must be disjoint and valid for count × 8 doubles
+/// and count station results respectively.
+#[no_mangle]
+pub unsafe extern "C" fn survey_leveling_check(
+    input: *const f64,
+    output: *mut FfiLevelingStation,
+    count: u32,
+    distance_limit: f64,
+    sight_limit: f64,
+    height_limit: f64,
+) {
+    if input.is_null() || output.is_null() || count == 0 {
+        return;
+    }
+    let input = unsafe { std::slice::from_raw_parts(input, count as usize * 8) };
+    let mut cumulative_diff = 0.0;
+    for (index, values) in input.chunks_exact(8).enumerate() {
+        let [back_distance, front_distance, back_black, back_red, front_black, front_red, k_back, k_front] =
+            values
+        else {
+            unreachable!()
+        };
+        let distance_diff = back_distance - front_distance;
+        cumulative_diff += distance_diff;
+        let back_constant = k_back + back_black - back_red;
+        let front_constant = k_front + front_black - front_red;
+        let black_diff = back_black - front_black;
+        let red_diff = back_red - front_red;
+        let mean_diff = (black_diff + red_diff - (k_back - k_front)) / 2.0;
+        let limits = [
+            back_constant.abs() <= 3.0,
+            front_constant.abs() <= 3.0,
+            distance_diff.abs() <= distance_limit + 1e-9,
+            cumulative_diff.abs() <= 10.0 + 1e-9,
+            *back_distance <= sight_limit + 1e-9 && *front_distance <= sight_limit + 1e-9,
+            (black_diff - red_diff + k_back - k_front).abs() <= height_limit,
+        ];
+        let issues = limits.iter().enumerate().fold(
+            0,
+            |mask, (bit, ok)| if *ok { mask } else { mask | (1 << bit) },
+        );
+        unsafe {
+            output.add(index).write(FfiLevelingStation {
+                back_distance: *back_distance,
+                front_distance: *front_distance,
+                distance_diff,
+                cumulative_diff,
+                back_constant,
+                front_constant,
+                black_diff,
+                red_diff,
+                mean_diff,
+                issues,
+            })
+        };
+    }
 }
 
 /// Counts DXF entities from a UTF-8 C string.
@@ -120,4 +256,55 @@ pub unsafe extern "C" fn survey_spatial_nearest_2d(
     find_nearest_point_2d(xs, ys, target_x, target_y)
         .map(|m| m.index as i32)
         .unwrap_or(-1)
+}
+
+/// Returns the parsed ASCII DXF entities as UTF-8 JSON. The caller owns the result
+/// and must pass it to `survey_string_free` once.
+///
+/// # Safety
+/// `source` must point to a valid NUL-terminated UTF-8 string.
+#[no_mangle]
+pub unsafe extern "C" fn survey_dxf_parse_json(source: *const c_char) -> *mut c_char {
+    use dxf_parser::DxfEntity;
+    use serde_json::json;
+    use std::ffi::CString;
+    if source.is_null() {
+        return std::ptr::null_mut();
+    }
+    let Ok(source) = unsafe { CStr::from_ptr(source) }.to_str() else {
+        return std::ptr::null_mut();
+    };
+    let rows: Vec<_> = parse_ascii_dxf(source)
+        .into_iter()
+        .map(|entity| match entity {
+            DxfEntity::Point { layer, x, y, z } => json!(["point", layer, x, y, z]),
+            DxfEntity::Line {
+                layer,
+                x1,
+                y1,
+                z1,
+                x2,
+                y2,
+                z2,
+            } => json!(["line", layer, x1, y1, z1, x2, y2, z2]),
+            DxfEntity::LwPolyline {
+                layer,
+                closed,
+                vertices,
+            } => json!(["polyline", layer, closed, vertices]),
+        })
+        .collect();
+    CString::new(serde_json::Value::Array(rows).to_string())
+        .map(CString::into_raw)
+        .unwrap_or(std::ptr::null_mut())
+}
+
+/// # Safety
+/// `value` must be null or a pointer returned by `survey_dxf_parse_json` that
+/// has not been freed.
+#[no_mangle]
+pub unsafe extern "C" fn survey_string_free(value: *mut c_char) {
+    if !value.is_null() {
+        drop(unsafe { std::ffi::CString::from_raw(value) });
+    }
 }

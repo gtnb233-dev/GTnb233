@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'messages.dart';
+import 'survey_terms.dart';
 import 'tool_messages_en.dart';
 
 enum AppLanguage {
@@ -74,6 +75,7 @@ class SurveyStrings {
     final message = languageCode == 'zh'
         ? source
         : regionalMessages[languageCode]?[source] ??
+            localizedSurveyTerm(languageCode, source) ??
             englishMessages[source] ??
             toolEnglishMessages[source] ??
             _translateDynamic(source);

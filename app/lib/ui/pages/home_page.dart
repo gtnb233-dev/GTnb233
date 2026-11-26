@@ -1,491 +1,143 @@
 import 'package:flutter/material.dart';
-import 'package:survey_core/survey_core.dart';
+import '../workspace_page_route.dart';
 
 import '../../l10n/survey_strings.dart';
-import '../../app_info.dart';
 import '../../nav/tools.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
 import '../page_scaffold.dart';
 import '../tool_router.dart';
-import '../widgets/command_palette.dart';
 import '../widgets/outline_symbol.dart';
 import '../widgets/widgets.dart';
+import '../widgets/workspace_commands.dart';
+import 'tools/tin_workspace.dart';
 
-/// 首页 / 工作台。
 class HomePage extends StatelessWidget {
-  const HomePage({
-    super.key,
-    required this.onNavigate,
-    required this.onOpenSettings,
-  });
-
+  const HomePage(
+      {super.key, required this.onNavigate, required this.onOpenSettings});
   final ValueChanged<int> onNavigate;
   final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final recent = toolById(settings.lastTool);
+    final drafts = DraftScope.maybeOf(context);
+    final theme = Theme.of(context);
+    final draftId = settings.lastDraftId ??
+        settings.lastTool ??
+        ((drafts?.recentIds.isNotEmpty ?? false)
+            ? drafts!.recentIds.first
+            : null);
+    final saved = draftId == null ? null : drafts?.savedAt(draftId);
+    final station =
+        draftId == null ? null : drafts?.value(draftId, 'lastStation');
+    final tools = settings.pinnedTools.map(toolById).whereType<ToolDef>();
     return PageScaffold(
       title: '工程测量',
-      caption: context.tr('离线测量工作台 · {version}', {'version': kAppVersionLabel}),
+      overlayReserve: QuickCommandBar.reserve,
       trailing: [
         IconButton(
-          tooltip: context.tr('设置'),
+          tooltip: 'LivePlot',
+          onPressed: () => showWorkspacePlot(context),
+          icon: const OutlineSymbol(Icons.polyline_outlined),
+        ),
+        IconButton(
+          tooltip: context.tr('更多'),
           onPressed: onOpenSettings,
-          icon: const OutlineSymbol(Icons.settings_outlined, size: 24),
+          icon: const OutlineSymbol(Icons.more_horiz),
         ),
       ],
-      header: _WorkbenchCard(
-        angleMode: settings.angleMode,
-        angleModeLabel: context.tr(settings.angleModeShortLabel),
-        lengthUnit: settings.lengthUnit,
-        digits: settings.coordDigits,
-        onSearch: () => showCommandPalette(context),
-        onSettings: onOpenSettings,
-        onFormula: () => openTool(context, toolById('formula')!),
-      ),
       children: [
-        if (recent != null) ...[
-          const SectionHeader(title: '继续上次'),
-          _RecentTool(tool: recent),
-        ],
+        SurfaceCard(
+          padding: const EdgeInsets.all(Insets.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LocalText(draftId == null ? '本地工作区' : '继续上次',
+                  style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Text(
+                draftId == null
+                    ? context.tr('开始一份测量草稿')
+                    : draftTitle(context, drafts, draftId),
+                style: theme.textTheme.headlineSmall,
+              ),
+              if (station != null)
+                Text(context.tr('最近测站 {station}', {'station': station}),
+                    style: monoNumber(context, size: 14)),
+              if (saved != null)
+                Text(MaterialLocalizations.of(context).formatCompactDate(saved),
+                    style: theme.textTheme.bodySmall),
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => draftId == null
+                      ? showWorkspaceCreate(context)
+                      : openWorkspaceDraft(context, draftId),
+                  icon: OutlineSymbol(
+                      draftId == null ? Icons.add : Icons.arrow_forward),
+                  label: LocalText(draftId == null ? '新建草稿' : '打开草稿'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
         SectionHeader(
-          title: '常用工具',
-          trailing: TextButton(
-              onPressed: () => onNavigate(3), child: const LocalText('管理常用')),
-        ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
-            final minimum = 156 * textScale.clamp(1, 1.3);
-            final available = constraints.maxWidth;
-            final columns = available >= 4 * minimum + 3 * Insets.l
-                ? 4
-                : available >= 2 * minimum + Insets.s
-                    ? 2
-                    : 1;
-            final gap = columns == 4 ? Insets.l : Insets.s;
-            final tileWidth = (available - (columns - 1) * gap) / columns;
-            final pinned = settings.pinnedTools
-                .map(toolById)
-                .whereType<ToolDef>()
-                .toList();
-            final picked = pinned.isEmpty
-                ? AppSettings.kDefaultPinnedTools
-                    .map(toolById)
-                    .whereType<ToolDef>()
-                : pinned;
-
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final tool in picked)
-                  SizedBox(width: tileWidth, child: _metric(context, tool)),
-              ],
-            );
-          },
-        ),
-        // 功能总览已整块搬到工具库（那里才有分类浏览与搜索），首页只留一行状态。
-        _StatusRow(
-          savedAt: _lastSavedAt(context, settings.lastTool),
-          toolCount: kTools.length,
-          onOpenLibrary: () => onNavigate(3),
-        ),
-      ],
-    );
-  }
-
-  /// 最近一次计算页草稿的保存时间；没有 DraftScope（裸 pump 的测试）时返回 null。
-  static DateTime? _lastSavedAt(BuildContext context, String? pageId) {
-    final store =
-        context.dependOnInheritedWidgetOfExactType<DraftScope>()?.notifier;
-    if (store == null || pageId == null) return null;
-    return store.savedAt(pageId);
-  }
-
-  Widget _metric(BuildContext context, ToolDef t) {
-    final unit = SettingsScope.of(context).lengthUnit;
-    final scheme = Theme.of(context).colorScheme;
-    final store =
-        context.dependOnInheritedWidgetOfExactType<DraftScope>()?.notifier;
-    final hasDraft = store != null && store.savedAt(t.id) != null;
-    final accent = hasDraft ? scheme.primary : scheme.onSurfaceVariant;
-    return MetricTile(
-      label: t.title,
-      value: context.tr(_shortValue(t.id)),
-      unit: _shortUnit(t.id, unit),
-      caption: t.subtitle,
-      hasDraft: hasDraft,
-      accent: accent,
-      onTap: () => openTool(context, t),
-    );
-  }
-
-  static String _shortValue(String id) => switch (id) {
-        'inverse' => 'D·α',
-        'polar' => 'X·Y',
-        'stakeout' => 'β·D',
-        'batch_stakeout' => '批量',
-        'intersection' => 'γ·XY',
-        'traverse' => 'fβ·K',
-        'leveling' => 'Σh·v',
-        'leveling4' => '手簿',
-        'precision' => 'm·Σvv',
-        'circular_curve' => 'T·L·E',
-        'clothoid' => 'p·m·A',
-        'vertical_curve' => 'H·E',
-        'route_stake' => '中边桩',
-        'area' => 'S·L',
-        'earthwork' => 'V挖/填',
-        'projection' => 'BL⇄xy',
-        'convert' => 'DMS⇄°',
-        'quadrant' => 'α⇄R',
-        'formula' => 'f(x)',
-        _ => '—',
-      };
-
-  static String? _shortUnit(String id, LengthUnit unit) => switch (id) {
-        'inverse' || 'stakeout' || 'batch_stakeout' => '${unit.symbol} / °',
-        'polar' || 'intersection' || 'projection' => unit.symbol,
-        'traverse' || 'leveling' || 'leveling4' => 'mm',
-        'circular_curve' ||
-        'clothoid' ||
-        'vertical_curve' ||
-        'route_stake' =>
-          unit.symbol,
-        'area' => unit.areaSymbol,
-        'earthwork' => unit.volumeSymbol,
-        'quadrant' => '°′″',
-        _ => null,
-      };
-}
-
-class _WorkbenchCard extends StatelessWidget {
-  const _WorkbenchCard({
-    required this.angleMode,
-    required this.angleModeLabel,
-    required this.lengthUnit,
-    required this.digits,
-    required this.onSearch,
-    required this.onFormula,
-    required this.onSettings,
-  });
-
-  final AngleInputMode angleMode;
-  final String angleModeLabel;
-  final LengthUnit lengthUnit;
-  final int digits;
-  final VoidCallback onSearch;
-  final VoidCallback onFormula;
-  final VoidCallback onSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    final places = lengthUnit.displayDigits(digits);
-    final showShortcut = MediaQuery.sizeOf(context).width >= 600;
-
-    return SurfaceCard(
-      padding: const EdgeInsets.all(Insets.m),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+            title: '常用工具',
+            trailing: TextButton(
+              onPressed: () => onNavigate(3),
+              child: const LocalText('工具库'),
+            )),
+        const SizedBox(height: 8),
+        LayoutBuilder(builder: (context, constraints) {
+          final columns =
+              MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth
+                  ? 1
+                  : (constraints.maxWidth >= 900 ? 4 : 2);
+          final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
             children: [
-              Expanded(child: LocalText('录入参数', style: theme.textTheme.titleMedium)),
-              TextButton(
-                onPressed: onSettings,
-                child: const LocalText('设置偏好'),
-              ),
-            ],
-          ),
-          const SizedBox(height: Insets.xs),
-          Wrap(
-            spacing: Insets.s,
-            runSpacing: Insets.s,
-            children: [
-              PopupMenuButton<LengthUnit>(
-                key: const ValueKey<String>('home-unit-pill'),
-                tooltip: context.tr('切换长度输入量级'),
-                initialValue: lengthUnit,
-                onSelected: (u) async {
-                  await SettingsScope.read(context).setLengthUnit(u);
-                  if (!context.mounted) return;
-                  SurveyToast.info(
-                    context,
-                    context.tr('输入量级已切换为 {unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
-                  );
-                },
-                itemBuilder: (_) => [
-                  for (final u in LengthUnit.values)
-                    PopupMenuItem(
-                      value: u,
-                      child: Row(
-                        children: [
-                          Icon(
-                            u == lengthUnit
-                                ? Icons.check_circle_rounded
-                                : Icons.radio_button_unchecked_rounded,
-                            size: 17,
-                            color: u == lengthUnit
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('${context.tr(u.label)} (${u.symbol})'),
-                        ],
-                      ),
+              for (final tool in tools)
+                SizedBox(
+                  width: width,
+                  child: SurfaceCard(
+                    padding: EdgeInsets.zero,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      leading: OutlineSymbol(tool.icon,
+                          color: theme.colorScheme.primary),
+                      title: LocalText(
+                          tool.id == 'earthwork' ? '土方 TIN' : tool.title),
+                      subtitle: LocalText(
+                          tool.id == 'earthwork'
+                              ? '三角网棱柱体法 · 挖填方量'
+                              : tool.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      trailing:
+                          const OutlineSymbol(Icons.chevron_right, size: 16),
+                      onTap: () {
+                        if (tool.id == 'earthwork') {
+                          Navigator.of(context).push(WorkspacePageRoute<void>(
+                            builder: (_) => const TinWorkspacePage(),
+                          ));
+                        } else {
+                          openTool(context, tool);
+                        }
+                      },
                     ),
-                ],
-                child: _WorkbenchChip(
-                  icon: Icons.straighten,
-                  label: '长度量级',
-                  value: '${context.tr(lengthUnit.label)}（${lengthUnit.symbol}）',
-                  showCaret: true,
-                  highlighted: lengthUnit != LengthUnit.meter,
-                ),
-              ),
-              SurveyTooltip(
-                message: '点击切换角度录入格式（度分秒 / 十进制度）',
-                child: InkWell(
-                  key: const ValueKey<String>('home-angle-pill'),
-                  borderRadius: BorderRadius.circular(Radii.pill),
-                  onTap: () async {
-                    final next = angleMode == AngleInputMode.dmsCompact
-                        ? AngleInputMode.decimalDegrees
-                        : AngleInputMode.dmsCompact;
-                    await SettingsScope.read(context).setAngleMode(next);
-                    if (!context.mounted) return;
-                    SurveyToast.info(
-                      context,
-                      context.tr('角度格式已切换为 {format}', {'format': context.tr(next == AngleInputMode.dmsCompact ? '度分秒分格' : '十进制度')}),
-                    );
-                  },
-                  child: _WorkbenchChip(
-                    icon: Icons.explore_outlined,
-                    label: '角度录入',
-                    value: angleModeLabel,
                   ),
                 ),
-              ),
-              SurveyTooltip(
-                message: '点击循环切换坐标小数位数（2 / 3 / 4 位）',
-                child: InkWell(
-                  key: const ValueKey<String>('home-digits-pill'),
-                  borderRadius: BorderRadius.circular(Radii.pill),
-                  onTap: () async {
-                    final nextDigits = digits == 2 ? 3 : (digits == 3 ? 4 : 2);
-                    await SettingsScope.read(context)
-                        .setCoordDigits(nextDigits);
-                    if (!context.mounted) return;
-                    SurveyToast.info(context, context.tr('坐标默认位数已设为 {digits} 位', {'digits': nextDigits}));
-                  },
-                  child: _WorkbenchChip(
-                    icon: Icons.pin_outlined,
-                    label: '坐标小数位',
-                    value: context.tr('保留 {digits} 位小数', {'digits': places}),
-                  ),
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: Insets.m),
-          Wrap(
-            spacing: Insets.s,
-            runSpacing: Insets.xs,
-            children: [
-              OutlinedButton.icon(
-                onPressed: onSearch,
-                icon: const OutlineSymbol(Icons.search, size: 18),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Flexible(child: LocalText('查找工具或公式')),
-                    if (showShortcut) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: (isDark
-                                  ? IosColors.darkTertiary
-                                  : IosColors.lightFill)
-                              .withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Ctrl+K',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.onSurfaceVariant,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              TextButton.icon(
-                onPressed: onFormula,
-                icon: const OutlineSymbol(Icons.functions, size: 16),
-                label: const LocalText('公式计算'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WorkbenchChip extends StatelessWidget {
-  const _WorkbenchChip({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.showCaret = false,
-    this.highlighted = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final bool showCaret;
-  final bool highlighted;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    final fg = highlighted ? scheme.primary : scheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: highlighted
-            ? scheme.primary.withValues(alpha: isDark ? 0.16 : 0.08)
-            : (isDark ? IosColors.darkTertiary : IosColors.lightFill),
-        borderRadius: BorderRadius.circular(Radii.field),
-        border: Border.all(
-          color: highlighted
-              ? scheme.primary.withValues(alpha: 0.35)
-              : IosColors.separator(scheme.brightness),
-          width: 1.0,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: fg),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(context.tr(label), style: TextStyle(fontSize: 10.5, color: fg)),
-                Text(context.tr(value),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: scheme.onSurface,
-                    )),
-              ],
-            ),
-          ),
-          if (showCaret) ...[
-            const SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down, size: 14, color: fg),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// 首页底部一行状态：最近保存时间 · 工具数 · 离线。
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({
-    required this.savedAt,
-    required this.toolCount,
-    required this.onOpenLibrary,
-  });
-
-  final DateTime? savedAt;
-  final int toolCount;
-  final VoidCallback onOpenLibrary;
-
-  static String _two(int v) => v.toString().padLeft(2, '0');
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final saved = savedAt == null
-        ? context.tr('草稿未保存')
-        : context.tr('已保存 {time}', {'time': '${_two(savedAt!.hour)}:${_two(savedAt!.minute)}:${_two(savedAt!.second)}'});
-    return SurfaceCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Insets.l,
-        vertical: Insets.m,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            savedAt == null
-                ? Icons.cloud_off_outlined
-                : Icons.cloud_done_outlined,
-            size: 15,
-            color: savedAt == null ? scheme.onSurfaceVariant : scheme.primary,
-          ),
-          const SizedBox(width: Insets.s),
-          Expanded(
-            child: Text(
-              context.tr('{status} · {count} 个工具 · 离线可用', {'status': saved, 'count': toolCount}),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: scheme.onSurfaceVariant,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          const SizedBox(width: Insets.s),
-          TextButton(
-            onPressed: onOpenLibrary,
-            child: const LocalText('工具库'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentTool extends StatelessWidget {
-  const _RecentTool({required this.tool});
-
-  final ToolDef tool;
-
-  @override
-  Widget build(BuildContext context) {
-    return SurfaceCard(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: ChoiceTile(
-        title: tool.title,
-        subtitle: tool.subtitle,
-        icon: tool.icon,
-        onTap: () => openTool(context, tool),
-        dense: true,
-      ),
+          );
+        }),
+      ],
     );
   }
 }

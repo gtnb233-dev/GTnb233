@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'overlays.dart';
 
@@ -26,6 +27,7 @@ class WideTable extends StatefulWidget {
     this.defaultColumnWidth = 92,
     this.freezeFirstColumn = true,
     this.copyable = true,
+    this.onRowSelected,
   });
 
   final List<String> columns;
@@ -50,6 +52,7 @@ class WideTable extends StatefulWidget {
 
   /// 是否支持点击单元格复制内容。
   final bool copyable;
+  final ValueChanged<int>? onRowSelected;
 
   @override
   State<WideTable> createState() => _WideTableState();
@@ -142,13 +145,14 @@ class _WideTableState extends State<WideTable> {
                 ? scheme.primary
                 : scheme.onSurface;
     final canCopy = !header && widget.copyable && text.trim().isNotEmpty;
+    final canSelect = row != null && widget.onRowSelected != null;
 
     final inner = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Align(
         alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
         child: Text(
-          text,
+          header ? context.tr(text) : text,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: alignRight ? TextAlign.right : TextAlign.left,
@@ -170,9 +174,12 @@ class _WideTableState extends State<WideTable> {
     return SizedBox(
       width: width,
       height: fixedHeight,
-      child: canCopy && col != null
+      child: canSelect || (canCopy && col != null)
           ? InkWell(
-              onTap: () => _copyCell(col, text.trim()),
+              onTap: () {
+                if (canSelect) widget.onRowSelected!(row);
+                if (canCopy && col != null) _copyCell(col, text.trim());
+              },
               child: inner,
             )
           : inner,

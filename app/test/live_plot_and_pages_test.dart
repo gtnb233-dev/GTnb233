@@ -227,7 +227,6 @@ void main() {
     });
   });
 
-
   group('LivePlot 拖点', () {
     testWidgets('拖动可拖点：过程中回调新坐标、抬起回调一次', (tester) async {
       final events = <String>[];
@@ -292,14 +291,15 @@ void main() {
     });
   });
 
-
   group('导线页教材算例按钮', () {
     testWidgets('一键回填后复现 fβ=−60.0″ 与「内角和」判定', (tester) async {
       await _pump(tester, const TraversePage());
-      // 交会页同款：DetailScaffold.actions 里的文字按钮
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
       final button = find.text('教材算例');
       expect(button, findsOneWidget);
       await tester.tap(button);
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -318,7 +318,10 @@ void main() {
 
     testWidgets('回填后表单值就是教材那组（右角 + 5 条边）', (tester) async {
       await _pump(tester, const TraversePage());
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('教材算例'));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       final toText = find.text('文本');
       await tester.ensureVisible(toText);
@@ -483,7 +486,7 @@ void main() {
       );
       expect(find.text('功能总览'), findsNothing);
       expect(find.text('分类总览'), findsNothing);
-      expect(find.textContaining('离线可用'), findsOneWidget);
+      expect(find.text('本地工作区'), findsOneWidget);
 
       await _pump(tester, const ToolsPage());
       expect(find.text('分类总览'), findsOneWidget);

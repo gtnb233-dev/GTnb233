@@ -113,6 +113,7 @@ double trainingLimit({required double coefficient, required double weight}) {
   final w = weight <= 0 ? 0.0 : weight;
   return coefficient * (w == 0 ? 0 : math.sqrt(w));
 }
+
 /// 四等水准双面尺的检核阈值：|K+黑−红| ≤ 3 mm。
 const double kDoubleStaffConstantToleranceMm = 3.0;
 
@@ -133,12 +134,16 @@ class DoubleStaffObservation {
     required this.backRed,
     required this.frontBlack,
     required this.frontRed,
+    this.backDirectM,
+    this.frontDirectM,
     this.kBack = 4687,
     this.kFront = 4687,
   });
 
   /// 后尺上丝读数（mm）。
   final double backUpper;
+  final double? backDirectM;
+  final double? frontDirectM;
 
   /// 后尺下丝读数（mm）。
   final double backLower;
@@ -185,6 +190,8 @@ class DoubleStaffStationResult {
     required this.frontConstantOk,
     required this.distanceOk,
     required this.cumulativeOk,
+    this.sightOk = true,
+    this.heightDifferenceOk = true,
   });
 
   /// 站号（从 1 开始）。
@@ -228,13 +235,22 @@ class DoubleStaffStationResult {
 
   /// |Σd| ≤ 10 m。
   final bool cumulativeOk;
+  final bool sightOk;
+  final bool heightDifferenceOk;
+  bool get cumulativeWarning =>
+      cumulativeOk && cumulativeDistanceDiffM.abs() >= 7 - 1e-9;
 
   /// 高差中数（m）。
   double get meanDiffM => meanDiffMm / 1000.0;
 
   /// 四项检核是否全部通过。
   bool get ok =>
-      backConstantOk && frontConstantOk && distanceOk && cumulativeOk;
+      backConstantOk &&
+      frontConstantOk &&
+      distanceOk &&
+      cumulativeOk &&
+      sightOk &&
+      heightDifferenceOk;
 
   /// 不合格项说明（全部合格时为空串）。
   String get issueText {
@@ -243,6 +259,8 @@ class DoubleStaffStationResult {
     if (!frontConstantOk) out.add('前尺 K+黑−红超限');
     if (!distanceOk) out.add('视距差超限');
     if (!cumulativeOk) out.add('累计视距差超限');
+    if (!sightOk) out.add('视线长度超限');
+    if (!heightDifferenceOk) out.add('红黑面高差之差超限');
     return out.join('、');
   }
 }
@@ -313,6 +331,8 @@ DoubleStaffLevelingResult doubleStaffLeveling(
   double constantToleranceMm = kDoubleStaffConstantToleranceMm,
   double distanceDiffToleranceM = kDoubleStaffDistanceDiffToleranceM,
   double cumulativeToleranceM = kDoubleStaffCumulativeToleranceM,
+  double sightLimitM = double.infinity,
+  double heightDifferenceLimitMm = double.infinity,
 }) {
   final stations = <DoubleStaffStationResult>[];
   var sumBack = 0.0;
@@ -323,8 +343,10 @@ DoubleStaffLevelingResult doubleStaffLeveling(
   var sumMean = 0.0;
   for (var i = 0; i < observations.length; i++) {
     final o = observations[i];
-    final backDistance = (o.backUpper - o.backLower).abs() * 0.1;
-    final frontDistance = (o.frontUpper - o.frontLower).abs() * 0.1;
+    final backDistance =
+        o.backDirectM ?? (o.backUpper - o.backLower).abs() * 0.1;
+    final frontDistance =
+        o.frontDirectM ?? (o.frontUpper - o.frontLower).abs() * 0.1;
     final d = backDistance - frontDistance;
     cumulative += d;
     final backConstant = o.kBack + o.backBlack - o.backRed;
@@ -350,8 +372,12 @@ DoubleStaffLevelingResult doubleStaffLeveling(
       meanDiffMm: meanDiff,
       backConstantOk: backConstant.abs() <= constantToleranceMm,
       frontConstantOk: frontConstant.abs() <= constantToleranceMm,
-      distanceOk: d.abs() <= distanceDiffToleranceM,
-      cumulativeOk: cumulative.abs() <= cumulativeToleranceM,
+      distanceOk: d.abs() <= distanceDiffToleranceM + 1e-9,
+      cumulativeOk: cumulative.abs() <= cumulativeToleranceM + 1e-9,
+      sightOk: backDistance <= sightLimitM + 1e-9 &&
+          frontDistance <= sightLimitM + 1e-9,
+      heightDifferenceOk: (blackDiff - redDiff + o.kBack - o.kFront).abs() <=
+          heightDifferenceLimitMm,
     ));
   }
   return DoubleStaffLevelingResult(
@@ -364,6 +390,7 @@ DoubleStaffLevelingResult doubleStaffLeveling(
     sumMeanDiffMm: sumMean,
   );
 }
+
 /// 水准测量等级（决定闭合差限差口径）。
 enum LevelingGrade {
   /// 三等：±12√L mm（L 为路线长，km），按站数则 ±4√n mm。
@@ -372,7 +399,8 @@ enum LevelingGrade {
   /// 四等：±20√L mm（L 为路线长，km），按站数则 ±6√n mm。
   fourth('四等', 20, 6);
 
-  const LevelingGrade(this.label, this.lengthCoefficient, this.stationCoefficient);
+  const LevelingGrade(
+      this.label, this.lengthCoefficient, this.stationCoefficient);
 
   /// 等级名称（界面显示用）。
   final String label;
@@ -529,20 +557,18 @@ LevelingRouteResult levelingRoute({
   double? endHeightM,
   required List<LevelingRouteStation> stations,
   bool distributeByDistance = true,
+  double? distanceClosureCoefficient,
 }) {
   final n = stations.length;
-  final sumDiffMm =
-      stations.fold<double>(0, (s, st) => s + st.meanDiffMm);
-  final totalDistanceM =
-      stations.fold<double>(0, (s, st) => s + st.distanceM);
+  final sumDiffMm = stations.fold<double>(0, (s, st) => s + st.meanDiffMm);
+  final totalDistanceM = stations.fold<double>(0, (s, st) => s + st.distanceM);
   final isClosed = endHeightM == null;
   final expectedDiffMm = isClosed ? 0.0 : (endHeightM - startHeightM) * 1000.0;
   final misclosureMm = sumDiffMm - expectedDiffMm;
   final limitMm = distributeByDistance
-      ? levelingMisclosureLimitMm(
-          grade: grade,
-          lengthKm: totalDistanceM / 1000.0,
-        )
+      ? trainingLimit(
+          coefficient: distanceClosureCoefficient ?? grade.lengthCoefficient,
+          weight: totalDistanceM / 1000.0)
       : levelingMisclosureLimitMm(grade: grade, stationCount: n);
   final corrections = <double>[];
   if (n > 0) {

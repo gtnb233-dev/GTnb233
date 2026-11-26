@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/survey_strings.dart';
 import 'overlays.dart';
 
 /// RFC4180 字段转义：含逗号、双引号、换行（CR/LF）的字段用双引号包裹，
@@ -55,12 +56,14 @@ class ExportCsvButton extends StatelessWidget {
   final bool enabled;
 
   Future<void> _copy(BuildContext context) async {
-    final csv = buildCsv(columns, rows);
+    final csv = buildCsv(
+        columns.map(SurveyStrings.of(context).translate).toList(), rows);
     final count = rows.length;
     await Clipboard.setData(ClipboardData(text: csv));
     await HapticFeedback.selectionClick();
     if (!context.mounted) return;
-    SurveyToast.success(context, '已复制 $count 行 CSV');
+    SurveyToast.success(
+        context, context.tr('已复制 {count} 行 CSV', {'count': count}));
   }
 
   @override
@@ -75,7 +78,7 @@ class ExportCsvButton extends StatelessWidget {
               }
             : null,
         icon: Icon(icon, size: 17),
-        label: Text(label),
+        label: LocalText(label),
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           minimumSize: Size.zero,

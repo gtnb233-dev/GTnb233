@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../workspace_page_route.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
@@ -10,11 +11,14 @@ import '../tool_router.dart';
 import 'outline_symbol.dart';
 
 /// 弹出全局快捷命令面板（工具与公式模糊搜索、`↑/↓` 选择、`Enter` 跳转）。
-Future<void> showCommandPalette(BuildContext context) {
+Future<void> showCommandPalette(BuildContext context,
+    {String initialQuery = ''}) {
+  final workspace = Navigator.of(context);
   return showDialog<void>(
     context: context,
     barrierDismissible: true,
-    builder: (_) => const _CommandPaletteDialog(),
+    builder: (_) =>
+        _CommandPaletteDialog(initialQuery: initialQuery, workspace: workspace),
   );
 }
 
@@ -33,14 +37,18 @@ class _PaletteEntry {
 }
 
 class _CommandPaletteDialog extends StatefulWidget {
-  const _CommandPaletteDialog();
+  const _CommandPaletteDialog(
+      {required this.initialQuery, required this.workspace});
+  final String initialQuery;
+  final NavigatorState workspace;
 
   @override
   State<_CommandPaletteDialog> createState() => _CommandPaletteDialogState();
 }
 
 class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
-  final TextEditingController _query = TextEditingController();
+  late final TextEditingController _query =
+      TextEditingController(text: widget.initialQuery);
   final FocusNode _inputFocus = FocusNode();
   int _selected = 0;
 
@@ -53,7 +61,8 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
 
   List<_PaletteEntry> get _matches {
     final q = _query.text.trim().toLowerCase();
-    final tools = searchTools(q, strings: SurveyStrings.of(context)).map(_PaletteEntry.tool);
+    final tools = searchTools(q, strings: SurveyStrings.of(context))
+        .map(_PaletteEntry.tool);
     final formulas = q.isEmpty
         ? kFormulaLibrary.take(4).map(_PaletteEntry.formula)
         : kFormulaLibrary
@@ -69,13 +78,14 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
   }
 
   void _activate(_PaletteEntry entry) {
-    final nav = Navigator.of(context);
-    nav.pop();
+    Navigator.of(context).pop();
+    final nav = widget.workspace;
+    if (!nav.mounted) return;
     if (entry.tool != null) {
       openTool(nav.context, entry.tool!);
     } else if (entry.formula != null) {
       nav.push(
-        MaterialPageRoute<void>(
+        WorkspacePageRoute<void>(
           builder: (_) => FormulaDetailPage(formula: entry.formula!),
         ),
       );
@@ -148,7 +158,8 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                           focusedBorder: InputBorder.none,
                           filled: false,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 8),
                         ),
                         onChanged: (_) => setState(() => _selected = 0),
                         onSubmitted: (_) {
@@ -227,7 +238,9 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                                       ),
                                     ),
                                     Text(
-                                      entry.tool != null ? context.tr(entry.subtitle) : '${context.tr(entry.formula!.category)} · ${entry.formula!.expression}',
+                                      entry.tool != null
+                                          ? context.tr(entry.subtitle)
+                                          : '${context.tr(entry.formula!.category)} · ${entry.formula!.expression}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(

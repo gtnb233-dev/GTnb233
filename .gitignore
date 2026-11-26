@@ -31,3 +31,4 @@ key.properties
 *.pem
 .env
 .env.*
+/app/android/app/src/main/jniLibs/**/*.so

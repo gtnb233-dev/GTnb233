@@ -3,6 +3,57 @@ import 'dart:math' as math;
 import 'angle.dart';
 import 'vec.dart';
 
+/// Three-point angular resection. Both directions turn clockwise at the
+/// unknown station P, from A to B and from B to C respectively.
+Point2? angularResection({
+  required Point2 a,
+  required Point2 b,
+  required Point2 c,
+  required double abTurnDeg,
+  required double bcTurnDeg,
+}) {
+  if (![a.x, a.y, b.x, b.y, c.x, c.y, abTurnDeg, bcTurnDeg]
+      .every((value) => value.isFinite)) return null;
+  // Solve relative to B with a scale derived from the control baselines.
+  final scale =
+      math.max(distance(a, b), math.max(distance(b, c), distance(a, c)));
+  if (scale == 0 || !scale.isFinite) return null;
+  final u = Point2((a.x - b.x) / scale, (a.y - b.y) / scale);
+  final v = Point2((c.x - b.x) / scale, (c.y - b.y) / scale);
+  if (u.norm < 1e-10 || v.norm < 1e-10 || (u - v).norm < 1e-10) return null;
+  final alpha = degToRad(wrapDeg(abTurnDeg));
+  final beta = degToRad(wrapDeg(bcTurnDeg));
+  if (math.sin(alpha).abs() < 1e-10 || math.sin(beta).abs() < 1e-10)
+    return null;
+
+  // The circle through each pair has its centre on the perpendicular
+  // bisector of the chord, at signed distance halfChord × cot(turn).
+  final cotA = math.cos(alpha) / math.sin(alpha);
+  final cotB = math.cos(beta) / math.sin(beta);
+  final first = Point2((u.x + cotA * u.y) / 2, (u.y - cotA * u.x) / 2);
+  final second = Point2((v.x - cotB * v.y) / 2, (v.y + cotB * v.x) / 2);
+  final between = second - first;
+  final centreDistance = between.norm;
+  // Coincident circles correspond to the danger circle.
+  if (centreDistance < 1e-9 * math.max(1, math.max(first.norm, second.norm)))
+    return null;
+  final direction =
+      Point2(-between.y / centreDistance, between.x / centreDistance);
+  final t = 2 * (direction.x * first.x + direction.y * first.y);
+  final p = Point2(t * direction.x, t * direction.y);
+  if (p.norm < 1e-9 || (p - u).norm < 1e-9 || (p - v).norm < 1e-9) return null;
+
+  double residual(Point2 from, Point2 to, double turn) {
+    return (wrapDeg(azimuthDeg(p, to) - azimuthDeg(p, from) - turn + 180) - 180)
+        .abs();
+  }
+
+  const origin = Point2(0, 0);
+  if (residual(u, origin, abTurnDeg) > 1e-6 ||
+      residual(origin, v, bcTurnDeg) > 1e-6) return null;
+  return Point2(b.x + p.x * scale, b.y + p.y * scale);
+}
+
 /// 前方交会：已知 A、B 两点坐标，及 A 处观测角 α = ∠BAP、B 处观测角 β = ∠ABP。
 ///
 /// 采用经典余切公式，与坐标轴取向无关（只要求正交等尺度）。
@@ -107,7 +158,8 @@ DistanceIntersectionResult distanceIntersection({
       error: '两圆不相交：距离之差大于基线长',
     );
   }
-  final t = (distanceAp * distanceAp - distanceBp * distanceBp + c * c) / (2 * c);
+  final t =
+      (distanceAp * distanceAp - distanceBp * distanceBp + c * c) / (2 * c);
   final h2 = distanceAp * distanceAp - t * t;
   final h = h2 <= 0 ? 0.0 : math.sqrt(h2);
   final ux = (b.x - a.x) / c;

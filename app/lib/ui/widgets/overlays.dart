@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../../l10n/survey_strings.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
-import '../page_scaffold.dart' show glassNavBottomReserve;
 
 /// 1) Tooltip（文字提示）：iOS 风格磨砂悬浮 / 长按说明气泡。
 class SurveyTooltip extends StatelessWidget {
@@ -139,7 +137,8 @@ abstract final class SurveyToast {
           content: Text(context.tr(message)),
           duration: duration,
           action: actionLabel != null && onAction != null
-              ? SnackBarAction(label: context.tr(actionLabel), onPressed: onAction)
+              ? SnackBarAction(
+                  label: context.tr(actionLabel), onPressed: onAction)
               : null,
         ),
       );
@@ -205,7 +204,7 @@ abstract final class SurveyToast {
         onAction: onAction,
       );
 
-  /// 显式计算完成后的底部成功轻提示，并在开启触感设置时附带轻震动。
+  /// 显式计算完成后的顶部成功轻提示，并在开启触感设置时附带轻震动。
   static void calcSuccess(
     BuildContext context, [
     String message = '计算成功',
@@ -329,11 +328,7 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
     final scheme = Theme.of(context).colorScheme;
     final b = scheme.brightness;
     final isDark = b == Brightness.dark;
-    final bottomPad = MediaQuery.paddingOf(context).bottom;
-    final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
-    final glassReserve = glassNavBottomReserve(context);
-    final baseBottom = bottomPad + (glassReserve > 0 ? 84.0 : 24.0);
-    final bottomOffset = math.max(baseBottom, viewInsets + 14.0);
+    final topOffset = MediaQuery.paddingOf(context).top + 12;
 
     final (IconData icon, Color accent) = switch (widget.tone) {
       ToastTone.info => (Icons.info_rounded, IosColors.blue(b)),
@@ -345,7 +340,7 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
     final bg = isDark ? const Color(0xE02C2C2E) : const Color(0xF2FFFFFF);
 
     return Positioned(
-      bottom: bottomOffset,
+      top: topOffset,
       left: Insets.l,
       right: Insets.l,
       child: IgnorePointer(
@@ -366,9 +361,9 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: isDark ? 0.42 : 0.14,
+                            alpha: isDark ? 0.18 : 0.08,
                           ),
-                          blurRadius: 22,
+                          blurRadius: 12,
                           offset: const Offset(0, 6),
                         ),
                       ],
@@ -798,7 +793,8 @@ abstract final class SurveyModal {
         FilledButton(
           style: destructive
               ? FilledButton.styleFrom(
-                  backgroundColor: IosColors.red(Theme.of(dialogCtx).brightness),
+                  backgroundColor:
+                      IosColors.red(Theme.of(dialogCtx).brightness),
                   foregroundColor: Colors.white,
                 )
               : null,
@@ -888,9 +884,8 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
         final b = scheme.brightness;
         final spaceBelow = screenSize.height - pad.bottom - anchor.bottom - 12;
         final showBelow = spaceBelow >= 152 || anchor.top < 160;
-        final accent = widget.destructive
-            ? IosColors.red(b)
-            : IosColors.orange(b);
+        final accent =
+            widget.destructive ? IosColors.red(b) : IosColors.orange(b);
         final cardBg = isDark ? IosColors.darkTertiary : Colors.white;
         final cardBorder = scheme.outlineVariant.withValues(
           alpha: isDark ? 0.5 : 0.6,
@@ -914,7 +909,7 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(
-                        alpha: isDark ? 0.42 : 0.14,
+                        alpha: isDark ? 0.18 : 0.08,
                       ),
                       blurRadius: 20,
                       offset: const Offset(0, 6),
@@ -993,9 +988,8 @@ class _SurveyPopconfirmState extends State<SurveyPopconfirm> {
                         FilledButton(
                           onPressed: _handleConfirm,
                           style: FilledButton.styleFrom(
-                            backgroundColor: widget.destructive
-                                ? IosColors.red(b)
-                                : null,
+                            backgroundColor:
+                                widget.destructive ? IosColors.red(b) : null,
                             foregroundColor:
                                 widget.destructive ? Colors.white : null,
                             visualDensity: VisualDensity.compact,

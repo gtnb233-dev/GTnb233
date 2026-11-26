@@ -122,7 +122,10 @@ class _QuadrantPageState extends State<QuadrantPage> {
         showAngleSelector: true,
       ),
       children: [
-        const PageTutorial(id: 'quadrant'),
+        PageTutorial(id: 'quadrant', workedSteps: [
+          'α = ${fmtAngle(b.azimuthDeg)}',
+          'R = ${fmtAngle(b.rDeg)}',
+        ]),
         Row(
           children: [
             // 标签较长，320dp + 大字号下会超宽：放进横向滚动容器。
@@ -181,8 +184,8 @@ class _QuadrantPageState extends State<QuadrantPage> {
                               ),
                           ],
                           selected: {_quadrant},
-                          onSelectionChanged: (v) =>
-                              _setFromQuadrant(v.first, _rKey.currentState?.value),
+                          onSelectionChanged: (v) => _setFromQuadrant(
+                              v.first, _rKey.currentState?.value),
                         ),
                       ),
                       AngleField(

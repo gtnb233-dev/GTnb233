@@ -7,6 +7,40 @@ import 'package:survey_core/survey_core.dart';
 import 'harness.dart';
 
 void main() {
+  group('三点后方交会', () {
+    const a = Point2(5300100, 620000);
+    const b = Point2(5300120, 620120);
+    const c = Point2(5300000, 620100);
+    test('用顺时针角从控制三角形的内外恢复测站', () {
+      for (final p in [
+        const Point2(5300000, 620000),
+        const Point2(5300060, 620070),
+        const Point2(5300500, 619800),
+      ]) {
+        final solution = angularResection(
+          a: a,
+          b: b,
+          c: c,
+          abTurnDeg: wrapDeg(azimuthDeg(p, b) - azimuthDeg(p, a)),
+          bcTurnDeg: wrapDeg(azimuthDeg(p, c) - azimuthDeg(p, b)),
+        );
+        expectClose(solution!.x, p.x, tol: 1e-7);
+        expectClose(solution.y, p.y, tol: 1e-7);
+      }
+    });
+    test('危险圆不返回任意测站', () {
+      expectEqual(
+          angularResection(
+            a: const Point2(100, 0),
+            b: const Point2(100, 100),
+            c: const Point2(0, 100),
+            abTurnDeg: 45,
+            bcTurnDeg: 45,
+          ),
+          null);
+    });
+  });
+
   group('角度', () {
     test('degToDms 60 进位', () {
       final d = degToDms(123.4999999, secDigits: 2);
@@ -43,7 +77,8 @@ void main() {
         tol: 1e-12,
       );
       expectClose(parseAngle('90.30.'), 90.5, tol: 1e-12);
-      expectClose(parseAngle('-12.30.45'), -(12 + 30 / 60 + 45 / 3600), tol: 1e-12);
+      expectClose(parseAngle('-12.30.45'), -(12 + 30 / 60 + 45 / 3600),
+          tol: 1e-12);
       expectClose(parseAngle('-0.30.15'), -(30 / 60 + 15 / 3600), tol: 1e-12);
       expectClose(parseAngle('90 30 15'), deg903015, tol: 1e-12);
       expectClose(
@@ -86,7 +121,8 @@ void main() {
 
     // ── GG.MMSS 紧凑写法专项（Lead 复核提出的回归用例）──────────────────
     test('GG.MMSS 解析：123.4530 = 123°45′30″', () {
-      expectClose(parseAngle('123.4530'), 123 + 45 / 60 + 30 / 3600, tol: 1e-12);
+      expectClose(parseAngle('123.4530'), 123 + 45 / 60 + 30 / 3600,
+          tol: 1e-12);
       expectClose(
         parseAngle('123.45567'),
         123 + 45 / 60 + 56.7 / 3600,
@@ -111,7 +147,8 @@ void main() {
       const v = 123 + 45 / 60 + 56.7 / 3600;
       expectClose(parseAngle(fmtDmsCompact(v)), v, tol: 1e-9);
       expectClose(parseAngle(fmtDmsCompact(0.5, secDigits: 0)), 0.5, tol: 1e-9);
-      expectClose(parseAngle(fmtDmsCompact(12.3456, secDigits: 3)), 12.3456, tol: 1e-9);
+      expectClose(parseAngle(fmtDmsCompact(12.3456, secDigits: 3)), 12.3456,
+          tol: 1e-9);
     });
 
     test('秒四舍五入到 60 时进位（不出 .5960 这类非法值）', () {
@@ -465,7 +502,8 @@ void main() {
       // Σh = 1.050，理论 1.000 → fh = +50mm
       expectClose(r.sumDifference, 1.05, tol: 1e-9);
       expectClose(r.misclosureMm, 50, tol: 1e-6);
-      expectClose(r.corrections.fold<double>(0, (s, v) => s + v), -50, tol: 1e-6);
+      expectClose(r.corrections.fold<double>(0, (s, v) => s + v), -50,
+          tol: 1e-6);
       expectClose(r.elevations.last, 101.0, tol: 1e-9);
       // fh = 50mm > 12√4 = 24mm，按四等附合水准应判超限
       expectFalse(r.ok, reason: '50mm 超过 24mm 限差，应判超限');
@@ -607,7 +645,8 @@ void main() {
         expectClose(right.points[i].y, left.points[i].y, tol: 1e-9);
       }
       // 改正后回起点
-      final adj = traverseAdjustedPoints(start: const Point2(0, 0), result: right);
+      final adj =
+          traverseAdjustedPoints(start: const Point2(0, 0), result: right);
       expectClose(adj.last.x, 0, tol: 1e-9);
       expectClose(adj.last.y, 0, tol: 1e-9);
     });
@@ -807,7 +846,8 @@ void main() {
         for (final e in vars.entries) {
           if (e.value == 0) vars[e.key] = 1;
         }
-        final value = ExpressionEvaluator.evaluate(f.expression, variables: vars);
+        final value =
+            ExpressionEvaluator.evaluate(f.expression, variables: vars);
         expectTrue(value.isFinite, reason: '公式 ${f.name} 结果无效');
       }
     });
@@ -1314,7 +1354,8 @@ void main() {
       expectClose(tb.xaMinusXbTanAlphaTanBeta, 1137.690, tol: 1e-3);
       expectClose(tb.xp, 869.198, tol: 1e-3);
       expectClose(tb.yp, 735.228, tol: 1e-3);
-      expectClose(tb.gammaDeg, 180 - dmsToDeg(69, 11, 3) - dmsToDeg(59, 42, 39), tol: 1e-9);
+      expectClose(tb.gammaDeg, 180 - dmsToDeg(69, 11, 3) - dmsToDeg(59, 42, 39),
+          tol: 1e-9);
       // 与余切式 forwardIntersection 完全一致
       final fi = forwardIntersection(
         a: const Point2(659.232, 355.537),
@@ -1348,7 +1389,8 @@ void main() {
       );
       // 教材值只给到 0.1″，容差按 0.1″（2.8e-5°）留足
       expectClose(
-        azimuthDeg(const Point2(502.110, 496.225), const Point2(746.202, 456.588)),
+        azimuthDeg(
+            const Point2(502.110, 496.225), const Point2(746.202, 456.588)),
         dmsToDeg(350, 46, 35.4),
         tol: 1e-4,
       );
@@ -1380,7 +1422,17 @@ void main() {
       expectEqual(quadrantFromAzimuth(180).quadrant, Quadrant.southWest);
       expectEqual(quadrantFromAzimuth(270).quadrant, Quadrant.northWest);
       // 反算回方位角
-      for (final az in [0.0, 45.0, 90.0, 123.75, 180.0, 200.0, 270.0, 300.0, 359.0]) {
+      for (final az in [
+        0.0,
+        45.0,
+        90.0,
+        123.75,
+        180.0,
+        200.0,
+        270.0,
+        300.0,
+        359.0
+      ]) {
         final q = quadrantFromAzimuth(az);
         expectClose(azimuthFromQuadrant(q.quadrant, q.rDeg), az, tol: 1e-9);
       }
@@ -1617,7 +1669,8 @@ void main() {
         stations: const [
           LevelingRouteStation(pointName: '1', meanDiffMm: 400, distanceM: 200),
           LevelingRouteStation(pointName: '2', meanDiffMm: 300, distanceM: 200),
-          LevelingRouteStation(pointName: 'BM2', meanDiffMm: 294, distanceM: 200),
+          LevelingRouteStation(
+              pointName: 'BM2', meanDiffMm: 294, distanceM: 200),
         ],
       );
       expectFalse(r.isClosed);
@@ -1647,7 +1700,8 @@ void main() {
         stations: const [
           LevelingRouteStation(pointName: '1', meanDiffMm: 430, distanceM: 200),
           LevelingRouteStation(pointName: '2', meanDiffMm: 300, distanceM: 200),
-          LevelingRouteStation(pointName: 'BM2', meanDiffMm: 300, distanceM: 200),
+          LevelingRouteStation(
+              pointName: 'BM2', meanDiffMm: 300, distanceM: 200),
         ],
       );
       expectClose(r.misclosureMm, 30, tol: 1e-9);
@@ -1734,7 +1788,8 @@ void main() {
         tol: 1e-12,
       );
       expectClose(
-        levelingMisclosureLimitMm(grade: LevelingGrade.fourth, stationCount: 16),
+        levelingMisclosureLimitMm(
+            grade: LevelingGrade.fourth, stationCount: 16),
         24,
         tol: 1e-12,
       );
@@ -1822,7 +1877,8 @@ void main() {
         angleLimitCoefficient: 24,
       );
       expectTrue(forceExtWithLeft != null);
-      expectEqual(forceExtWithLeft!.angleConvention, AngleConvention.exteriorSum);
+      expectEqual(
+          forceExtWithLeft!.angleConvention, AngleConvention.exteriorSum);
       expectClose(forceExtWithLeft.expectedAngleSum, 1080, tol: 1e-9);
       expectClose(forceExtWithLeft.angleMisclosureSec, 0, tol: 1e-9);
       expectClose(forceExtWithLeft.angleLimitSec, 48, tol: 1e-9); // 24*sqrt(4)
@@ -1838,10 +1894,12 @@ void main() {
         angleLimitCoefficient: 60,
       );
       expectTrue(forceIntWithRight != null);
-      expectEqual(forceIntWithRight!.angleConvention, AngleConvention.interiorSum);
+      expectEqual(
+          forceIntWithRight!.angleConvention, AngleConvention.interiorSum);
       expectClose(forceIntWithRight.expectedAngleSum, 360, tol: 1e-9);
       expectClose(forceIntWithRight.angleMisclosureSec, 0, tol: 1e-9);
-      expectClose(forceIntWithRight.angleLimitSec, 120, tol: 1e-9); // 60*sqrt(4)
+      expectClose(forceIntWithRight.angleLimitSec, 120,
+          tol: 1e-9); // 60*sqrt(4)
     });
   });
 

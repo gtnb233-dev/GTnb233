@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../workspace_page_route.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
@@ -8,6 +9,7 @@ import '../../../l10n/survey_strings.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
+import 'tin_workspace.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
@@ -105,6 +107,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
     return '${_pts[i].label}→${_pts[next].label}：边长 ${fmt(r.distance, 3)} m，'
         '方位角 ${fmtAzimuth(r.azimuthDeg, secDigits: secDigits)}';
   }
+
   List<ParsedPoint> _pts = const [];
   double _area = 0;
   double _perimeter = 0;
@@ -145,8 +148,7 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
     final u = SettingsScope.read(context).lengthUnit;
     final digits = u.displayDigits(3);
     String f(double meters) => u.fromMeters(meters).toStringAsFixed(digits);
-    _points.text =
-        'A, ${f(1000)}, ${f(2000)}\n'
+    _points.text = 'A, ${f(1000)}, ${f(2000)}\n'
         'B, ${f(1080)}, ${f(2000)}\n'
         'C, ${f(1080)}, ${f(2060)}\n'
         'D, ${f(1000)}, ${f(2060)}';
@@ -300,9 +302,8 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
                 unit: u.symbol,
                 emphasis: true,
                 icon: Icons.timeline,
-                note: u == LengthUnit.meter
-                    ? null
-                    : '= ${fmt(_perimeter, 3)} m',
+                note:
+                    u == LengthUnit.meter ? null : '= ${fmt(_perimeter, 3)} m',
               ),
               ResultTile(
                 label: '顶点数',
@@ -392,7 +393,12 @@ class _AreaPageState extends State<AreaPage> with DraftMixin<AreaPage> {
       sideVisual: sideVisual,
       bottomSection: bottomTables,
       children: [
-        const PageTutorial(id: 'area'),
+        PageTutorial(id: 'area', workedSteps: [
+          if (_pts.length >= 3) ...[
+            'S = ½ |Σ(XᵢYᵢ₊₁ − Xᵢ₊₁Yᵢ)| = ${fmt(_area, 3)} m²',
+            'P = ΣDᵢ = ${fmt(_perimeter, 3)} m',
+          ],
+        ]),
         InputCard(
           step: 1,
           icon: Icons.crop_square_outlined,
@@ -557,6 +563,7 @@ class _EarthworkPageState extends State<EarthworkPage>
       ],
     );
   }
+
   String? _error;
 
   @override
@@ -787,7 +794,8 @@ class _EarthworkPageState extends State<EarthworkPage>
                     ],
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(top: Insets.s, bottom: Insets.xxs),
+                    padding: const EdgeInsets.only(
+                        top: Insets.s, bottom: Insets.xxs),
                     child: Text(
                       '其中 ${_grid!.splitCellCount} 格跨挖填零线，已按三角形/梯形细分',
                       style: TextStyle(
@@ -810,6 +818,13 @@ class _EarthworkPageState extends State<EarthworkPage>
 
     return DetailScaffold(
       title: '土方计算',
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).push(WorkspacePageRoute<void>(
+              builder: (_) => const TinWorkspacePage())),
+          child: const Text('TIN'),
+        )
+      ],
       subtitle: '平均断面法（道路）与方格网法（场地）',
       toolbar: PageActions(
         pageId: draftPageId,
@@ -825,7 +840,12 @@ class _EarthworkPageState extends State<EarthworkPage>
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
-        const PageTutorial(id: 'earthwork'),
+        PageTutorial(id: 'earthwork', workedSteps: [
+          if (_mode == 0 && sec != null)
+            'V = Σ[(Aᵢ + Aᵢ₊₁) ÷ 2 × Dᵢ] = ${fmt(sec.total, 3)} m³',
+          if (_mode != 0 && grid != null)
+            'ΔV = ${fmt(grid.cut, 3)} − ${fmt(grid.fill, 3)} = ${fmt(grid.net, 3)} m³',
+        ]),
         Row(
           children: [
             Expanded(

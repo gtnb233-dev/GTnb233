@@ -6,6 +6,8 @@ import 'package:survey_core/survey_core.dart';
 import 'survey_forms.dart';
 import 'xlsx_writer.dart';
 
+typedef HandbookNotesTranslator = String Function(String, Map<String, Object>);
+
 /// 三（四）等水准测量观测手簿中的单个测站记录。
 class LevelingHandbookStation {
   const LevelingHandbookStation({
@@ -105,22 +107,23 @@ class LevelingHandbookXlsx {
     String frontRodLabel = '',
     List<String> extraNotes = const <String>[],
     DateTime? date,
-  }) => XlsxWriter.buildWorkbook(
-    buildSheets(
-      stations: stations,
-      kBack: kBack,
-      kFront: kFront,
-      title: title,
-      route: route,
-      gradeLabel: gradeLabel,
-      closed: closed,
-      byDistance: byDistance,
-      backRodLabel: backRodLabel,
-      frontRodLabel: frontRodLabel,
-      extraNotes: extraNotes,
-      date: date,
-    ),
-  );
+  }) =>
+      XlsxWriter.buildWorkbook(
+        buildSheets(
+          stations: stations,
+          kBack: kBack,
+          kFront: kFront,
+          title: title,
+          route: route,
+          gradeLabel: gradeLabel,
+          closed: closed,
+          byDistance: byDistance,
+          backRodLabel: backRodLabel,
+          frontRodLabel: frontRodLabel,
+          extraNotes: extraNotes,
+          date: date,
+        ),
+      );
 
   /// 构建完整多工作表「水准测量观测手簿 + 成果计算表」工作簿数据（供 Excel 与工程表图片共用）。
   static List<XlsxSheetData> buildSheets({
@@ -136,10 +139,26 @@ class LevelingHandbookXlsx {
     String frontRodLabel = '',
     List<String> extraNotes = const <String>[],
     DateTime? date,
+    double distanceToleranceM = kDoubleStaffDistanceDiffToleranceM,
+    double? sightToleranceM,
+    double? faceToleranceMm,
+    HandbookNotesTranslator? translateNote,
   }) {
     final cells = <XlsxCell>[];
     final merges = <XlsxMerge>[];
     final rowHeights = <int, double>{};
+    String note(String text, [Map<String, Object> args = const {}]) =>
+        translateNote?.call(text, args) ??
+        text.replaceAllMapped(RegExp(r'\{(\w+)\}'),
+            (match) => args[match[1]]?.toString() ?? match[0]!);
+    final limitsNote = note(
+      '测站限差：|d| ≤ {distance} m、|Σd| ≤ {cumulative} m、|K+黑−红| ≤ {constant} mm。',
+      {
+        'distance': distanceToleranceM.toStringAsFixed(0),
+        'cumulative': kDoubleStaffCumulativeToleranceM.toStringAsFixed(0),
+        'constant': kDoubleStaffConstantToleranceMm.toStringAsFixed(0),
+      },
+    );
 
     void add(
       int r,
@@ -198,7 +217,8 @@ class LevelingHandbookXlsx {
     add(5, 4, 'Σd(m)', style: XlsxCellStyle.headerCenter, forceString: true);
     merge(5, 4, 5, 5);
 
-    add(2, 6, '方向\n及\n尺号', style: XlsxCellStyle.headerCenter, forceString: true);
+    add(2, 6, '方向\n及\n尺号',
+        style: XlsxCellStyle.headerCenter, forceString: true);
     merge(2, 6, 5, 6);
 
     add(
@@ -214,10 +234,12 @@ class LevelingHandbookXlsx {
     add(4, 8, '红面', style: XlsxCellStyle.headerCenter, forceString: true);
     merge(4, 8, 5, 8);
 
-    add(2, 9, 'K+黑-红\n(mm)', style: XlsxCellStyle.headerCenter, forceString: true);
+    add(2, 9, 'K+黑-红\n(mm)',
+        style: XlsxCellStyle.headerCenter, forceString: true);
     merge(2, 9, 5, 9);
 
-    add(2, 10, '高差\n中数\n(m)', style: XlsxCellStyle.headerCenter, forceString: true);
+    add(2, 10, '高差\n中数\n(m)',
+        style: XlsxCellStyle.headerCenter, forceString: true);
     merge(2, 10, 5, 10);
 
     add(2, 11, '备注', style: XlsxCellStyle.headerCenter, forceString: true);
@@ -354,7 +376,8 @@ class LevelingHandbookXlsx {
       merge(r3, 4, r3, 5);
 
       // 方向及尺号
-      final bLabel = st.backRodLabel.isNotEmpty ? st.backRodLabel : backRodLabel;
+      final bLabel =
+          st.backRodLabel.isNotEmpty ? st.backRodLabel : backRodLabel;
       final fLabel =
           st.frontRodLabel.isNotEmpty ? st.frontRodLabel : frontRodLabel;
       add(r0, 6, '后$bLabel', forceString: true);
@@ -374,8 +397,10 @@ class LevelingHandbookXlsx {
       add(r3, 8, '');
 
       // K+黑-红 与 (17)
-      add(r0, 9, formatSignedIntOrDec(res.backConstantDiffMm), forceString: true);
-      add(r1, 9, formatSignedIntOrDec(res.frontConstantDiffMm), forceString: true);
+      add(r0, 9, formatSignedIntOrDec(res.backConstantDiffMm),
+          forceString: true);
+      add(r1, 9, formatSignedIntOrDec(res.frontConstantDiffMm),
+          forceString: true);
       add(r2, 9, formatSignedIntOrDec(item17), forceString: true);
       add(r3, 9, '');
 
@@ -471,12 +496,18 @@ class LevelingHandbookXlsx {
 
     // ─── 注意事项框（贴合纸质手簿底栏） ───
     rowHeights[cursor] = 68;
-    add(cursor, 0, '注意事项', style: XlsxCellStyle.headerCenter, forceString: true);
+    add(cursor, 0, '注意事项',
+        style: XlsxCellStyle.headerCenter, forceString: true);
     merge(cursor, 0, cursor, 1);
-    const handbookPrecautions =
-        '1. 路线按规范设置转点（仅转点安放尺垫，起终点须选固定标志并标明常数 K）；\n'
-        '2. 限差要求：三等视线 ≤ 75 m，四等视线 ≤ 100 m；前后视距差 ≤ 3.0 m，视距累积差 ≤ 10.0 m；\n'
-        '3. 读数检核：黑、红面读数差 ≤ 3.0 mm，黑、红面所测高差之差 ≤ 5.0 mm，高差中数取至 mm 并按四舍六入五单双进位。';
+    final handbookPrecautions = [
+      note('起终点选用固定标志，转点使用尺垫，核对两尺常数 K。'),
+      limitsNote,
+      if (sightToleranceM != null && faceToleranceMm != null)
+        note('视线长度 ≤ {sight} m。经尺常数改正的红黑面高差之差 ≤ {faces} mm。', {
+          'sight': sightToleranceM.toStringAsFixed(0),
+          'faces': faceToleranceMm.toStringAsFixed(0)
+        }),
+    ].join('\n');
     add(
       cursor,
       2,
@@ -489,15 +520,18 @@ class LevelingHandbookXlsx {
 
     // ─── 观测 / 记录 / 校核签名栏 ───
     final d = date ?? DateTime.now();
-    final dateStr =
-        '${d.year} 年 ${d.month.toString().padLeft(2, '0')} 月 ${d.day.toString().padLeft(2, '0')} 日';
+    final dateStr = translateNote != null
+        ? '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}'
+        : '${d.year} 年 ${d.month.toString().padLeft(2, '0')} 月 ${d.day.toString().padLeft(2, '0')} 日';
     rowHeights[cursor] = 22;
     add(cursor, 0, '校核', style: XlsxCellStyle.headerCenter, forceString: true);
     merge(cursor, 0, cursor, 1);
     add(
       cursor,
       2,
-      '观测：________    记录：________    计算：________    校核：________    日期：$dateStr',
+      note(
+          '观测：________    记录：________    计算：________    校核：________    日期：{date}',
+          {'date': dateStr}),
       style: XlsxCellStyle.cellLeft,
       forceString: true,
     );
@@ -549,7 +583,8 @@ class LevelingHandbookXlsx {
 
     rowHeights[cursor] = 30;
     add(cursor, 0, '等级', style: XlsxCellStyle.headerCenter, forceString: true);
-    add(cursor, 1, '观测方法', style: XlsxCellStyle.headerCenter, forceString: true);
+    add(cursor, 1, '观测方法',
+        style: XlsxCellStyle.headerCenter, forceString: true);
     merge(cursor, 1, cursor, 2);
     add(
       cursor,
@@ -611,16 +646,16 @@ class LevelingHandbookXlsx {
 
     // ─── 计算公式说明与附注 ───
     final notes = <String>[
-      '计算顺序（对照手簿编号）：(1)(2) 后尺上/下丝→(9) 后视距；(3)(4) 黑面读数→(15) 黑差；'
+      note('计算顺序（对照手簿编号）：(1)(2) 后尺上/下丝→(9) 后视距；(3)(4) 黑面读数→(15) 黑差；'
           '(5)(6) 前尺上/下丝→(10) 前视距；(7)(8) 红面读数→(16) 红差；'
           '(11) d = 后视距 − 前视距 → (12) Σd；'
-          '(13)(14) K + 黑 − 红 → (17) 检核差 → (18) 高差中数(m)。',
-      '高差中数(m) = [(黑后 − 黑前) + (红后 − 红前 − (K后 − K前))] ÷ 2 ÷ 1000；'
-          '手簿限差：|d| ≤ 5 m、|Σd| ≤ 10 m、|K+黑−红| ≤ 3 mm。',
+          '(13)(14) K + 黑 − 红 → (17) 检核差 → (18) 高差中数(m)。'),
+      note('高差中数(m) = [(黑后 − 黑前) + (红后 − 红前 − (K后 − K前))] ÷ 2 ÷ 1000。'),
+      limitsNote,
       ...extraNotes,
     ];
     for (final n in notes) {
-      rowHeights[cursor] = 20;
+      rowHeights[cursor] = n.length > 120 ? 40 : 20;
       add(cursor, 0, n, style: XlsxCellStyle.note, forceString: true);
       merge(cursor, 0, cursor, 11);
       cursor++;
@@ -647,7 +682,8 @@ class LevelingHandbookXlsx {
       final segmentLengthsM = List<double>.generate(
         segCount,
         (i) => i < stations.length
-            ? stations[i].result.backDistanceM + stations[i].result.frontDistanceM
+            ? stations[i].result.backDistanceM +
+                stations[i].result.frontDistanceM
             : 0.0,
       );
       final observedDiffsM = List<double>.generate(
@@ -655,12 +691,12 @@ class LevelingHandbookXlsx {
         (i) => i < stations.length
             ? stations[i].result.meanDiffM
             : ((i < route.correctedDiffsMm.length
-                          ? route.correctedDiffsMm[i]
-                          : 0.0) -
-                      (i < route.correctionsMm.length
-                          ? route.correctionsMm[i]
-                          : 0.0)) /
-                  1000.0,
+                        ? route.correctedDiffsMm[i]
+                        : 0.0) -
+                    (i < route.correctionsMm.length
+                        ? route.correctionsMm[i]
+                        : 0.0)) /
+                1000.0,
       );
       final correctionsMm = List<double>.generate(
         segCount,
@@ -669,15 +705,17 @@ class LevelingHandbookXlsx {
       final adjustedDiffsM = List<double>.generate(
         segCount,
         (i) =>
-            (i < route.correctedDiffsMm.length ? route.correctedDiffsMm[i] : 0.0) /
+            (i < route.correctedDiffsMm.length
+                ? route.correctedDiffsMm[i]
+                : 0.0) /
             1000.0,
       );
       final isClosed = closed ?? route.isClosed;
       final theoreticalDiffM = isClosed
           ? 0.0
           : (route.heightsM.length >= 2
-                ? route.heightsM.last - route.heightsM.first
-                : 0.0);
+              ? route.heightsM.last - route.heightsM.first
+              : 0.0);
       final gLabel = gradeLabel == null || gradeLabel.trim().isEmpty
           ? '四等'
           : gradeLabel.trim();

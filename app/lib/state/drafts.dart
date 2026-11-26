@@ -20,6 +20,7 @@ class DraftStore extends ChangeNotifier {
   final Map<String, DateTime> _savedAt = {};
   final Map<String, Timer> _timers = {};
   bool _loaded = false;
+  Future<void> _writes = Future<void>.value();
 
   bool get loaded => _loaded;
 
@@ -59,7 +60,28 @@ class DraftStore extends ChangeNotifier {
   DateTime? savedAt(String pageId) => _savedAt[pageId];
 
   /// 当前已保存草稿的页面数量。
-  int get savedCount => _cache.length;
+  int get savedCount => recentIds.length;
+
+  List<String> get recentIds {
+    final ids = _cache.keys.where((id) => !id.startsWith('_')).toList();
+    ids.sort((a, b) {
+      final first = _savedAt[a]?.millisecondsSinceEpoch ?? 0;
+      final second = _savedAt[b]?.millisecondsSinceEpoch ?? 0;
+      return second != first ? second.compareTo(first) : a.compareTo(b);
+    });
+    return ids;
+  }
+
+  Future<String> createLevelRoute(String title) async {
+    var stamp = DateTime.now().microsecondsSinceEpoch;
+    while (_cache.containsKey('leveling4/$stamp')) {
+      stamp++;
+    }
+    final id = 'leveling4/$stamp';
+    putAll(id, {'_title': title, 'rowCount': '1'});
+    await flushPage(id);
+    return id;
+  }
 
   /// 写入单个字段：内存立即生效，落盘走防抖。
   void put(String pageId, String field, String value) {
@@ -84,29 +106,44 @@ class DraftStore extends ChangeNotifier {
 
   Future<void> clear(String pageId) async {
     _timers.remove(pageId)?.cancel();
+    final title = _cache[pageId]?['_title'];
+    if (title != null) {
+      _cache[pageId] = {'_title': title, 'rowCount': '1'};
+      await _flush(pageId);
+      return;
+    }
     _cache.remove(pageId);
     _savedAt.remove(pageId);
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
-    await p.remove('$_prefix$pageId');
-    await p.remove('$_stampPrefix$pageId');
+    await _enqueue((p) async {
+      await p.remove('$_prefix$pageId');
+      await p.remove('$_stampPrefix$pageId');
+    });
   }
 
   /// 清空全部工具页的本地草稿并取消待定防抖。
   Future<void> clearAll() async {
-    for (final t in _timers.values) {
-      t.cancel();
+    final ids = recentIds;
+    for (final id in ids) {
+      _timers.remove(id)?.cancel();
+      _cache.remove(id);
+      _savedAt.remove(id);
     }
-    _timers.clear();
-    _cache.clear();
-    _savedAt.clear();
     notifyListeners();
-    final p = await SharedPreferences.getInstance();
-    for (final key in p.getKeys().toList()) {
-      if (key.startsWith(_prefix) || key.startsWith(_stampPrefix)) {
-        await p.remove(key);
+    await _enqueue((p) async {
+      for (final id in ids) {
+        await p.remove('$_prefix$id');
+        await p.remove('$_stampPrefix$id');
       }
-    }
+    });
+  }
+
+  Future<void> _enqueue(Future<void> Function(SharedPreferences) write) {
+    final pending =
+        _writes.then((_) async => write(await SharedPreferences.getInstance()));
+    // Allow later saves to proceed if a particular preferences operation fails.
+    _writes = pending.catchError((Object _) {});
+    return pending;
   }
 
   void _schedule(String pageId) {
@@ -121,9 +158,11 @@ class DraftStore extends ChangeNotifier {
     final now = DateTime.now();
     _savedAt[pageId] = now;
     if (notify) notifyListeners();
-    final p = await SharedPreferences.getInstance();
-    await p.setString('$_prefix$pageId', json.encode(map));
-    await p.setString('$_stampPrefix$pageId', now.toIso8601String());
+    final payload = json.encode(map);
+    await _enqueue((p) async {
+      await p.setString('$_prefix$pageId', payload);
+      await p.setString('$_stampPrefix$pageId', now.toIso8601String());
+    });
   }
 
   /// 立刻落盘某一页并取消它的待定防抖定时器。

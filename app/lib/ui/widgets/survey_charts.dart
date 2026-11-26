@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 
 /// 方格网挖填热力图 + 挖填零线 + 点击格交互明细。
@@ -234,7 +235,8 @@ class _EarthworkGridPainter extends CustomPainter {
           : (meanH >= 0 ? cutColor : fillColor);
       canvas.drawRect(
         rect,
-        Paint()..color = baseColor.withValues(alpha: c.split ? 0.24 : intensity),
+        Paint()
+          ..color = baseColor.withValues(alpha: c.split ? 0.24 : intensity),
       );
       canvas.drawRect(
         rect,
@@ -481,7 +483,8 @@ class _SectionProfilePainter extends CustomPainter {
     final gridPaint = Paint()
       ..color = scheme.outlineVariant.withValues(alpha: 0.35)
       ..strokeWidth = 1;
-    canvas.drawLine(Offset(left, baseY), Offset(left + plotW, baseY), gridPaint);
+    canvas.drawLine(
+        Offset(left, baseY), Offset(left + plotW, baseY), gridPaint);
     canvas.drawLine(const Offset(left, top), Offset(left, baseY), gridPaint);
 
     final linePath = Path();
@@ -691,8 +694,8 @@ class _VerticalCurvePainter extends CustomPainter {
       verticalElevationAt(curve: curve, station: maxS),
     ];
     for (var i = 0; i <= 40; i++) {
-      final s = curve.bvcStation +
-          (curve.evcStation - curve.bvcStation) * (i / 40.0);
+      final s =
+          curve.bvcStation + (curve.evcStation - curve.bvcStation) * (i / 40.0);
       final h = verticalElevationAt(curve: curve, station: s);
       samples.add((s, h));
       elevs.add(h);
@@ -771,7 +774,8 @@ class _VerticalCurvePainter extends CustomPainter {
     );
 
     // 主点标记
-    void dot(Offset o, String label, Color color, {Offset offset = const Offset(0, -13)}) {
+    void dot(Offset o, String label, Color color,
+        {Offset offset = const Offset(0, -13)}) {
       canvas.drawCircle(o, 4.5, Paint()..color = scheme.surface);
       canvas.drawCircle(o, 3.2, Paint()..color = color);
       _paintText(
@@ -788,12 +792,15 @@ class _VerticalCurvePainter extends CustomPainter {
     }
 
     dot(pBvc, '起点', scheme.tertiary, offset: const Offset(0, 12));
-    dot(pVpi, '变坡点', scheme.onSurfaceVariant, offset: Offset(0, curve.isCrest ? -12 : 12));
-    dot(toPx(curve.evcStation, curve.evcElevation), '终点', scheme.tertiary, offset: const Offset(0, 12));
+    dot(pVpi, '变坡点', scheme.onSurfaceVariant,
+        offset: Offset(0, curve.isCrest ? -12 : 12));
+    dot(toPx(curve.evcStation, curve.evcElevation), '终点', scheme.tertiary,
+        offset: const Offset(0, 12));
 
     if (queryStation != null && queryElevation != null) {
       final pq = toPx(queryStation!, queryElevation!);
-      dot(pq, 'K${fmt(queryStation!, 1)}', scheme.error, offset: const Offset(0, -14));
+      dot(pq, 'K${fmt(queryStation!, 1)}', scheme.error,
+          offset: const Offset(0, -14));
     }
   }
 
@@ -815,6 +822,8 @@ class LevelingProfileChart extends StatelessWidget {
     required this.distancesM,
     required this.correctionsMm,
     this.errorStations = const <int>{},
+    this.selectedStation,
+    this.onStationSelected,
     this.height = 230,
   });
 
@@ -823,6 +832,8 @@ class LevelingProfileChart extends StatelessWidget {
   final List<double> distancesM;
   final List<double> correctionsMm;
   final Set<int> errorStations;
+  final int? selectedStation;
+  final ValueChanged<int>? onStationSelected;
   final double height;
 
   @override
@@ -830,6 +841,12 @@ class LevelingProfileChart extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     if (heightsM.length < 2 || correctionsMm.isEmpty) {
       return const SizedBox.shrink();
+    }
+    final chainages = <double>[0];
+    for (var i = 0; i < heightsM.length - 1; i++) {
+      final distance =
+          i < distancesM.length && distancesM[i] > 0 ? distancesM[i] : 1.0;
+      chainages.add(chainages.last + distance);
     }
     return Container(
       decoration: BoxDecoration(
@@ -847,7 +864,7 @@ class LevelingProfileChart extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                '水准高程纵断面与改正数分配',
+                context.tr('水准高程纵断面与改正数分配'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -863,19 +880,39 @@ class LevelingProfileChart extends StatelessWidget {
           const SizedBox(height: Insets.s),
           SizedBox(
             height: height,
-            child: CustomPaint(
-              painter: _LevelingProfilePainter(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final painter = _LevelingProfilePainter(
                 pointNames: pointNames,
                 heightsM: heightsM,
-                distancesM: distancesM,
+                chainages: chainages,
                 correctionsMm: correctionsMm,
                 errorStations: errorStations,
+                selectedStation: selectedStation,
+                correctionLabel: context.tr('改正(mm)'),
                 scheme: scheme,
                 fontFamily: DefaultTextStyle.of(context).style.fontFamily,
                 fontFamilyFallback:
                     DefaultTextStyle.of(context).style.fontFamilyFallback,
-              ),
-            ),
+              );
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: onStationSelected == null
+                    ? null
+                    : (event) {
+                        final x = painter.chainageAt(
+                            event.localPosition.dx, constraints.maxWidth);
+                        if (x == null) return;
+                        var station = 0;
+                        while (station < chainages.length - 2 &&
+                            x > chainages[station + 1]) {
+                          station++;
+                        }
+                        onStationSelected!(station);
+                      },
+                child: CustomPaint(
+                    painter: painter, child: const SizedBox.expand()),
+              );
+            }),
           ),
         ],
       ),
@@ -887,9 +924,11 @@ class _LevelingProfilePainter extends CustomPainter {
   _LevelingProfilePainter({
     required this.pointNames,
     required this.heightsM,
-    required this.distancesM,
+    required this.chainages,
     required this.correctionsMm,
     required this.errorStations,
+    required this.selectedStation,
+    required this.correctionLabel,
     required this.scheme,
     this.fontFamily,
     this.fontFamilyFallback,
@@ -897,18 +936,29 @@ class _LevelingProfilePainter extends CustomPainter {
 
   final List<String> pointNames;
   final List<double> heightsM;
-  final List<double> distancesM;
+  final List<double> chainages;
   final List<double> correctionsMm;
   final Set<int> errorStations;
+  final int? selectedStation;
+  final String correctionLabel;
   final ColorScheme scheme;
   final String? fontFamily;
   final List<String>? fontFamilyFallback;
 
+  static const _left = 46.0;
+  static const _right = 18.0;
+
+  double? chainageAt(double x, double width) {
+    final span = math.max(10.0, width - _left - _right);
+    if (x < _left || x > _left + span) return null;
+    return (x - _left) / span * chainages.last;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
-    const left = 46.0;
-    const right = 18.0;
+    const left = _left;
+    const right = _right;
     const top = 16.0;
     const bottom = 22.0;
     const gap = 20.0;
@@ -918,12 +968,8 @@ class _LevelingProfilePainter extends CustomPainter {
     final barH = totalH * 0.36;
     final barTop = top + profileH + gap;
 
-    final xs = <double>[0];
-    for (var i = 0; i < heightsM.length - 1; i++) {
-      final d = i < distancesM.length && distancesM[i] > 0 ? distancesM[i] : 1.0;
-      xs.add(xs.last + d);
-    }
-    final maxX = xs.last <= 0 ? 1.0 : xs.last;
+    final xs = chainages;
+    final maxX = xs.last;
 
     var minH = heightsM.reduce(math.min);
     var maxH = heightsM.reduce(math.max);
@@ -939,6 +985,15 @@ class _LevelingProfilePainter extends CustomPainter {
     final gridPaint = Paint()
       ..color = scheme.outlineVariant.withValues(alpha: 0.32)
       ..strokeWidth = 1;
+    final selected = selectedStation;
+    if (selected != null && selected >= 0 && selected + 1 < heightsM.length) {
+      final a = toPx(selected).dx;
+      final b = toPx(selected + 1).dx;
+      canvas.drawRect(
+        Rect.fromLTRB(a, top, b, barTop + barH),
+        Paint()..color = scheme.primary.withValues(alpha: 0.10),
+      );
+    }
     canvas.drawLine(
       Offset(left, top + profileH),
       Offset(left + plotW, top + profileH),
@@ -1004,8 +1059,8 @@ class _LevelingProfilePainter extends CustomPainter {
     // 站点圆点与点号
     for (var i = 0; i < heightsM.length; i++) {
       final pt = toPx(i);
-      final isErr = errorStations.contains(i) ||
-          (i > 0 && errorStations.contains(i - 1));
+      final isErr =
+          errorStations.contains(i) || (i > 0 && errorStations.contains(i - 1));
       final dotColor = isErr ? scheme.error : scheme.primary;
       canvas.drawCircle(pt, 4.2, Paint()..color = scheme.surface);
       canvas.drawCircle(pt, 3.0, Paint()..color = dotColor);
@@ -1033,7 +1088,7 @@ class _LevelingProfilePainter extends CustomPainter {
     );
     _paintText(
       canvas,
-      '改正(mm)',
+      correctionLabel,
       Offset(left - 4, barZeroY),
       scheme.onSurfaceVariant,
       fontSize: 8.5,
@@ -1042,14 +1097,12 @@ class _LevelingProfilePainter extends CustomPainter {
       fontFamilyFallback: fontFamilyFallback,
     );
 
-    final maxAbsCorr = correctionsMm
-        .map((v) => v.abs())
-        .fold<double>(0.1, math.max);
+    final maxAbsCorr =
+        correctionsMm.map((v) => v.abs()).fold<double>(0.1, math.max);
     for (var i = 0; i < correctionsMm.length; i++) {
       final x0 = left + (xs[i] / maxX) * plotW;
-      final x1 = i + 1 < xs.length
-          ? left + (xs[i + 1] / maxX) * plotW
-          : left + plotW;
+      final x1 =
+          i + 1 < xs.length ? left + (xs[i + 1] / maxX) * plotW : left + plotW;
       final cx = (x0 + x1) / 2;
       final w = math.min(22.0, math.max(6.0, (x1 - x0) * 0.45));
       final v = correctionsMm[i];
@@ -1083,6 +1136,9 @@ class _LevelingProfilePainter extends CustomPainter {
   bool shouldRepaint(covariant _LevelingProfilePainter old) =>
       old.heightsM != heightsM ||
       old.correctionsMm != correctionsMm ||
+      old.selectedStation != selectedStation ||
+      old.chainages != chainages ||
+      old.correctionLabel != correctionLabel ||
       old.errorStations != errorStations ||
       old.scheme != scheme ||
       old.fontFamily != fontFamily;
@@ -1106,7 +1162,7 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          label,
+          context.tr(label),
           style: TextStyle(
             fontSize: 10.5,
             color: Theme.of(context).colorScheme.onSurfaceVariant,

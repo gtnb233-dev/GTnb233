@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:survey_core/survey_core.dart';
 
+import '../../../engine/rust_bridge.dart';
 import '../../../export/export_service.dart';
 import '../../../export/leveling_handbook_xlsx.dart';
 import '../../../export/survey_forms.dart';
@@ -16,6 +17,8 @@ import '../../widgets/page_actions.dart';
 import '../../widgets/point_names_dialog.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
+import '../../widgets/workspace_commands.dart';
+import '../../widgets/workspace_points.dart';
 
 /// 手簿一行的输入状态（8 个读数 + 点号）。
 class LevelingBookRow {
@@ -24,6 +27,8 @@ class LevelingBookRow {
 
   final TextEditingController name;
 
+  final backDirect = TextEditingController();
+  final frontDirect = TextEditingController();
   final backUpper = TextEditingController();
   final backLower = TextEditingController();
   final frontUpper = TextEditingController();
@@ -32,6 +37,19 @@ class LevelingBookRow {
   final backRed = TextEditingController();
   final frontBlack = TextEditingController();
   final frontRed = TextEditingController();
+  final _readingFocus = <TextEditingController, FocusNode>{};
+
+  FocusNode focusFor(TextEditingController controller) =>
+      _readingFocus.putIfAbsent(controller, FocusNode.new);
+
+  List<TextEditingController> entryOrder(bool electronic) => [
+        if (electronic) backDirect else ...[backUpper, backLower],
+        backBlack,
+        backRed,
+        if (electronic) frontDirect else ...[frontUpper, frontLower],
+        frontBlack,
+        frontRed,
+      ];
 
   /// 8 个读数（顺序与 [LevelingBookRow.toObservation] 一致）。
   List<TextEditingController> get readings => <TextEditingController>[
@@ -45,7 +63,10 @@ class LevelingBookRow {
         frontRed,
       ];
 
-  Map<String, TextEditingController> get fields => <String, TextEditingController>{
+  Map<String, TextEditingController> get fields =>
+      <String, TextEditingController>{
+        'backDirect': backDirect,
+        'frontDirect': frontDirect,
         'backUpper': backUpper,
         'backLower': backLower,
         'frontUpper': frontUpper,
@@ -57,14 +78,34 @@ class LevelingBookRow {
       };
 
   /// 8 个读数齐了才算「本站完成」，否则不参与路线计算。
-  DoubleStaffObservation? toObservation(double kBack, double kFront) {
+  DoubleStaffObservation? toObservation(double kBack, double kFront,
+      {bool electronic = false}) {
     final v = <double>[];
-    for (final c in readings) {
+    final inputs = electronic
+        ? [backDirect, frontDirect, backBlack, backRed, frontBlack, frontRed]
+        : readings;
+    for (final c in inputs) {
       final t = c.text.trim();
       if (t.isEmpty) return null;
       final d = double.tryParse(t);
-      if (d == null) return null;
+      if (d == null || !d.isFinite || d < 0) return null;
       v.add(d);
+    }
+    if (electronic) {
+      return DoubleStaffObservation(
+        backUpper: 0,
+        backLower: 0,
+        frontUpper: 0,
+        frontLower: 0,
+        backDirectM: v[0],
+        frontDirectM: v[1],
+        backBlack: v[2],
+        backRed: v[3],
+        frontBlack: v[4],
+        frontRed: v[5],
+        kBack: kBack,
+        kFront: kFront,
+      );
     }
     return DoubleStaffObservation(
       backUpper: v[0],
@@ -81,7 +122,12 @@ class LevelingBookRow {
   }
 
   void dispose() {
+    for (final node in _readingFocus.values) {
+      node.dispose();
+    }
     name.dispose();
+    backDirect.dispose();
+    frontDirect.dispose();
     for (final c in readings) {
       c.dispose();
     }
@@ -145,11 +191,19 @@ enum _RodKMode {
 ///
 /// 站级用 core 的 [doubleStaffLeveling]，路线级用 [levelingRoute]。
 class FourOrderLevelingPage extends StatefulWidget {
-  const FourOrderLevelingPage({super.key});
+  const FourOrderLevelingPage({super.key, this.draftId});
+
+  final String? draftId;
 
   @override
   State<FourOrderLevelingPage> createState() => _FourOrderLevelingPageState();
 }
+
+typedef _StationEdit = ({
+  TextEditingController controller,
+  String before,
+  String after,
+});
 
 class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     with DraftMixin<FourOrderLevelingPage> {
@@ -166,11 +220,20 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   bool _closed = true;
   bool _byDistance = true;
   bool _cardMode = false;
+  bool _mountain = false;
+  bool _electronic = false;
+  double get _distanceCoefficient => _mountain && _grade == LevelingGrade.fourth
+      ? 25
+      : _grade.lengthCoefficient;
+  bool _alternateRods = false;
+  double _sightLimit = 80;
 
   /// 默认后尺 K=4687、前尺 K=4787；可切为对调或同尺 4687。
   _RodKMode _rodMode = _RodKMode.back4687Front4787;
   String _backRodLabel = '';
   String _frontRodLabel = '';
+  String _pointPrefix = 'P';
+  int _pointStep = 1;
 
   final _startName = TextEditingController(text: 'BM1');
   final _startHeight = TextEditingController(text: '50.000');
@@ -179,6 +242,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   final List<LevelingBookRow> _rows = <LevelingBookRow>[];
   final Map<TextEditingController, VoidCallback> _rowListeners =
       <TextEditingController, VoidCallback>{};
+  final _readingRows = <TextEditingController, LevelingBookRow>{};
   final ScrollController _handbookScroll = ScrollController();
   bool _restored = false;
   bool _suppressRowDraft = false;
@@ -190,17 +254,135 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   /// 参与路线计算的行下标（与 [_stationResults] 一一对应）。
   List<int> _completeRows = const <int>[];
   String? _error;
+  final _ignoredIssues = <LevelingBookRow>{};
+  LevelingBookRow? _activeStation;
+  bool _showRouteLines = true;
 
-  double get _kBack =>
-      _rodMode == _RodKMode.back4787Front4687 ? 4787 : 4687;
-  double get _kFront =>
-      _rodMode == _RodKMode.back4687Front4787 ? 4787 : 4687;
+  void _selectStation(int rowIndex, {bool locate = false}) {
+    if (rowIndex < 0 || rowIndex >= _rows.length) return;
+    final row = _rows[rowIndex];
+    setState(() => _activeStation = row);
+    if (!locate) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final anchor = GlobalObjectKey(row).currentContext;
+      if (anchor != null) {
+        Scrollable.ensureVisible(anchor, duration: Motion.base, alignment: .12);
+      }
+    });
+  }
+
+  final _undo = <_StationEdit>[];
+  final _redo = <_StationEdit>[];
+  bool _replayingEdit = false;
+
+  void _replayEdit(bool undo) {
+    final source = undo ? _undo : _redo;
+    if (source.isEmpty) return;
+    final edit = source.removeLast();
+    _replayingEdit = true;
+    try {
+      edit.controller.text = undo ? edit.before : edit.after;
+      (undo ? _redo : _undo).add(edit);
+    } finally {
+      _replayingEdit = false;
+    }
+    _calc();
+  }
+
+  Future<void> _showStationLimits(int index) async {
+    final row = _rows[index];
+    final result = _resultOf(index);
+    if (result == null || result.ok) return;
+    final choice = await workspacePanel<String>(
+        context,
+        '测站检核超限',
+        Builder(
+          builder: (context) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                  '${row.name.text} · ${result.issueText.split('、').map((issue) => context.tr(issue)).join(' · ')}'),
+              const SizedBox(height: 8),
+              for (final (action, label, icon) in [
+                ('repeat', '重测本站', Icons.refresh),
+                ('locate', '定位修改', Icons.location_searching),
+                ('ignore', '标记忽略', Icons.visibility_off_outlined),
+              ])
+                ListTile(
+                    leading: Icon(icon),
+                    title: LocalText(label),
+                    onTap: () => Navigator.pop(context, action)),
+            ],
+          ),
+        ),
+        desktopDrawer: true);
+    if (!mounted || choice == null || !_rows.contains(row)) return;
+    if (choice == 'ignore') {
+      setState(() => _ignoredIssues.add(row));
+      return;
+    }
+    setState(() {
+      _ignoredIssues.remove(row);
+      if (choice == 'repeat') _cardMode = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final anchor = GlobalObjectKey(row).currentContext;
+      final first = row.entryOrder(_electronic).first;
+      row.focusFor(first).requestFocus();
+      if (anchor != null) {
+        Scrollable.ensureVisible(anchor, duration: Motion.base, alignment: .12);
+      }
+    });
+  }
+
+  FocusNode _focusForReading(TextEditingController controller) {
+    return _readingRows[controller]!.focusFor(controller);
+  }
+
+  Future<void> _advanceReading(TextEditingController controller) async {
+    final row = _readingRows[controller];
+    final value = _num(controller);
+    if (row == null || value == null || !value.isFinite || value < 0) return;
+    final index = _rows.indexOf(row);
+    final order = row.entryOrder(_electronic);
+    final current = order.indexOf(controller);
+    if (current < order.length - 1) {
+      row.focusFor(order[current + 1]).requestFocus();
+      return;
+    }
+    _calc();
+    final result = _resultOf(index);
+    if (result == null) {
+      final missing = order.where((value) => _num(value) == null).firstOrNull;
+      if (missing != null) row.focusFor(missing).requestFocus();
+      return;
+    }
+    row.focusFor(controller).unfocus();
+    if (!result.ok && !_ignoredIssues.contains(row)) {
+      await _showStationLimits(index);
+      return;
+    }
+    if (result.ok) {
+      SurveyToast.info(
+          context, result.cumulativeWarning ? '累计视距差达到预警值' : '本站检核合格，已自动保存');
+    }
+    if (index + 1 < _rows.length) {
+      final next = _rows[index + 1];
+      next.focusFor(next.entryOrder(_electronic).first).requestFocus();
+    }
+  }
+
+  double get _kBack => _rodMode == _RodKMode.back4787Front4687 ? 4787 : 4687;
+  double get _kFront => _rodMode == _RodKMode.back4687Front4787 ? 4787 : 4687;
 
   @override
-  String get draftPageId => 'leveling4';
+  String get draftPageId => widget.draftId ?? 'leveling4';
 
   @override
-  Map<String, TextEditingController> get draftFields => <String, TextEditingController>{
+  Map<String, TextEditingController> get draftFields =>
+      <String, TextEditingController>{
         'startName': _startName,
         'startHeight': _startHeight,
         'endHeight': _endHeight,
@@ -216,7 +398,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   @override
   void initState() {
     super.initState();
-    _fillExample();
+    if (widget.draftId?.contains('/') ?? false) {
+      _rows.add(LevelingBookRow(0));
+      _alternateRods = true;
+    } else {
+      _fillExample();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _calc());
   }
 
@@ -244,6 +431,9 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   // ───────────────────────── 行管理 / 草稿 ─────────────────────────
 
   void _fillExample({bool bindDraft = true}) {
+    _undo.clear();
+    _redo.clear();
+    _ignoredIssues.clear();
     _unbindRows();
     for (final r in _rows) {
       r.dispose();
@@ -267,6 +457,10 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     try {
       setState(() {
         _grade = LevelingGrade.fourth;
+        _electronic = false;
+        _alternateRods = false;
+        _mountain = false;
+        _sightLimit = 80;
         _closed = true;
         _byDistance = true;
         _rodMode = _RodKMode.back4687Front4787;
@@ -288,29 +482,60 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   }
 
   void _addRow() {
-    setState(() => _rows.add(LevelingBookRow(_rows.length)));
+    final used = {
+      _startName.text.trim(),
+      for (final row in _rows) row.name.text.trim()
+    };
+    var number = 1 + _rows.length * _pointStep;
+    while (used.contains('$_pointPrefix$number')) {
+      number += _pointStep;
+    }
+    setState(() =>
+        _rows.add(LevelingBookRow(_rows.length, name: '$_pointPrefix$number')));
     _bindRows();
     _persistRowCount();
   }
 
   void _removeRow(int index) {
     if (_rows.length <= 1) return;
+    _undo.clear();
+    _redo.clear();
     setState(() {
-      _rows.removeAt(index).dispose();
+      final row = _rows.removeAt(index);
+      _ignoredIssues.remove(row);
+      row.dispose();
     });
     _bindRows();
     _persistRowCount();
     _calc();
   }
 
-  void _persistRowCount() =>
-      drafts.put(draftPageId, 'rowCount', _rows.length.toString());
+  void _persistRowCount() => drafts.putAll(draftPageId, {
+        'rowCount': _rows.length.toString(),
+        'closed': _closed.toString(),
+        'byDistance': _byDistance.toString(),
+        'grade': _grade.name,
+        'rodMode': _rodMode.name,
+        'cardMode': _cardMode.toString(),
+        'mountain': _mountain.toString(),
+        'electronic': _electronic.toString(),
+        'alternateRods': _alternateRods.toString(),
+        'pointPrefix': _pointPrefix,
+        'pointStep': _pointStep.toString(),
+        'sightLimit': _sightLimit.toString(),
+        for (var i = 0; i < _rows.length; i++) ...{
+          'r${i}_name': _rows[i].name.text,
+          for (final f in _rows[i].fields.entries)
+            'r${i}_${f.key}': f.value.text,
+        },
+      });
 
   void _unbindRows() {
     for (final e in _rowListeners.entries) {
       e.key.removeListener(e.value);
     }
     _rowListeners.clear();
+    _readingRows.clear();
   }
 
   /// 每个输入格挂一个监听 → 写草稿（键：r{i}_{字段名}）。
@@ -319,15 +544,34 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     for (var i = 0; i < _rows.length; i++) {
       final row = _rows[i];
       void bind(TextEditingController c, String key) {
+        var previous = c.text;
         void listener() {
-          if (!_suppressRowDraft) drafts.put(draftPageId, key, c.text);
+          final old = previous;
+          previous = c.text;
+          if (old == previous) return;
+          if (!_replayingEdit && !_suppressRowDraft) {
+            _undo.add((controller: c, before: old, after: previous));
+            if (_undo.length > 100) _undo.removeAt(0);
+            _redo.clear();
+          }
+          if (!_suppressRowDraft) {
+            _activeStation = row;
+            if (!_replayingEdit) _ignoredIssues.remove(row);
+            final station = row.name.text.trim();
+            drafts.putAll(draftPageId, {
+              key: c.text,
+              'lastStation': station.isEmpty ? 'P${i + 1}' : station,
+            });
+          }
         }
+
         c.addListener(listener);
         _rowListeners[c] = listener;
       }
 
       bind(row.name, 'r${i}_name');
       for (final f in row.fields.entries) {
+        _readingRows[f.value] = row;
         bind(f.value, 'r${i}_${f.key}');
       }
     }
@@ -335,7 +579,29 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
 
   /// 草稿恢复：先按 rowCount 重建行数，再逐格回填。
   void _restoreRows() {
+    _unbindRows();
     final saved = drafts.read(draftPageId);
+    _grade = LevelingGrade.values
+            .where((value) => value.name == saved['grade'])
+            .firstOrNull ??
+        _grade;
+    _rodMode = _RodKMode.values
+            .where((value) => value.name == saved['rodMode'])
+            .firstOrNull ??
+        _rodMode;
+    _closed = saved['closed'] != 'false';
+    _byDistance = saved['byDistance'] != 'false';
+    _cardMode = saved['cardMode'] == 'true';
+    _mountain = saved['mountain'] == 'true';
+    _electronic = saved['electronic'] == 'true';
+    _alternateRods = saved['alternateRods'] == null
+        ? _alternateRods
+        : saved['alternateRods'] == 'true';
+    _sightLimit = saved['sightLimit'] == '100.0' ? 100 : 80;
+    _pointPrefix = saved['pointPrefix']?.trim().isNotEmpty == true
+        ? saved['pointPrefix']!
+        : 'P';
+    _pointStep = (int.tryParse(saved['pointStep'] ?? '') ?? 1).clamp(1, 100000);
     final br = saved['backRodLabel'];
     final fr = saved['frontRodLabel'];
     if (br != null) _backRodLabel = br;
@@ -362,6 +628,18 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     }
     _bindRows();
     _calc();
+    final station = saved['lastStation'];
+    if (station != null && widget.draftId?.contains('/') == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final row = _rows.where((r) => r.name.text == station).firstOrNull;
+        if (row == null) return;
+        final anchor = GlobalObjectKey(row).currentContext;
+        if (anchor != null) Scrollable.ensureVisible(anchor, alignment: .12);
+        SurveyToast.info(
+            context, context.tr('已恢复测站 {station}', {'station': station}));
+      });
+    }
   }
 
   // ───────────────────────── 计算 ─────────────────────────
@@ -388,7 +666,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     final idx = <int>[];
     final names = <String>[];
     for (var i = 0; i < _rows.length; i++) {
-      final obs = _rows[i].toObservation(_kBack, _kFront);
+      final obs = _observation(i);
       if (obs == null) continue;
       observations.add(obs);
       idx.add(i);
@@ -400,7 +678,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         _route = null;
         _stationResults = const <DoubleStaffStationResult>[];
         _completeRows = const <int>[];
-        _error = '请至少填满一站 8 个读数（mm）';
+        _error = _electronic ? '请填写前后直读距离与四个尺面读数' : '请至少填满一站 8 个读数（mm）';
       });
       return;
     }
@@ -414,31 +692,102 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       });
       return;
     }
-    final perStation = doubleStaffLeveling(observations);
+    final fourth = _grade == LevelingGrade.fourth;
+    final perStation = SurveyHybridEngine.instance.checkLeveling(
+      observations,
+      distanceLimit: fourth ? 3 : kDoubleStaffDistanceDiffToleranceM,
+      sightLimit: fourth ? _sightLimit : double.infinity,
+      heightLimit: fourth ? 5 : double.infinity,
+    );
     final stations = <LevelingRouteStation>[
-      for (var k = 0; k < perStation.stations.length; k++)
+      for (var k = 0; k < perStation.length; k++)
         LevelingRouteStation(
           pointName: names[k],
-          meanDiffMm: perStation.stations[k].meanDiffMm,
-          distanceM: perStation.stations[k].backDistanceM +
-              perStation.stations[k].frontDistanceM,
+          meanDiffMm: perStation[k].meanDiffMm,
+          distanceM: perStation[k].backDistanceM + perStation[k].frontDistanceM,
         ),
     ];
     final route = levelingRoute(
       grade: _grade,
       startHeightM: h0,
-      startName: _startName.text.trim().isEmpty ? 'BM1' : _startName.text.trim(),
+      startName:
+          _startName.text.trim().isEmpty ? 'BM1' : _startName.text.trim(),
       endHeightM: hEnd,
       stations: stations,
       distributeByDistance: _byDistance,
+      distanceClosureCoefficient: _distanceCoefficient,
     );
-    final anyBad = perStation.stations.any((s) => !s.ok);
+    final anyBad = perStation.any((s) => !s.ok);
     setState(() {
-      _stationResults = perStation.stations;
+      _stationResults = perStation;
       _completeRows = idx;
       _route = route;
       _error = anyBad ? '有测站检核超限（行下已标红），路线成果仅供参考' : null;
     });
+  }
+
+  DoubleStaffObservation? _observation(int index) {
+    final swap = _alternateRods && index.isOdd;
+    return _rows[index].toObservation(
+      swap ? _kFront : _kBack,
+      swap ? _kBack : _kFront,
+      electronic: _electronic,
+    );
+  }
+
+  Future<void> _showLiveTutorial() async {
+    final activeIndex = _rows.indexOf(_activeStation ?? _rows.first);
+    final index = _resultOf(activeIndex) != null
+        ? activeIndex
+        : _completeRows.firstOrNull;
+    final result = index == null ? null : _resultOf(index);
+    final observation = index == null ? null : _observation(index);
+    final route = _route;
+    String f(double value) => fmt(value, 1);
+    final load = await workspacePanel<bool>(
+      context,
+      '四等水准教程',
+      Builder(builder: (context) {
+        final style = Theme.of(context).textTheme.bodyMedium;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const PageTutorial(id: 'leveling4', initiallyExpanded: true),
+            const SizedBox(height: 12),
+            LocalText('代入当前读数', style: Theme.of(context).textTheme.titleSmall),
+            if (result == null || observation == null)
+              const LocalText('录完一站后可查看代入过程')
+            else
+              SelectableText(
+                '${_rows[index!].name.text}\n'
+                'd = ${f(result.backDistanceM)} − ${f(result.frontDistanceM)} = ${f(result.distanceDiffM)} m\n'
+                'ΔH = [(${f(observation.backBlack)} − ${f(observation.frontBlack)}) + '
+                '(${f(observation.backRed)} − ${f(observation.frontRed)}) − '
+                '(${f(observation.kBack)} − ${f(observation.kFront)})] ÷ 2 = ${f(result.meanDiffMm)} mm'
+                '${route == null ? '' : '\nfₕ = ${f(route.sumDiffMm)} − ${f(route.expectedDiffMm)} = ${f(route.misclosureMm)} mm  (±${f(route.limitMm)} mm)'}',
+                style: style?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()]),
+              ),
+            const SizedBox(height: 12),
+            SurveyPopconfirm(
+              title: '载入规范算例？',
+              description: '当前手簿读数将被替换为 4 站教材算例',
+              confirmLabel: '载入',
+              onConfirm: () => Navigator.of(context).pop(true),
+              builder: (_, open) => FilledButton(
+                onPressed: open,
+                child: const LocalText('载入规范算例'),
+              ),
+            ),
+          ],
+        );
+      }),
+      desktopDrawer: true,
+    );
+    if (mounted && load == true) {
+      _loadExample();
+      SurveyToast.info(context, '已载入四等水准规范算例');
+    }
   }
 
   DoubleStaffStationResult? _resultOf(int rowIndex) {
@@ -449,7 +798,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
 
   // ───────────────────────── 导出 ─────────────────────────
 
-  List<XlsxSheetData> _buildHandbookSheets() {
+  List<XlsxSheetData> _buildHandbookSheets(SurveyStrings strings) {
     final route = _route;
     final start =
         _startName.text.trim().isEmpty ? 'BM1' : _startName.text.trim();
@@ -457,7 +806,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     var prevPoint = start;
     for (var k = 0; k < _completeRows.length; k++) {
       final rowIndex = _completeRows[k];
-      final obs = _rows[rowIndex].toObservation(_kBack, _kFront);
+      final obs = _observation(rowIndex);
       if (obs == null) continue;
       final res = _stationResults[k];
       final rawName = _rows[rowIndex].name.text.trim();
@@ -472,8 +821,10 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           toPoint: toPoint,
           observation: obs,
           result: res,
-          backRodLabel: _backRodLabel,
-          frontRodLabel: _frontRodLabel,
+          backRodLabel:
+              _alternateRods && rowIndex.isOdd ? _frontRodLabel : _backRodLabel,
+          frontRodLabel:
+              _alternateRods && rowIndex.isOdd ? _backRodLabel : _frontRodLabel,
           adjustedElevationM: elev,
         ),
       );
@@ -500,12 +851,18 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       byDistance: _byDistance,
       backRodLabel: _backRodLabel,
       frontRodLabel: _frontRodLabel,
+      distanceToleranceM: _grade == LevelingGrade.fourth
+          ? 3
+          : kDoubleStaffDistanceDiffToleranceM,
+      sightToleranceM: _grade == LevelingGrade.fourth ? _sightLimit : null,
+      faceToleranceMm: _grade == LevelingGrade.fourth ? 5 : null,
+      translateNote: strings.languageCode == 'zh' ? null : strings.translate,
     );
   }
 
   Future<void> _exportHandbook(ExportFormat format) async {
     final res = await ExportService.export(
-      _exportTable(),
+      _exportTable().localizeLabels(SurveyStrings.of(context).translate),
       format: format,
       fileNameHint: '三四等水准测量观测手簿',
     );
@@ -514,7 +871,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       SurveyToast.error(context, '导出失败：${res.error ?? ''}');
       return;
     }
-    final kindLabel = format == ExportFormat.png ? '手簿工程图' : '手簿 Excel';
+    final kindLabel = switch (format) {
+      ExportFormat.png => '手簿工程图',
+      ExportFormat.xlsx => '手簿 Excel',
+      ExportFormat.csv => 'CSV',
+      ExportFormat.txt => 'TXT',
+    };
     SurveyToast.success(
       context,
       '已导出标准水准$kindLabel：${res.path}',
@@ -524,11 +886,79 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     );
   }
 
+  Future<void> _showRouteAssessment(LevelingRouteResult route) async {
+    final failed = _stationResults.where((station) => !station.ok).length;
+    final passed = route.ok && failed == 0;
+    final localPoints = readWorkspacePoints(drafts);
+    final dxfPoints = [
+      for (var i = 0; i < route.pointNames.length; i++)
+        if (localPoints[route.pointNames[i]] case final point?)
+          (point.x, point.y, route.heightsM[i])
+        else
+          null,
+    ];
+    final format = await SurveyModal.show<String>(
+      context,
+      title: '水准路线评定',
+      subtitle: passed ? '合格' : '超限',
+      icon: passed ? Icons.check_circle_outline : Icons.info_outline,
+      tone: passed ? ModalTone.success : ModalTone.warning,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ToleranceGauge(
+            label: '闭合差 fh 检核',
+            value: route.misclosureMm,
+            limit: route.limitMm,
+            valueText: '${fmt(route.misclosureMm, 1)} mm',
+            limitText: '±${fmt(route.limitMm, 1)} mm',
+            ok: route.ok,
+          ),
+          if (failed > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(context.tr('{count} 站超限', {'count': failed})),
+            ),
+        ],
+      ),
+      actionsBuilder: (context) => [
+        for (final format in [
+          ExportFormat.xlsx,
+          ExportFormat.csv,
+          ExportFormat.png
+        ])
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(format.name),
+            child: Text(format.name.toUpperCase()),
+          ),
+        if (dxfPoints.any((point) => point != null))
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('dxf'),
+            child: const Text('DXF'),
+          ),
+      ],
+    );
+    if (!mounted || format == null) return;
+    if (format == 'dxf') {
+      final result = await ExportService.exportSurveyDxf(dxfPoints, '水准路线');
+      if (!mounted) return;
+      if (result.path case final path?) {
+        SurveyToast.success(
+            context, context.tr('已导出 DXF：{path}', {'path': path}));
+      } else {
+        SurveyToast.error(context, result.error ?? context.tr('导出失败'));
+      }
+    } else {
+      await _exportHandbook(ExportFormat.values.byName(format));
+    }
+  }
+
   Future<void> _openPointNamesDialog() async {
     final result = await showPointNamesDialog(
       context,
       title: '自定义点名（号）与尺号',
-      startName: _startName.text.trim().isEmpty ? 'BM1' : _startName.text.trim(),
+      startName:
+          _startName.text.trim().isEmpty ? 'BM1' : _startName.text.trim(),
       startLabel: '起点点号',
       pointNames: [
         for (var i = 0; i < _rows.length; i++)
@@ -541,6 +971,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       frontRodLabel: _frontRodLabel,
       isClosed: _closed,
       showRodFields: true,
+      sequencePrefix: _pointPrefix,
+      sequenceStep: _pointStep,
     );
     if (result == null || !mounted) return;
     _suppressRowDraft = false;
@@ -548,78 +980,104 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       _startName.text = result.startName;
       _backRodLabel = result.backRod;
       _frontRodLabel = result.frontRod;
+      _pointPrefix = result.prefix;
+      _pointStep = result.step;
       for (var i = 0; i < _rows.length && i < result.names.length; i++) {
         _rows[i].name.text = result.names[i];
       }
     });
     drafts.put(draftPageId, 'backRodLabel', _backRodLabel);
     drafts.put(draftPageId, 'frontRodLabel', _frontRodLabel);
+    drafts.put(draftPageId, 'pointPrefix', _pointPrefix);
+    drafts.put(draftPageId, 'pointStep', _pointStep.toString());
     _calc();
   }
 
   SheetTable _exportTable() {
+    final strings = SurveyStrings.of(context);
+    final tr = strings.translate;
     final route = _route;
     final rows = <List<String>>[
-      <String>['一、观测手簿（读数 mm；后尺 K=${_kBack.toStringAsFixed(0)}，'
-          '前尺 K=${_kFront.toStringAsFixed(0)}）'],
-      kHandbookColumns,
-      for (var i = 0; i < _rows.length; i++) _handbookExportRow(i),
+      <String>[
+        tr('观测手簿（读数 mm，后尺 K={back}，前尺 K={front}）', {
+          'back': _kBack.toStringAsFixed(0),
+          'front': _kFront.toStringAsFixed(0),
+        }),
+      ],
+      List.generate(kHandbookColumns.length, (i) => tr(_handbookColumn(i))),
+      for (var i = 0; i < _rows.length; i++) _handbookExportRow(i, strings),
       <String>[''],
-      <String>['二、路线成果'],
-      <String>['项目', '值', '单位'],
-      <String>['等级', _grade.label, ''],
-      <String>['路线类型', _closed ? '闭合环' : '附合', ''],
-      <String>['分配方式', _byDistance ? '按距离' : '按站数', ''],
-      <String>['测站数', '${_rows.length}', '站'],
+      <String>[tr('路线成果')],
+      <String>[tr('项目'), tr('值'), tr('单位')],
+      <String>[tr('等级'), tr(_grade.label), ''],
+      <String>[tr('路线类型'), tr(_closed ? '闭合环' : '附合'), ''],
+      <String>[tr('分配方式'), tr(_byDistance ? '按距离' : '按站数'), ''],
+      <String>[tr('测站数'), '${_rows.length}', ''],
       if (route != null) ...<List<String>>[
         <String>['Σh 实测', fmt(route.sumDiffMm, 1), 'mm'],
         <String>['理论高差', fmt(route.expectedDiffMm, 1), 'mm'],
         <String>['闭合差 fh', fmt(route.misclosureMm, 1), 'mm'],
         <String>['限差', '±${fmt(route.limitMm, 1)}', 'mm'],
-        <String>['判定', route.ok ? '合格' : '超限', ''],
+        <String>[tr('闭合差判定'), tr(route.ok ? '合格' : '超限'), ''],
         <String>['路线总长', fmt(route.totalDistanceM, 1), 'm'],
         <String>[''],
-        <String>['点名', '高程(m)', '本站改正数(mm)', '改正后高差(mm)'],
+        <String>[
+          for (final label in ['点名', '高程(m)', '本站改正数(mm)', '改正后高差(mm)'])
+            tr(label)
+        ],
         for (var i = 0; i < route.pointNames.length; i++)
           <String>[
             route.pointNames[i],
             fmt(route.heightsM[i], 3),
-            i < route.correctionsMm.length
-                ? fmt(route.correctionsMm[i], 1)
-                : '',
-            i < route.correctedDiffsMm.length
-                ? fmt(route.correctedDiffsMm[i], 1)
-                : '',
+            i > 0 ? fmt(route.correctionsMm[i - 1], 1) : '',
+            i > 0 ? fmt(route.correctedDiffsMm[i - 1], 1) : '',
           ],
       ],
     ];
     return SheetTable(
       title: '四等水准测量',
       rows: rows,
-      formSheetsBuilder: _buildHandbookSheets,
+      formSheetsBuilder: () => _buildHandbookSheets(strings),
       notes: <String>[
-        '尺常数：后尺 K=${_kBack.toStringAsFixed(0)}、前尺 K=${_kFront.toStringAsFixed(0)}；'
-            '检核 |K+黑−红| ≤ 3 mm、|视距差| ≤ 5 m、|Σd| ≤ 10 m。',
-        _byDistance
-            ? '${_grade.label}限差：±${_grade.lengthCoefficient.toStringAsFixed(0)}√L mm（L 为路线长，km）'
-            : '${_grade.label}限差：±${_grade.stationCoefficient.toStringAsFixed(0)}√n mm（n 为测站数）',
-        _byDistance
+        tr(
+            '测站限差：|d| ≤ {distance} m、|Σd| ≤ {cumulative} m、|K+黑−红| ≤ {constant} mm。',
+            {
+              'distance': _grade == LevelingGrade.fourth
+                  ? 3
+                  : kDoubleStaffDistanceDiffToleranceM.toStringAsFixed(0),
+              'cumulative': kDoubleStaffCumulativeToleranceM.toStringAsFixed(0),
+              'constant': kDoubleStaffConstantToleranceMm.toStringAsFixed(0),
+            }),
+        tr(
+            _byDistance
+                ? '路线限差：±{coefficient}√L mm（L 为路线长，km）。'
+                : '路线限差：±{coefficient}√n mm（n 为测站数）。',
+            {
+              'coefficient': (_byDistance
+                      ? _distanceCoefficient
+                      : _grade.stationCoefficient)
+                  .toStringAsFixed(0),
+            }),
+        tr(_byDistance
             ? '闭合差按各站距离成比例分配，Σ改正数 = −fh。'
-            : '闭合差按站数平均分配，Σ改正数 = −fh。',
-        '高差中数 = [黑面高差 + (红面高差 − (K后 − K前))] / 2。',
+            : '闭合差按站数平均分配，Σ改正数 = −fh。'),
       ],
     );
   }
 
-  List<String> _handbookExportRow(int i) {
+  List<String> _handbookExportRow(int i, SurveyStrings strings) {
     final row = _rows[i];
     final res = _resultOf(i);
     String t(TextEditingController c) => c.text.trim();
     return <String>[
       '${i + 1}',
       row.name.text.trim(),
-      '${t(row.backUpper)}/${t(row.backLower)}',
-      '${t(row.frontUpper)}/${t(row.frontLower)}',
+      _electronic
+          ? t(row.backDirect)
+          : '${t(row.backUpper)}/${t(row.backLower)}',
+      _electronic
+          ? t(row.frontDirect)
+          : '${t(row.frontUpper)}/${t(row.frontLower)}',
       res == null ? '' : fmt(res.backDistanceM, 1),
       res == null ? '' : fmt(res.frontDistanceM, 1),
       res == null ? '' : fmt(res.distanceDiffM, 1),
@@ -633,7 +1091,13 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       res == null ? '' : fmt(res.blackDiffMm, 1),
       res == null ? '' : fmt(res.redDiffMm, 1),
       res == null ? '' : fmt(res.meanDiffMm, 1),
-      res == null ? '未填完' : (res.ok ? '合格' : '超限'),
+      strings.translate(res == null
+          ? '未填完'
+          : (!res.ok
+              ? '超限'
+              : res.cumulativeWarning
+                  ? '预警'
+                  : '合格')),
     ];
   }
 
@@ -645,7 +1109,9 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       height: 34,
       child: TextField(
         controller: controller,
+        focusNode: _focusForReading(controller),
         onChanged: (_) => _calc(),
+        onEditingComplete: () => _advanceReading(controller),
         textInputAction: TextInputAction.next,
         keyboardType: const TextInputType.numberWithOptions(
           decimal: true,
@@ -719,7 +1185,10 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     final res = _resultOf(i);
     String one(double v) => fmt(v, 1);
     return <Widget>[
-      _textCell('${i + 1}', kHandbookWidths[0]),
+      InkWell(
+        onTap: () => _selectStation(i),
+        child: _textCell('${i + 1}', kHandbookWidths[0]),
+      ),
       SizedBox(
         width: kHandbookWidths[1],
         height: 34,
@@ -734,8 +1203,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           ),
         ),
       ),
-      _pairCell(row.backUpper, row.backLower, kHandbookWidths[2]),
-      _pairCell(row.frontUpper, row.frontLower, kHandbookWidths[3]),
+      _electronic
+          ? _cellField(row.backDirect, width: kHandbookWidths[2])
+          : _pairCell(row.backUpper, row.backLower, kHandbookWidths[2]),
+      _electronic
+          ? _cellField(row.frontDirect, width: kHandbookWidths[3])
+          : _pairCell(row.frontUpper, row.frontLower, kHandbookWidths[3]),
       _textCell(res == null ? '' : one(res.backDistanceM), kHandbookWidths[4]),
       _textCell(res == null ? '' : one(res.frontDistanceM), kHandbookWidths[5]),
       _textCell(res == null ? '' : one(res.distanceDiffM), kHandbookWidths[6]),
@@ -758,15 +1231,24 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       _textCell(res == null ? '' : one(res.blackDiffMm), kHandbookWidths[14]),
       _textCell(res == null ? '' : one(res.redDiffMm), kHandbookWidths[15]),
       _textCell(res == null ? '' : one(res.meanDiffMm), kHandbookWidths[16]),
-      _textCell(
-        res == null ? '未填完' : (res.ok ? '合格' : '超限'),
-        kHandbookWidths[17],
-        color: res == null
-            ? Theme.of(context).colorScheme.onSurfaceVariant
-            : (res.ok
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.error),
-        bold: true,
+      InkWell(
+        onTap: res != null && !res.ok ? () => _showStationLimits(i) : null,
+        child: _textCell(
+          res == null
+              ? '未填完'
+              : (!res.ok
+                  ? '超限'
+                  : res.cumulativeWarning
+                      ? '预警'
+                      : '合格'),
+          kHandbookWidths[17],
+          color: res == null
+              ? Theme.of(context).colorScheme.onSurfaceVariant
+              : (res.ok
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.error),
+          bold: true,
+        ),
       ),
       SizedBox(
         width: 40,
@@ -791,6 +1273,12 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     ];
   }
 
+  String _handbookColumn(int index) {
+    if (_electronic && index == 2) return '后视直读距 (m)';
+    if (_electronic && index == 3) return '前视直读距 (m)';
+    return kHandbookColumns[index];
+  }
+
   Widget _handbookTable(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final totalWidth = kHandbookWidths.fold<double>(0, (a, b) => a + b) + 40;
@@ -810,14 +1298,15 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                    color:
+                        scheme.surfaceContainerHighest.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
                       for (var i = 0; i < kHandbookColumns.length; i++)
                         _textCell(
-                          kHandbookColumns[i],
+                          context.tr(_handbookColumn(i)),
                           kHandbookWidths[i],
                           color: scheme.onSurfaceVariant,
                           bold: true,
@@ -828,14 +1317,19 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                 ),
                 for (var i = 0; i < _rows.length; i++) ...[
                   Container(
-                    key: ValueKey<String>('leveling4-row-$i'),
-                    color: (_resultOf(i) != null && !_resultOf(i)!.ok)
-                        ? scheme.error.withValues(alpha: 0.08)
-                        : (i.isOdd
-                            ? scheme.surfaceContainerHighest
-                                .withValues(alpha: 0.16)
-                            : null),
-                    child: Row(children: _bodyCells(i)),
+                    key: GlobalObjectKey(_rows[i]),
+                    color: identical(_activeStation, _rows[i])
+                        ? scheme.primary.withValues(alpha: .10)
+                        : (_resultOf(i) != null && !_resultOf(i)!.ok)
+                            ? scheme.error.withValues(alpha: 0.08)
+                            : (i.isOdd
+                                ? scheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.16)
+                                : null),
+                    child: Row(
+                      key: ValueKey<String>('leveling4-row-$i'),
+                      children: _bodyCells(i),
+                    ),
                   ),
                   if (_resultOf(i) != null && !_resultOf(i)!.ok)
                     Padding(
@@ -923,6 +1417,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                 selected: {_cardMode},
                 onSelectionChanged: (v) => setState(() {
                   _cardMode = v.first;
+                  _persistRowCount();
                 }),
               ),
             ],
@@ -942,6 +1437,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   selected: {_grade},
                   onSelectionChanged: (v) => setState(() {
                     _grade = v.first;
+                    _persistRowCount();
                     _calc();
                   }),
                 ),
@@ -956,6 +1452,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   selected: {_closed},
                   onSelectionChanged: (v) => setState(() {
                     _closed = v.first;
+                    _persistRowCount();
                     _calc();
                   }),
                 ),
@@ -970,6 +1467,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   selected: {_byDistance},
                   onSelectionChanged: (v) => setState(() {
                     _byDistance = v.first;
+                    _persistRowCount();
                     _calc();
                   }),
                 ),
@@ -984,6 +1482,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                   selected: {_rodMode},
                   onSelectionChanged: (v) => setState(() {
                     _rodMode = v.first;
+                    _persistRowCount();
                     _calc();
                   }),
                 ),
@@ -991,10 +1490,48 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
             ),
           ),
           const SizedBox(height: Insets.s),
+          Wrap(
+            spacing: 8,
+            children: [
+              FilterChip(
+                  label: LocalText(_electronic ? '电子直读' : '光学三丝'),
+                  selected: _electronic,
+                  onSelected: (v) {
+                    setState(() => _electronic = v);
+                    _persistRowCount();
+                    _calc();
+                  }),
+              FilterChip(
+                  label: const LocalText('山地 ±25√L'),
+                  selected: _mountain,
+                  onSelected: (v) {
+                    setState(() => _mountain = v);
+                    _persistRowCount();
+                    _calc();
+                  }),
+              FilterChip(
+                  label: LocalText(_sightLimit == 80 ? '视线 80 m' : '视线 100 m'),
+                  selected: _sightLimit == 100,
+                  onSelected: (v) {
+                    setState(() => _sightLimit = v ? 100 : 80);
+                    _persistRowCount();
+                    _calc();
+                  }),
+              FilterChip(
+                  label: const LocalText('自动轮换双尺'),
+                  selected: _alternateRods,
+                  onSelected: (v) {
+                    setState(() => _alternateRods = v);
+                    _persistRowCount();
+                    _calc();
+                  }),
+            ],
+          ),
+          const SizedBox(height: Insets.s),
           Text(
             '后尺 K${_backRodLabel.isEmpty ? '' : _backRodLabel} = ${_kBack.toStringAsFixed(0)}，'
             '前尺 K${_frontRodLabel.isEmpty ? '' : _frontRodLabel} = ${_kFront.toStringAsFixed(0)}；'
-            '检核 |K+黑−红| ≤ 3 mm、|视距差| ≤ 5 m、|Σd| ≤ 10 m。',
+            '四等检核 |K+黑−红| ≤ 3 mm、|视距差| ≤ 3 m、|Σd| ≤ 10 m，±7 m 预警。',
             style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
           ),
         ],
@@ -1002,10 +1539,34 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     );
   }
 
-  Widget _labeledReadingField(String label, TextEditingController ctrl) {
+  Widget _electronicGroup(TextEditingController distance,
+      TextEditingController black, TextEditingController red, String side) {
+    return Column(
+      children: [
+        _labeledReadingField(
+            context.tr(side == '后' ? '后视直读距 (m)' : '前视直读距 (m)'), distance,
+            unit: 'm'),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+              child: _labeledReadingField(
+                  context.tr(side == '后' ? '后黑' : '前黑'), black)),
+          const SizedBox(width: 8),
+          Expanded(
+              child: _labeledReadingField(
+                  context.tr(side == '后' ? '后红' : '前红'), red)),
+        ]),
+      ],
+    );
+  }
+
+  Widget _labeledReadingField(String label, TextEditingController ctrl,
+      {String unit = 'mm'}) {
     return TextField(
       controller: ctrl,
+      focusNode: _focusForReading(ctrl),
       onChanged: (_) => _calc(),
+      onEditingComplete: () => _advanceReading(ctrl),
       textInputAction: TextInputAction.next,
       keyboardType: const TextInputType.numberWithOptions(
         decimal: true,
@@ -1021,7 +1582,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       decoration: InputDecoration(
         isDense: true,
         labelText: label,
-        hintText: 'mm',
+        hintText: unit,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 10,
           vertical: 9,
@@ -1082,15 +1643,23 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               final row = _rows[i];
               final res = _resultOf(i);
               return SurfaceCard(
-                key: ValueKey<String>('leveling4-card-$i'),
+                key: GlobalObjectKey(_rows[i]),
                 padding: const EdgeInsets.all(Insets.m),
                 margin: const EdgeInsets.only(bottom: Insets.m),
                 child: Column(
+                  key: ValueKey<String>('leveling4-card-$i'),
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
-                        Pill(label: '第 ${i + 1} 站', tone: PillTone.neutral),
+                        InkWell(
+                          onTap: () => _selectStation(i),
+                          child: Pill(
+                              label: '第 ${i + 1} 站',
+                              tone: identical(_activeStation, row)
+                                  ? PillTone.info
+                                  : PillTone.neutral),
+                        ),
                         const SizedBox(width: Insets.s),
                         Expanded(
                           child: TextField(
@@ -1110,10 +1679,20 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                         ),
                         const SizedBox(width: Insets.s),
                         Pill(
-                          label: res == null ? '未填完' : (res.ok ? '合格' : '超限'),
+                          label: res == null
+                              ? '未填完'
+                              : (!res.ok
+                                  ? '超限'
+                                  : res.cumulativeWarning
+                                      ? '预警'
+                                      : '合格'),
                           tone: res == null
                               ? PillTone.neutral
-                              : (res.ok ? PillTone.success : PillTone.danger),
+                              : (!res.ok
+                                  ? PillTone.danger
+                                  : res.cumulativeWarning
+                                      ? PillTone.warning
+                                      : PillTone.success),
                         ),
                         SurveyPopconfirm(
                           enabled: _rows.length > 1,
@@ -1137,23 +1716,31 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                       ],
                     ),
                     const SizedBox(height: Insets.m),
-                    rodGroup(
-                      '后尺读数（mm）',
-                      row.backUpper,
-                      row.backLower,
-                      row.backBlack,
-                      row.backRed,
-                      '后',
-                    ),
+                    if (_electronic)
+                      _electronicGroup(
+                          row.backDirect, row.backBlack, row.backRed, '后')
+                    else
+                      rodGroup(
+                        '后尺读数（mm）',
+                        row.backUpper,
+                        row.backLower,
+                        row.backBlack,
+                        row.backRed,
+                        '后',
+                      ),
                     const SizedBox(height: Insets.m),
-                    rodGroup(
-                      '前尺读数（mm）',
-                      row.frontUpper,
-                      row.frontLower,
-                      row.frontBlack,
-                      row.frontRed,
-                      '前',
-                    ),
+                    if (_electronic)
+                      _electronicGroup(
+                          row.frontDirect, row.frontBlack, row.frontRed, '前')
+                    else
+                      rodGroup(
+                        '前尺读数（mm）',
+                        row.frontUpper,
+                        row.frontLower,
+                        row.frontBlack,
+                        row.frontRed,
+                        '前',
+                      ),
                     if (res != null) ...[
                       const SizedBox(height: Insets.m),
                       Container(
@@ -1209,6 +1796,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                           tone: AlertTone.error,
                           message: '第 ${i + 1} 站：${res.issueText}',
                         ),
+                        TextButton(
+                          onPressed: () => _showStationLimits(i),
+                          child: LocalText(
+                              _ignoredIssues.contains(row) ? '已标记' : '重测本站'),
+                        ),
                       ],
                     ],
                   ],
@@ -1262,6 +1854,16 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         icon: Icons.height,
       );
     }
+    final selected =
+        _completeRows.indexOf(_rows.indexOf(_activeStation ?? _rows.first));
+    final localPoints = readWorkspacePoints(drafts);
+    final pointsByRoute =
+        route.pointNames.map((id) => localPoints[id]).toList();
+    final routePoints = <PlotPoint>[
+      for (final point in pointsByRoute)
+        if (point != null) point,
+    ];
+    final highlightedPoint = selected < 0 ? null : pointsByRoute[selected + 1];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1274,13 +1876,51 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           ok: route.ok,
         ),
         const SizedBox(height: Insets.m),
+        if (routePoints.isNotEmpty) ...[
+          SectionHeader(
+            title: '测站平面图',
+            actions: [
+              FilterChip(
+                selected: _showRouteLines,
+                label: const LocalText('路线连线'),
+                onSelected: (show) => setState(() => _showRouteLines = show),
+              ),
+            ],
+          ),
+          LivePlot(
+            height: 204,
+            points: routePoints,
+            selectedIndex: highlightedPoint == null
+                ? null
+                : routePoints.indexOf(highlightedPoint),
+            surveyNorthUp: true,
+            lines: [
+              if (_showRouteLines)
+                for (var i = 0; i + 1 < pointsByRoute.length; i++)
+                  if (pointsByRoute[i] case final from?)
+                    if (pointsByRoute[i + 1] case final to?)
+                      PlotLine(from: from, to: to),
+            ],
+            onTap: (point) {
+              final routeIndex = route.pointNames.indexOf(point.label, 1);
+              if (routeIndex > 0) {
+                _selectStation(_completeRows[routeIndex - 1], locate: true);
+              }
+            },
+          ),
+          const SizedBox(height: Insets.m),
+        ],
         LevelingProfileChart(
           pointNames: route.pointNames,
           heightsM: route.heightsM,
           distancesM: [
-            for (final st in _stationResults) st.backDistanceM + st.frontDistanceM,
+            for (final st in _stationResults)
+              st.backDistanceM + st.frontDistanceM,
           ],
           correctionsMm: route.correctionsMm,
+          selectedStation: selected >= 0 ? selected : null,
+          onStationSelected: (index) =>
+              _selectStation(_completeRows[index], locate: true),
           errorStations: <int>{
             for (var k = 0; k < _stationResults.length; k++)
               if (!_stationResults[k].ok) k,
@@ -1309,7 +1949,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               value: '±${fmt(route.limitMm, 1)}',
               unit: 'mm',
               note: _byDistance
-                  ? '${_grade.label} ±${_grade.lengthCoefficient.toStringAsFixed(0)}√L'
+                  ? '${_grade.label} ±${_distanceCoefficient.toStringAsFixed(0)}√L'
                   : '${_grade.label} ±${_grade.stationCoefficient.toStringAsFixed(0)}√n',
             ),
             ResultTile(
@@ -1330,16 +1970,17 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                 <String>[
                   route.pointNames[i],
                   fmt(route.heightsM[i], 3),
-                  i < route.correctionsMm.length
-                      ? fmt(route.correctionsMm[i], 1)
-                      : '',
-                  i < route.correctedDiffsMm.length
-                      ? fmt(route.correctedDiffsMm[i], 1)
-                      : '',
+                  i > 0 ? fmt(route.correctionsMm[i - 1], 1) : '',
+                  i > 0 ? fmt(route.correctedDiffsMm[i - 1], 1) : '',
                 ],
             ],
             columnWidths: const <double>[100, 100, 120, 120],
-            highlightRows: <int>{route.pointNames.length - 1},
+            highlightRows: <int>{
+              selected >= 0 ? selected + 1 : route.pointNames.length - 1
+            },
+            onRowSelected: (index) {
+              if (index > 0) _selectStation(_completeRows[index - 1]);
+            },
           ),
         ),
         const SizedBox(height: Insets.s),
@@ -1356,10 +1997,51 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   @override
   Widget build(BuildContext context) {
     final route = _route;
+    final tutorialButton = IconButton(
+      tooltip: context.tr('四等水准教程'),
+      onPressed: _showLiveTutorial,
+      icon: const Icon(Icons.help_outline),
+    );
     return DetailScaffold(
+      commandBar: true,
+      resultsBesideInputs: true,
+      sideVisual: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(
+            title: '路线成果',
+            actions: [
+              if (route != null)
+                TextButton(
+                  onPressed: () => _showRouteAssessment(route),
+                  child: const LocalText('查看评定'),
+                ),
+            ],
+          ),
+          const SizedBox(height: Insets.s),
+          _resultSection(context),
+        ],
+      ),
       title: '四等水准测量',
       subtitle: '手簿 → 闭合差 → 限差 → 配平 → 各点高程',
+      mobileSubtitle: drafts.value(draftPageId, '_title') ?? '双面尺 · 逐站检核',
+      mobilePrimaryAction: tutorialButton,
       actions: [
+        tutorialButton,
+        PopupMenuButton<bool>(
+          tooltip: context.tr('草稿编辑记录'),
+          onSelected: _replayEdit,
+          itemBuilder: (_) => [
+            PopupMenuItem(
+                value: true,
+                enabled: _undo.isNotEmpty,
+                child: const LocalText('撤销')),
+            PopupMenuItem(
+                value: false,
+                enabled: _redo.isNotEmpty,
+                child: const LocalText('重做')),
+          ],
+        ),
         SurveyPopconfirm(
           title: '载入规范算例？',
           description: '当前手簿读数将被替换为 4 站教材算例',
@@ -1419,12 +2101,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               label: '视距检核',
               status: _stationResults.isEmpty
                   ? PipelineStatus.pending
-                  : (_stationResults.every((st) => st.distanceOk && st.cumulativeOk)
+                  : (_stationResults
+                          .every((st) => st.distanceOk && st.cumulativeOk)
                       ? PipelineStatus.ok
                       : PipelineStatus.error),
               detail: _stationResults.isEmpty
                   ? null
-                  : (_stationResults.every((st) => st.distanceOk && st.cumulativeOk)
+                  : (_stationResults
+                          .every((st) => st.distanceOk && st.cumulativeOk)
                       ? '全站通过'
                       : '存在超限'),
             ),
@@ -1432,12 +2116,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               label: 'K 常数检核',
               status: _stationResults.isEmpty
                   ? PipelineStatus.pending
-                  : (_stationResults.every((st) => st.backConstantOk && st.frontConstantOk)
+                  : (_stationResults.every(
+                          (st) => st.backConstantOk && st.frontConstantOk)
                       ? PipelineStatus.ok
                       : PipelineStatus.error),
               detail: _stationResults.isEmpty
                   ? null
-                  : (_stationResults.every((st) => st.backConstantOk && st.frontConstantOk)
+                  : (_stationResults.every(
+                          (st) => st.backConstantOk && st.frontConstantOk)
                       ? '全站通过'
                       : '存在超限'),
             ),
@@ -1446,9 +2132,8 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               status: route == null
                   ? PipelineStatus.pending
                   : (route.ok ? PipelineStatus.ok : PipelineStatus.error),
-              detail: route == null
-                  ? null
-                  : 'fh=${fmt(route.misclosureMm, 1)}mm',
+              detail:
+                  route == null ? null : 'fh=${fmt(route.misclosureMm, 1)}mm',
             ),
           ],
         ),
@@ -1503,23 +2188,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               message: _error!,
             ),
           ),
-        const SizedBox(height: Insets.l),
-        SectionHeader(
-          title: '路线成果',
-          actions: [
-            const InfoHintTooltip(
-              message: '单站检核：|K+黑−红| ≤ 3 mm、|d| ≤ 5 m、|Σd| ≤ 10 m；'
-                  '路线限差：四等 ±20√L mm / 三等 ±12√L mm。',
-            ),
-            if (route != null)
-              Pill(
-                label: route.ok ? '合格' : '超限',
-                tone: route.ok ? PillTone.success : PillTone.danger,
-              ),
-          ],
-        ),
-        const SizedBox(height: Insets.s),
-        _resultSection(context),
       ],
     );
   }

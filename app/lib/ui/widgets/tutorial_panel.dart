@@ -6,6 +6,7 @@ import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'foundation.dart';
 import 'overlays.dart';
+import 'workspace_commands.dart';
 
 /// 计算页内置教程卡：折叠态只占一行，展开给「公式 / 步骤 / 算例 / 注意」。
 ///
@@ -19,10 +20,19 @@ class PageTutorial extends StatefulWidget {
     super.key,
     required this.id,
     this.initiallyExpanded = false,
+    this.workedSteps,
   });
 
   final String id;
   final bool initiallyExpanded;
+  final List<String>? workedSteps;
+
+  Future<void> openGuide(BuildContext context) => workspacePanel<void>(
+        context,
+        '离线教程',
+        PageTutorial(id: id, initiallyExpanded: true, workedSteps: workedSteps),
+        desktopDrawer: true,
+      );
 
   @override
   State<PageTutorial> createState() => _PageTutorialState();
@@ -38,7 +48,8 @@ class _PageTutorialState extends State<PageTutorial> {
 
   @override
   Widget build(BuildContext context) {
-    final t = tutorialFor(widget.id);
+    final strings = SurveyStrings.of(context);
+    final t = tutorialFor(widget.id, languageCode: strings.languageCode);
     if (t == null) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     return SurfaceCard(
@@ -55,13 +66,14 @@ class _PageTutorialState extends State<PageTutorial> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.menu_book_outlined, size: 16, color: scheme.primary),
+                  Icon(Icons.menu_book_outlined,
+                      size: 16, color: scheme.primary),
                   const SizedBox(width: 6),
                   // 折叠态只放标题（可收缩、可省略号）——曾经把 summary 也塞进这一行，
                   // 结果每页在 320dp / 1.3 倍字体下溢出 30~230px（23 条版式用例一起红）。
                   Expanded(
                     child: Text(
-                      context.tr('教程 · ${t.title}'),
+                      strings.translate('教程 · {tool}', {'tool': t.title}),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -71,6 +83,12 @@ class _PageTutorialState extends State<PageTutorial> {
                       ),
                     ),
                   ),
+                  if (!widget.initiallyExpanded && widget.id != 'leveling4')
+                    IconButton(
+                      tooltip: context.tr('打开离线教程'),
+                      onPressed: () => widget.openGuide(context),
+                      icon: const Icon(Icons.help_outline, size: 17),
+                    ),
                   Icon(
                     _open ? Icons.expand_less : Icons.expand_more,
                     size: 18,
@@ -92,7 +110,7 @@ class _PageTutorialState extends State<PageTutorial> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    t.summary,
+                    context.tr(t.summary),
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.6,
@@ -107,7 +125,7 @@ class _PageTutorialState extends State<PageTutorial> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: InkWell(
-                          onLongPress: () => _copy(f),
+                          onLongPress: () => _copy(context.tr(f)),
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
@@ -116,12 +134,15 @@ class _PageTutorialState extends State<PageTutorial> {
                             ),
                             color: scheme.surfaceContainerHigh,
                             child: SelectableText(
-                              f,
+                              context.tr(f),
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.5,
                                 fontFamily: 'Consolas',
-                                fontFamilyFallback: const ['Menlo', 'monospace'],
+                                fontFamilyFallback: const [
+                                  'Menlo',
+                                  'monospace'
+                                ],
                                 color: scheme.onSurface,
                               ),
                             ),
@@ -129,16 +150,31 @@ class _PageTutorialState extends State<PageTutorial> {
                         ),
                       ),
                     Text(
-                      '长按公式可复制',
+                      context.tr('长按公式可复制'),
                       style: TextStyle(
                         fontSize: 10.5,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
+                  if (widget.workedSteps case final steps?) ...[
+                    const SizedBox(height: Insets.m),
+                    _label(context, context.tr('代入当前数据')),
+                    const SizedBox(height: 6),
+                    if (steps.isEmpty)
+                      const LocalText('完成录入后显示代入步骤')
+                    else
+                      for (final step in steps)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: SelectableText(step,
+                              style: monoNumber(context,
+                                  size: 12, weight: FontWeight.w400)),
+                        ),
+                  ],
                   if (t.steps.isNotEmpty) ...[
                     const SizedBox(height: Insets.m),
-                    _label(context, '怎么用'),
+                    _label(context, context.tr('怎么用')),
                     const SizedBox(height: 4),
                     for (var i = 0; i < t.steps.length; i++)
                       Padding(
@@ -157,7 +193,7 @@ class _PageTutorialState extends State<PageTutorial> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                t.steps[i],
+                                context.tr(t.steps[i]),
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   height: 1.55,
@@ -182,7 +218,7 @@ class _PageTutorialState extends State<PageTutorial> {
                             SizedBox(
                               width: 78,
                               child: Text(
-                                e.$1,
+                                context.tr(e.$1),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -192,12 +228,14 @@ class _PageTutorialState extends State<PageTutorial> {
                             ),
                             Expanded(
                               child: Text(
-                                e.$2,
+                                context.tr(e.$2),
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   height: 1.5,
                                   color: scheme.onSurface,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
                                 ),
                               ),
                             ),
@@ -207,7 +245,7 @@ class _PageTutorialState extends State<PageTutorial> {
                   ],
                   if (t.notes.isNotEmpty) ...[
                     const SizedBox(height: Insets.m),
-                    _label(context, '注意'),
+                    _label(context, context.tr('注意')),
                     const SizedBox(height: 4),
                     for (final n in t.notes)
                       Padding(
@@ -225,7 +263,7 @@ class _PageTutorialState extends State<PageTutorial> {
                             ),
                             Expanded(
                               child: Text(
-                                n,
+                                context.tr(n),
                                 style: TextStyle(
                                   fontSize: 12,
                                   height: 1.55,

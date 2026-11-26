@@ -75,7 +75,7 @@ const List<ToolDef> kTools = [
     subtitle: '前方交会 / 距离交会求待定点坐标',
     group: ToolGroup.coordinates,
     icon: Icons.call_merge,
-    keywords: ['交会', '前方交会', '距离交会'],
+    keywords: ['交会', '前方交会', '距离交会', '后方交会', 'resection'],
   ),
 
   // ── 控制测量 ────────────────────────────────────────────

@@ -25,7 +25,8 @@ class SheetTable {
     this.notes = const [],
     this.xlsxBuilder,
     this.formSheetsBuilder,
-  });
+    String Function(String)? translateLabel,
+  }) : _translateLabel = translateLabel;
 
   /// 标题，写进文件名与表头前的说明。
   final String title;
@@ -39,9 +40,28 @@ class SheetTable {
 
   /// 多工作表与工程表打印图片构建器（同时用于标准工程测表 `.xlsx` 与 `.png` 渲染）。
   final List<XlsxSheetData> Function()? formSheetsBuilder;
+  final String Function(String)? _translateLabel;
+
+  String label(String source) => _translateLabel?.call(source) ?? source;
 
   bool get isEmpty =>
       rows.isEmpty && xlsxBuilder == null && formSheetsBuilder == null;
+
+  SheetTable localizeLabels(String Function(String) translate) => SheetTable(
+        title: translate(title),
+        rows: [
+          if (rows.isNotEmpty) rows.first.map(translate).toList(),
+          ...rows.skip(1)
+        ],
+        notes: notes,
+        xlsxBuilder: xlsxBuilder,
+        translateLabel: translate,
+        formSheetsBuilder: formSheetsBuilder == null
+            ? null
+            : () => formSheetsBuilder!()
+                .map((sheet) => sheet.localizeLabels(translate))
+                .toList(),
+      );
 }
 
 /// 导出结果。
@@ -69,7 +89,9 @@ class ExportService {
       final home = Platform.environment['USERPROFILE'] ??
           Platform.environment['HOMEDRIVE'] ??
           Directory.current.path;
-      final oneDrive = Platform.environment['OneDrive'] ?? Platform.environment['OneDriveConsumer'] ?? '';
+      final oneDrive = Platform.environment['OneDrive'] ??
+          Platform.environment['OneDriveConsumer'] ??
+          '';
       // 顺序有讲究：桌面应用默认放「文档」；如果文档被 OneDrive 接管或不可写，
       // 依次退到 OneDrive\Documents、用户目录，最后退到 exe 同级的「导出」——
       // 便携版（解压即用）落在 exe 旁边反而最符合使用习惯。
@@ -125,7 +147,8 @@ class ExportService {
     for (final d in _candidateDirs()) {
       try {
         if (!await d.exists()) await d.create(recursive: true);
-        final probe = File('${d.path}${Platform.pathSeparator}$folderName.writetest');
+        final probe =
+            File('${d.path}${Platform.pathSeparator}$folderName.writetest');
         await probe.writeAsString('ok');
         await probe.delete();
         _cachedDir = d;
@@ -164,10 +187,12 @@ class ExportService {
       final dir = await resolveDirAsync();
       final base = sanitize(fileNameHint ?? table.title);
       final prefix = '${_stamp()}_${base.isEmpty ? '导出成果' : base}';
-      var file = File('${dir.path}${Platform.pathSeparator}$prefix.${format.ext}');
+      var file =
+          File('${dir.path}${Platform.pathSeparator}$prefix.${format.ext}');
       var seq = 1;
       while (await file.exists()) {
-        file = File('${dir.path}${Platform.pathSeparator}${prefix}_$seq.${format.ext}');
+        file = File(
+            '${dir.path}${Platform.pathSeparator}${prefix}_$seq.${format.ext}');
         seq++;
       }
       switch (format) {
@@ -175,10 +200,10 @@ class ExportService {
           final bytes = table.formSheetsBuilder != null
               ? XlsxWriter.buildWorkbook(table.formSheetsBuilder!())
               : (table.xlsxBuilder != null
-                    ? table.xlsxBuilder!()
-                    : XlsxWriter.buildWorkbook([
-                        SurveyForms.fromSheetTable(table),
-                      ]));
+                  ? table.xlsxBuilder!()
+                  : XlsxWriter.buildWorkbook([
+                      SurveyForms.fromSheetTable(table),
+                    ]));
           await file.writeAsBytes(bytes, flush: true);
         case ExportFormat.png:
           final sheets = table.formSheetsBuilder != null
@@ -216,6 +241,71 @@ class ExportService {
       return (path: file.path, error: null);
     } catch (e) {
       return (path: null, error: '$e');
+    }
+  }
+
+  /// 工程坐标 X 为北、Y 为东，DXF 使用横轴东坐标和纵轴北坐标。
+  static String surveyDxf(List<(double, double, double)?> points) {
+    final writer = StringBuffer('0\nSECTION\n2\nHEADER\n9\n'
+        r'$ACADVER'
+        '\n1\nAC1009\n0\nENDSEC\n'
+        '0\nSECTION\n2\nENTITIES\n');
+    void coordinates((double, double, double) p, {int offset = 0}) {
+      writer.write('${10 + offset}\n${p.$2}\n${20 + offset}\n${p.$1}\n'
+          '${30 + offset}\n${p.$3}\n');
+    }
+
+    (double, double, double)? previous;
+    for (final point in points) {
+      if (point != null) {
+        writer.write('0\nPOINT\n8\n0\n');
+        coordinates(point);
+        if (previous != null) {
+          writer.write('0\nLINE\n8\n0\n');
+          coordinates(previous);
+          coordinates(point, offset: 1);
+        }
+      }
+      previous = point;
+    }
+    return (writer..write('0\nENDSEC\n0\nEOF\n')).toString();
+  }
+
+  static Future<({String? path, String? error})> exportSurveyDxf(
+    List<(double, double, double)?> points,
+    String title,
+  ) async {
+    if (!points.any((point) => point != null)) {
+      return (path: null, error: '暂无可导出的计算成果');
+    }
+    try {
+      final dir = await resolveDirAsync();
+      final base = '${_stamp()}_${sanitize(title)}';
+      var sequence = 0;
+      while (true) {
+        final suffix = sequence == 0 ? '' : '_$sequence';
+        final file =
+            File('${dir.path}${Platform.pathSeparator}$base$suffix.dxf');
+        try {
+          await file.create(exclusive: true);
+        } on PathExistsException {
+          sequence++;
+          continue;
+        }
+        try {
+          await file.writeAsString(surveyDxf(points), flush: true);
+        } on FileSystemException {
+          try {
+            await file.delete();
+          } on FileSystemException {
+            // Retain the write error when cleanup also fails.
+          }
+          rethrow;
+        }
+        return (path: file.path, error: null);
+      }
+    } catch (error) {
+      return (path: null, error: '$error');
     }
   }
 
@@ -269,8 +359,10 @@ class ExportService {
   }
 
   static String csvField(String s) {
-    final needsQuote = s.contains(',') || s.contains('"') ||
-        s.contains('\n') || s.contains('\r');
+    final needsQuote = s.contains(',') ||
+        s.contains('"') ||
+        s.contains('\n') ||
+        s.contains('\r');
     if (!needsQuote) return s;
     return '"${s.replaceAll('"', '""')}"';
   }

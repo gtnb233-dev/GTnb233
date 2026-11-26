@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:survey_core/survey_core.dart';
 import 'package:survey_pro/state/settings.dart';
 import 'package:survey_pro/theme/app_theme.dart';
-import 'package:survey_pro/ui/pages/home_page.dart';
+import 'package:survey_pro/ui/widgets/workspace_commands.dart';
 import 'package:survey_pro/ui/pages/tools/four_order_leveling.dart';
 import 'package:survey_pro/ui/pages/tools_page.dart';
 import 'package:survey_pro/ui/widgets/widgets.dart';
@@ -40,37 +40,20 @@ Future<void> _pump(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('HomePage 工作台胶囊可直接切换量级/角度格式/小数位', (tester) async {
+  testWidgets('悬浮操作台可切换 DMS / DD，并在本机计算', (tester) async {
     final settings = AppSettings();
-    await _pump(
-      tester,
-      HomePage(onNavigate: (_) {}, onOpenSettings: () {}),
-      settings: settings,
-    );
-
-    // 切换单位为厘米
-    await tester.tap(find.byKey(const ValueKey<String>('home-unit-pill')));
+    await _pump(tester, const Scaffold(body: QuickCommandBar()),
+        settings: settings);
+    await tester.tap(find.text('DMS'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('厘米 (cm)'));
-    await tester.pumpAndSettle();
-    expect(settings.lengthUnit, LengthUnit.centimeter);
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
-
-    // 切换角度格式为十进制度
-    await tester.tap(find.byKey(const ValueKey<String>('home-angle-pill')));
+    await tester.tap(find.text('DD'));
     await tester.pumpAndSettle();
     expect(settings.angleMode, AngleInputMode.decimalDegrees);
-    await tester.pump(const Duration(seconds: 3));
+    await tester.enterText(
+        find.byKey(const ValueKey('workspace-command-input')), '=3*4');
+    await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
-
-    // 切换小数位数 3 -> 4
-    await tester.tap(find.byKey(const ValueKey<String>('home-digits-pill')));
-    await tester.pumpAndSettle();
-    expect(settings.coordDigits, 4);
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    expect(find.text('12.0'), findsOneWidget);
   });
 
   testWidgets('ToolsPage 支持全部展开/收起与星标固定到首页常用', (tester) async {
@@ -81,7 +64,8 @@ void main() {
     await tester.tap(find.text('全部展开'));
     await tester.pumpAndSettle();
     expect(find.text('全部收起'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('toolbox-pin-polar')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('toolbox-pin-polar')),
+        findsOneWidget);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('toolbox-pin-polar')),
@@ -133,8 +117,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('四等水准在 320×640 / 1.3x 下可切换「逐站卡片」并无溢出',
-      (tester) async {
+  testWidgets('四等水准在 320×640 / 1.3x 下可切换「逐站卡片」并无溢出', (tester) async {
     await _pump(
       tester,
       const FourOrderLevelingPage(),
@@ -146,7 +129,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('逐站卡片'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('leveling4-card-0')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('leveling4-card-0')), findsOneWidget);
     expect(find.text('后尺读数（mm）'), findsWidgets);
     expect(tester.takeException(), isNull);
 
@@ -154,7 +138,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('手簿表'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('leveling4-row-0')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('leveling4-row-0')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

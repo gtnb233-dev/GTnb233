@@ -24,6 +24,8 @@ Future<
       String backRod,
       String frontRod,
       List<String> names,
+      String prefix,
+      int step,
     })?> showPointNamesDialog(
   BuildContext context, {
   String title = '自定义点名（号）',
@@ -36,6 +38,8 @@ Future<
   bool showRodFields = false,
   String backRodLabel = '',
   String frontRodLabel = '',
+  String? sequencePrefix,
+  int sequenceStep = 1,
 }) {
   return SurveyModal.show<
       ({
@@ -43,6 +47,8 @@ Future<
         String backRod,
         String frontRod,
         List<String> names,
+        String prefix,
+        int step,
       })>(
     context,
     title: title,
@@ -60,6 +66,8 @@ Future<
       showRodFields: showRodFields,
       backRodLabel: backRodLabel,
       frontRodLabel: frontRodLabel,
+      sequencePrefix: sequencePrefix,
+      sequenceStep: sequenceStep,
     ),
   );
 }
@@ -75,6 +83,8 @@ class _PointNamesDialog extends StatefulWidget {
     required this.showRodFields,
     required this.backRodLabel,
     required this.frontRodLabel,
+    required this.sequencePrefix,
+    required this.sequenceStep,
   });
 
   final String? startName;
@@ -86,6 +96,8 @@ class _PointNamesDialog extends StatefulWidget {
   final bool showRodFields;
   final String backRodLabel;
   final String frontRodLabel;
+  final String? sequencePrefix;
+  final int sequenceStep;
 
   @override
   State<_PointNamesDialog> createState() => _PointNamesDialogState();
@@ -96,6 +108,8 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
   late final TextEditingController _backRodCtrl;
   late final TextEditingController _frontRodCtrl;
   late final List<TextEditingController> _nameCtrls;
+  late final TextEditingController _prefix;
+  late final TextEditingController _step;
 
   @override
   void initState() {
@@ -103,6 +117,8 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
     _startCtrl = TextEditingController(text: widget.startName ?? '');
     _backRodCtrl = TextEditingController(text: widget.backRodLabel);
     _frontRodCtrl = TextEditingController(text: widget.frontRodLabel);
+    _prefix = TextEditingController(text: widget.sequencePrefix);
+    _step = TextEditingController(text: widget.sequenceStep.toString());
     _nameCtrls = [
       for (final n in widget.pointNames) TextEditingController(text: n),
     ];
@@ -113,21 +129,21 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
     _startCtrl.dispose();
     _backRodCtrl.dispose();
     _frontRodCtrl.dispose();
+    _prefix.dispose();
+    _step.dispose();
     for (final c in _nameCtrls) {
       c.dispose();
     }
     super.dispose();
   }
 
-  void _applyPrefix(String prefix, {bool closeToStart = false}) {
+  void _applyPrefix(String prefix, {bool closeToStart = false, int step = 1}) {
     final start = _startCtrl.text.trim();
     for (var i = 0; i < _nameCtrls.length; i++) {
-      if (closeToStart &&
-          i == _nameCtrls.length - 1 &&
-          start.isNotEmpty) {
+      if (closeToStart && i == _nameCtrls.length - 1 && start.isNotEmpty) {
         _nameCtrls[i].text = start;
       } else {
-        _nameCtrls[i].text = '$prefix${i + 1}';
+        _nameCtrls[i].text = '$prefix${1 + i * step}';
       }
     }
     setState(() {});
@@ -137,152 +153,208 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final presets = widget.presets;
-    final startVal =
-        _startCtrl.text.trim().isEmpty ? (widget.startName ?? '起点') : _startCtrl.text.trim();
+    final startVal = _startCtrl.text.trim().isEmpty
+        ? (widget.startName ?? '起点')
+        : _startCtrl.text.trim();
+    final step = int.tryParse(_step.text) ?? 0;
+    final validSequence = widget.sequencePrefix == null ||
+        (step > 0 && step <= 100000 && _prefix.text.trim().isNotEmpty);
+    final seen = <String>{startVal};
+    final repeated = <String>{};
+    for (var i = 0; i < _nameCtrls.length; i++) {
+      final name = _nameCtrls[i].text.trim();
+      if (name.isEmpty ||
+          (widget.isClosed && i == _nameCtrls.length - 1 && name == startVal)) {
+        continue;
+      }
+      if (!seen.add(name)) repeated.add(name);
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-                spacing: Insets.xs,
-                runSpacing: Insets.xs,
-                children: [
-                  if (presets != null)
-                    for (final p in presets)
-                      ActionChip(
-                        label: Text(p.label, style: const TextStyle(fontSize: 11.5)),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () {
-                          final built = p.buildNames(_nameCtrls.length, startVal);
-                          for (var i = 0; i < _nameCtrls.length && i < built.length; i++) {
-                            _nameCtrls[i].text = built[i];
-                          }
-                          setState(() {});
-                        },
-                      )
-                  else ...[
-                    ActionChip(
-                      label: const Text('转点 TP1, TP2…', style: TextStyle(fontSize: 11.5)),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => _applyPrefix('TP', closeToStart: widget.isClosed),
-                    ),
-                    ActionChip(
-                      label: const Text('水准点 BM1, BM2…', style: TextStyle(fontSize: 11.5)),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => _applyPrefix('BM', closeToStart: widget.isClosed),
-                    ),
-                    ActionChip(
-                      label: const Text('测点 P1, P2…', style: TextStyle(fontSize: 11.5)),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => _applyPrefix('P', closeToStart: widget.isClosed),
-                    ),
-                    if (_nameCtrls.isNotEmpty && widget.startName != null)
-                      ActionChip(
-                        label: const Text('末点闭合起点', style: TextStyle(fontSize: 11.5)),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () {
-                          _nameCtrls.last.text = startVal;
-                          setState(() {});
-                        },
-                      ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: Insets.m),
-              if (widget.startName != null) ...[
-                TextField(
-                  controller: _startCtrl,
+        if (widget.sequencePrefix != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _prefix,
                   onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: widget.startLabel,
-                    hintText: '如 BM1',
+                  decoration: InputDecoration(labelText: context.tr('点号前缀')),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _step,
+                  onChanged: (_) => setState(() {}),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: context.tr('递增步长')),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: validSequence
+                  ? () => _applyPrefix(_prefix.text.trim(),
+                      closeToStart: widget.isClosed, step: step)
+                  : null,
+              child: const LocalText('按规则生成点号'),
+            ),
+          ),
+        ],
+        Wrap(
+          spacing: Insets.xs,
+          runSpacing: Insets.xs,
+          children: [
+            if (presets != null)
+              for (final p in presets)
+                ActionChip(
+                  label: Text(p.label, style: const TextStyle(fontSize: 11.5)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final built = p.buildNames(_nameCtrls.length, startVal);
+                    for (var i = 0;
+                        i < _nameCtrls.length && i < built.length;
+                        i++) {
+                      _nameCtrls[i].text = built[i];
+                    }
+                    setState(() {});
+                  },
+                )
+            else ...[
+              ActionChip(
+                label: const Text('转点 TP1, TP2…',
+                    style: TextStyle(fontSize: 11.5)),
+                visualDensity: VisualDensity.compact,
+                onPressed: () =>
+                    _applyPrefix('TP', closeToStart: widget.isClosed),
+              ),
+              ActionChip(
+                label: const Text('水准点 BM1, BM2…',
+                    style: TextStyle(fontSize: 11.5)),
+                visualDensity: VisualDensity.compact,
+                onPressed: () =>
+                    _applyPrefix('BM', closeToStart: widget.isClosed),
+              ),
+              ActionChip(
+                label:
+                    const Text('测点 P1, P2…', style: TextStyle(fontSize: 11.5)),
+                visualDensity: VisualDensity.compact,
+                onPressed: () =>
+                    _applyPrefix('P', closeToStart: widget.isClosed),
+              ),
+              if (_nameCtrls.isNotEmpty && widget.startName != null)
+                ActionChip(
+                  label: const Text('末点闭合起点', style: TextStyle(fontSize: 11.5)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    _nameCtrls.last.text = startVal;
+                    setState(() {});
+                  },
+                ),
+            ],
+          ],
+        ),
+        const SizedBox(height: Insets.m),
+        if (widget.startName != null) ...[
+          TextField(
+            controller: _startCtrl,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: widget.startLabel,
+              hintText: '如 BM1',
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: Insets.s),
+        ],
+        if (widget.showRodFields) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _backRodCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '后尺号（可选）',
+                    hintText: '如 5',
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: Insets.s),
-              ],
-              if (widget.showRodFields) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _backRodCtrl,
-                        decoration: const InputDecoration(
-                          labelText: '后尺号（可选）',
-                          hintText: '如 5',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: Insets.s),
-                    Expanded(
-                      child: TextField(
-                        controller: _frontRodCtrl,
-                        decoration: const InputDecoration(
-                          labelText: '前尺号（可选）',
-                          hintText: '如 6',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Insets.m),
-              ],
-              Text(
-                '各站 / 各点编号',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: Insets.s),
+              Expanded(
+                child: TextField(
+                  controller: _frontRodCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '前尺号（可选）',
+                    hintText: '如 6',
+                    isDense: true,
+                  ),
                 ),
               ),
-              const SizedBox(height: Insets.xs),
-              for (var i = 0; i < _nameCtrls.length; i++) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Insets.s),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 112,
-                        child: Text(
-                          widget.stationLabelBuilder != null
-                              ? widget.stationLabelBuilder!(
-                                  i,
-                                  i == 0
-                                      ? startVal
-                                      : (_nameCtrls[i - 1].text.trim().isEmpty
-                                          ? 'P$i'
-                                          : _nameCtrls[i - 1].text.trim()),
-                                )
-                              : '第 ${i + 1} 站前点',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+            ],
+          ),
+          const SizedBox(height: Insets.m),
+        ],
+        Text(
+          '各站 / 各点编号',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: Insets.xs),
+        for (var i = 0; i < _nameCtrls.length; i++) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: Insets.s),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 112,
+                  child: Text(
+                    widget.stationLabelBuilder != null
+                        ? widget.stationLabelBuilder!(
+                            i,
+                            i == 0
+                                ? startVal
+                                : (_nameCtrls[i - 1].text.trim().isEmpty
+                                    ? 'P$i'
+                                    : _nameCtrls[i - 1].text.trim()),
+                          )
+                        : '第 ${i + 1} 站前点',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: Insets.s),
+                Expanded(
+                  child: TextField(
+                    controller: _nameCtrls[i],
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'TP${i + 1}',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: Insets.s),
-                      Expanded(
-                        child: TextField(
-                          controller: _nameCtrls[i],
-                          onChanged: (_) => setState(() {}),
-                          decoration: InputDecoration(
-                            hintText: 'TP${i + 1}',
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+        if (repeated.isNotEmpty)
+          LocalText('同名点将作为已有点引用', style: TextStyle(color: scheme.error)),
         const SizedBox(height: Insets.s),
         Divider(
           height: 1,
@@ -301,21 +373,25 @@ class _PointNamesDialogState extends State<_PointNamesDialog> {
                 child: Text(context.tr('取消')),
               ),
               FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop((
-                    startName: _startCtrl.text.trim().isEmpty
-                        ? (widget.startName ?? 'BM1')
-                        : _startCtrl.text.trim(),
-                    backRod: _backRodCtrl.text.trim(),
-                    frontRod: _frontRodCtrl.text.trim(),
-                    names: [
-                      for (var i = 0; i < _nameCtrls.length; i++)
-                        _nameCtrls[i].text.trim().isEmpty
-                            ? 'P${i + 1}'
-                            : _nameCtrls[i].text.trim(),
-                    ],
-                  ));
-                },
+                onPressed: !validSequence
+                    ? null
+                    : () {
+                        Navigator.of(context).pop((
+                          startName: _startCtrl.text.trim().isEmpty
+                              ? (widget.startName ?? 'BM1')
+                              : _startCtrl.text.trim(),
+                          backRod: _backRodCtrl.text.trim(),
+                          frontRod: _frontRodCtrl.text.trim(),
+                          prefix: _prefix.text.trim(),
+                          step: step,
+                          names: [
+                            for (var i = 0; i < _nameCtrls.length; i++)
+                              _nameCtrls[i].text.trim().isEmpty
+                                  ? 'P${i + 1}'
+                                  : _nameCtrls[i].text.trim(),
+                          ],
+                        ));
+                      },
                 child: const Text('应用'),
               ),
             ],

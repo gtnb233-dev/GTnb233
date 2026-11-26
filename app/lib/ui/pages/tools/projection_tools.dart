@@ -68,14 +68,12 @@ String _serializeNamedTupleRows(List<List<String>> rows, int valueCount) {
   final names = <String>[];
   for (final r in rows) {
     final vals = [
-      for (var i = 1; i <= valueCount; i++)
-        i < r.length ? r[i].trim() : '',
+      for (var i = 1; i <= valueCount; i++) i < r.length ? r[i].trim() : '',
     ];
     if (vals.any((v) => v.isEmpty)) continue;
     final rawName = r.isNotEmpty ? r[0].trim() : '';
-    final name = rawName.isNotEmpty
-        ? rawName
-        : nextAutoPointName(names, prefix: 'P');
+    final name =
+        rawName.isNotEmpty ? rawName : nextAutoPointName(names, prefix: 'P');
     names.add(name);
     lines.add('$name, ${vals.join(', ')}');
   }
@@ -117,7 +115,8 @@ List<_CommonPoint> _parseCommonPoints(String text) {
 /// 七参数公共点：点名 + 三组数值，语义随模式变：
 /// 大地模式 = B, L, H, X, Y, Z；空间直角模式 = X, Y, Z, X′, Y′, Z′。
 class _HelmertPoint {
-  const _HelmertPoint(this.label, this.a, this.b, this.c, this.d, this.e, this.f);
+  const _HelmertPoint(
+      this.label, this.a, this.b, this.c, this.d, this.e, this.f);
 
   final String label;
   final double a;
@@ -199,7 +198,10 @@ class _ProjectionPageState extends State<ProjectionPage>
   final _applyY = _ctrl('2000');
 
   int _mode = 0;
-  Ellipsoid _ellipsoid = kCgcs2000;
+  late Ellipsoid _ellipsoid =
+      SettingsScope.read(context).workspaceEllipsoid == 'WGS84'
+          ? kWgs84
+          : kCgcs2000;
 
   GaussPoint? _forward;
   LatLon? _inverse;
@@ -247,6 +249,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       return null;
     }
   }
+
   List<_HelmertPoint> _helmertPoints = const [];
   String? _helmertError;
 
@@ -415,8 +418,16 @@ class _ProjectionPageState extends State<ProjectionPage>
         <String>['成果 B（十进制度）', g == null ? '' : fmt(g.latDeg, 9), '°'],
         <String>['成果 L（十进制度）', g == null ? '' : fmt(g.lonDeg, 9), '°'],
         <String>['成果 H', g == null ? '' : fmt(g.heightM, 4), 'm'],
-        <String>['成果 B（度分秒）', g == null ? '' : fmtAngle(g.latDeg, secDigits: 2), ''],
-        <String>['成果 L（度分秒）', g == null ? '' : fmtAngle(g.lonDeg, secDigits: 2), ''],
+        <String>[
+          '成果 B（度分秒）',
+          g == null ? '' : fmtAngle(g.latDeg, secDigits: 2),
+          ''
+        ],
+        <String>[
+          '成果 L（度分秒）',
+          g == null ? '' : fmtAngle(g.lonDeg, secDigits: 2),
+          ''
+        ],
       ]);
     } else {
       final fit = _helmertFit;
@@ -428,10 +439,26 @@ class _ProjectionPageState extends State<ProjectionPage>
         <String>['平移 dx', fit == null ? '' : fmt(fit.transform.dx, 4), 'm'],
         <String>['平移 dy', fit == null ? '' : fmt(fit.transform.dy, 4), 'm'],
         <String>['平移 dz', fit == null ? '' : fmt(fit.transform.dz, 4), 'm'],
-        <String>['旋转 ex', fit == null ? '' : fmt(fit.transform.exArcSec, 4), '″'],
-        <String>['旋转 ey', fit == null ? '' : fmt(fit.transform.eyArcSec, 4), '″'],
-        <String>['旋转 ez', fit == null ? '' : fmt(fit.transform.ezArcSec, 4), '″'],
-        <String>['尺度', fit == null ? '' : fmt(fit.transform.scalePpm, 4), 'ppm'],
+        <String>[
+          '旋转 ex',
+          fit == null ? '' : fmt(fit.transform.exArcSec, 4),
+          '″'
+        ],
+        <String>[
+          '旋转 ey',
+          fit == null ? '' : fmt(fit.transform.eyArcSec, 4),
+          '″'
+        ],
+        <String>[
+          '旋转 ez',
+          fit == null ? '' : fmt(fit.transform.ezArcSec, 4),
+          '″'
+        ],
+        <String>[
+          '尺度',
+          fit == null ? '' : fmt(fit.transform.scalePpm, 4),
+          'ppm'
+        ],
         <String>['中误差 rms', fit == null ? '' : fmt(fit.rms, 6), 'm'],
         <String>['公共点数', fit == null ? '' : '${fit.count}', ''],
         <String>['换算方向', _helmertFromGeodetic ? '大地 → 空间直角' : '空间直角 → 大地', ''],
@@ -453,7 +480,8 @@ class _ProjectionPageState extends State<ProjectionPage>
       '坐标小数位 = ${s.coordDigits}，角度秒位 = ${s.angleSecDigits}。',
     ];
 
-    List<List<String>> padRows(List<List<String>> src, int width) => <List<String>>[
+    List<List<String>> padRows(List<List<String>> src, int width) =>
+        <List<String>>[
           for (final row in src)
             if (row.length >= width)
               row
@@ -580,9 +608,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       return '经度超出 ±180°（当前 ${fmt(lon, 6)}°），请检查经度是否为东经/西经';
     }
     final msg = e.message;
-    return msg is String && msg.isNotEmpty
-        ? '参数超出投影范围：$msg'
-        : '参数超出投影范围，请检查输入';
+    return msg is String && msg.isNotEmpty ? '参数超出投影范围：$msg' : '参数超出投影范围，请检查输入';
   }
 
   void _calcForward({bool notify = false}) {
@@ -728,7 +754,12 @@ class _ProjectionPageState extends State<ProjectionPage>
     return rows;
   }
 
-  static const List<String> _residualColumns = ['点名', 'ΔX (m)', 'ΔY (m)', '残差 (m)'];
+  static const List<String> _residualColumns = [
+    '点名',
+    'ΔX (m)',
+    'ΔY (m)',
+    '残差 (m)'
+  ];
 
   String _geodesyMessage(ArgumentError e) {
     final msg = e.message;
@@ -1187,7 +1218,16 @@ class _ProjectionPageState extends State<ProjectionPage>
     required BuildContext context,
     required String title,
     required String exportTitle,
-    required List<({String label, double x, double y, double dx, double dy, double residual})> samples,
+    required List<
+            ({
+              String label,
+              double x,
+              double y,
+              double dx,
+              double dy,
+              double residual
+            })>
+        samples,
     bool surveyNorthUp = false,
   }) {
     if (samples.isEmpty) return const SizedBox.shrink();
@@ -1238,7 +1278,8 @@ class _ProjectionPageState extends State<ProjectionPage>
               for (var i = 0; i < samples.length; i++)
                 if (samples[i].residual > 1e-9)
                   PlotArrow(
-                    from: PlotPoint(x: samples[i].x, y: samples[i].y, label: ''),
+                    from:
+                        PlotPoint(x: samples[i].x, y: samples[i].y, label: ''),
                     to: PlotPoint(
                       x: samples[i].x + samples[i].dx * arrowScale,
                       y: samples[i].y + samples[i].dy * arrowScale,
@@ -1261,8 +1302,22 @@ class _ProjectionPageState extends State<ProjectionPage>
     final rows = _helmertResidualRows();
     final applied = _helmertApplyResult;
     final helmertSamples = fit == null
-        ? const <({String label, double x, double y, double dx, double dy, double residual})>[]
-        : <({String label, double x, double y, double dx, double dy, double residual})>[
+        ? const <({
+            String label,
+            double x,
+            double y,
+            double dx,
+            double dy,
+            double residual
+          })>[]
+        : <({
+            String label,
+            double x,
+            double y,
+            double dx,
+            double dy,
+            double residual
+          })>[
             for (var i = 0; i < _helmertPoints.length; i++)
               if (_helmertFromOf(_helmertPoints[i]) case final fromPt?)
                 () {
@@ -1318,7 +1373,8 @@ class _ProjectionPageState extends State<ProjectionPage>
               showRowIndex: false,
               syncKey: _helmertFromGeodetic,
               controllers: [_helmertPts],
-              countLabelBuilder: () => '${_parseHelmertPoints(_helmertPts.text).length} 点',
+              countLabelBuilder: () =>
+                  '${_parseHelmertPoints(_helmertPts.text).length} 点',
               columns: _helmertFromGeodetic
                   ? const [
                       TableInputColumn(
@@ -1330,11 +1386,15 @@ class _ProjectionPageState extends State<ProjectionPage>
                         autoNamePrefix: 'P',
                       ),
                       TableInputColumn(title: 'B (°)', width: 92, hint: '39.9'),
-                      TableInputColumn(title: 'L (°)', width: 96, hint: '116.4'),
+                      TableInputColumn(
+                          title: 'L (°)', width: 96, hint: '116.4'),
                       TableInputColumn(title: 'H (m)', width: 78, hint: '50.0'),
-                      TableInputColumn(title: 'X (m)', width: 108, hint: '-2178647'),
-                      TableInputColumn(title: 'Y (m)', width: 108, hint: '4388877'),
-                      TableInputColumn(title: 'Z (m)', width: 108, hint: '4069526'),
+                      TableInputColumn(
+                          title: 'X (m)', width: 108, hint: '-2178647'),
+                      TableInputColumn(
+                          title: 'Y (m)', width: 108, hint: '4388877'),
+                      TableInputColumn(
+                          title: 'Z (m)', width: 108, hint: '4069526'),
                     ]
                   : const [
                       TableInputColumn(
@@ -1345,12 +1405,18 @@ class _ProjectionPageState extends State<ProjectionPage>
                         autoName: true,
                         autoNamePrefix: 'P',
                       ),
-                      TableInputColumn(title: 'X (m)', width: 108, hint: '-2178657'),
-                      TableInputColumn(title: 'Y (m)', width: 108, hint: '4388876'),
-                      TableInputColumn(title: 'Z (m)', width: 108, hint: '4069505'),
-                      TableInputColumn(title: 'X′ (m)', width: 108, hint: '-2178647'),
-                      TableInputColumn(title: 'Y′ (m)', width: 108, hint: '4388877'),
-                      TableInputColumn(title: 'Z′ (m)', width: 108, hint: '4069526'),
+                      TableInputColumn(
+                          title: 'X (m)', width: 108, hint: '-2178657'),
+                      TableInputColumn(
+                          title: 'Y (m)', width: 108, hint: '4388876'),
+                      TableInputColumn(
+                          title: 'Z (m)', width: 108, hint: '4069505'),
+                      TableInputColumn(
+                          title: 'X′ (m)', width: 108, hint: '-2178647'),
+                      TableInputColumn(
+                          title: 'Y′ (m)', width: 108, hint: '4388877'),
+                      TableInputColumn(
+                          title: 'Z′ (m)', width: 108, hint: '4069526'),
                     ],
               parseRows: (texts) => _parseNamedTupleRows(texts[0], 6),
               serializeRows: (rows) => [_serializeNamedTupleRows(rows, 6)],
@@ -1461,7 +1527,9 @@ class _ProjectionPageState extends State<ProjectionPage>
           ),
           const SizedBox(height: Insets.l),
           InputCard(
-            title: _helmertFromGeodetic ? '用参数正算一个点（B, L, H）' : '用参数正算一个点（X, Y, Z）',
+            title: _helmertFromGeodetic
+                ? '用参数正算一个点（B, L, H）'
+                : '用参数正算一个点（X, Y, Z）',
             caption: _helmertFromGeodetic
                 ? '按拟合出的七参数把源坐标 (B, L, H) 换算到目标坐标系的空间直角坐标，即时显示'
                 : '按拟合出的七参数把源 (X, Y, Z) 换算到目标 (X′, Y′, Z′)，即时显示',
@@ -1497,7 +1565,8 @@ class _ProjectionPageState extends State<ProjectionPage>
                               controller: _hApply0,
                               label: 'B',
                               mode: _blAngleMode,
-                              secDigits: SettingsScope.of(context).angleSecDigits,
+                              secDigits:
+                                  SettingsScope.of(context).angleSecDigits,
                               onChanged: (_) => setState(() {}),
                             )
                           : NumberField(
@@ -1514,7 +1583,8 @@ class _ProjectionPageState extends State<ProjectionPage>
                               controller: _hApply1,
                               label: 'L',
                               mode: _blAngleMode,
-                              secDigits: SettingsScope.of(context).angleSecDigits,
+                              secDigits:
+                                  SettingsScope.of(context).angleSecDigits,
                               onChanged: (_) => setState(() {}),
                             )
                           : NumberField(
@@ -1567,6 +1637,7 @@ class _ProjectionPageState extends State<ProjectionPage>
       ],
     );
   }
+
   Widget _modeSwitch() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -1628,7 +1699,8 @@ class _ProjectionPageState extends State<ProjectionPage>
     );
   }
 
-  Widget _zoneWidthField({required int width, required ValueChanged<int> onChanged}) {
+  Widget _zoneWidthField(
+      {required int width, required ValueChanged<int> onChanged}) {
     return FieldShell(
       label: '带宽',
       child: Row(
@@ -1661,10 +1733,10 @@ class _ProjectionPageState extends State<ProjectionPage>
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return DetailScaffold(
+      commandBar: true,
       title: '坐标转换',
       subtitle: '高斯-克吕格正反算（3°/6° 带）与四参数平面相似变换',
       toolbar: PageActions(
@@ -1676,7 +1748,16 @@ class _ProjectionPageState extends State<ProjectionPage>
         },
       ),
       children: [
-        const PageTutorial(id: 'projection'),
+        PageTutorial(id: 'projection', workedSteps: [
+          if (_mode == 0)
+            if (_forward case final p?) ...[
+              'L₀ = ${fmt(p.centralMeridianDeg, 6)}°',
+              'E₀ = E − FE = ${fmt(p.y, 3)} − ${fmt(_falseEasting, 3)} = ${fmt(p.y - _falseEasting, 3)} m',
+            ],
+          if (_mode == 1)
+            if (_inverse case final p?)
+              '(B, L) = (${fmt(p.latDeg, 8)}°, ${fmt(p.lonDeg, 8)}°)',
+        ]),
         _modeSwitch(),
         const SizedBox(height: Insets.m),
         if (_mode == 0) ..._forwardSection(),
@@ -1953,7 +2034,8 @@ class _ProjectionPageState extends State<ProjectionPage>
             minRows: 2,
             showRowIndex: false,
             controllers: [_pairs],
-            countLabelBuilder: () => '${_parseCommonPoints(_pairs.text).length} 点',
+            countLabelBuilder: () =>
+                '${_parseCommonPoints(_pairs.text).length} 点',
             columns: const [
               TableInputColumn(
                 title: '点名',

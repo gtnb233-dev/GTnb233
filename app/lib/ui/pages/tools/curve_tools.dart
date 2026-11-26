@@ -29,7 +29,7 @@ class CircularCurvePage extends StatefulWidget {
 class _CircularCurvePageState extends State<CircularCurvePage>
     with DraftMixin<CircularCurvePage> {
   final _alphaKey = GlobalKey<AngleFieldState>();
-  final _alphaCtrl = TextEditingController(text: '40.0000');
+  final _alphaCtrl = TextEditingController(text: '40deg');
   final _r = _ctrl('300');
   final _jd = _ctrl('1000');
   final _arc = _ctrl('50');
@@ -51,7 +51,7 @@ class _CircularCurvePageState extends State<CircularCurvePage>
         'r': '300',
         'jd': '1000',
         'arc': '50',
-        'alpha': '40.0000',
+        'alpha': '40deg',
       };
 
   /// 导出：曲线要素 + 主点里程。
@@ -63,20 +63,60 @@ class _CircularCurvePageState extends State<CircularCurvePage>
       title: '圆曲线要素',
       rows: <List<String>>[
         <String>['量', '值', '单位'],
-        <String>['转角 α', _alphaKey.currentState?.value == null
-            ? ''
-            : fmtAngle(_alphaKey.currentState!.value!, secDigits: 1), ''],
+        <String>[
+          '转角 α',
+          _alphaKey.currentState?.value == null
+              ? ''
+              : fmtAngle(_alphaKey.currentState!.value!, secDigits: 1),
+          ''
+        ],
         <String>['半径 R', _r.text.trim(), u.symbol],
         <String>['交点里程', _jd.text.trim(), u.symbol],
-        <String>['切线长 T', c == null ? '' : fmt(u.fromMeters(c.tangent), d), u.symbol],
-        <String>['曲线长 L', c == null ? '' : fmt(u.fromMeters(c.curveLength), d), u.symbol],
-        <String>['外距 E', c == null ? '' : fmt(u.fromMeters(c.external), d), u.symbol],
-        <String>['切曲差 q', c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d), u.symbol],
-        <String>['弦长 C', c == null ? '' : fmt(u.fromMeters(c.chordLength), d), u.symbol],
-        <String>['中央纵距 M', c == null ? '' : fmt(u.fromMeters(c.midOrdinate), d), u.symbol],
-        <String>['ZY 直圆点', c == null ? '' : fmt(u.fromMeters(c.zyStation), d), u.symbol],
-        <String>['QZ 曲中点', c == null ? '' : fmt(u.fromMeters(c.qzStation), d), u.symbol],
-        <String>['YZ 圆直点', c == null ? '' : fmt(u.fromMeters(c.yzStation), d), u.symbol],
+        <String>[
+          '切线长 T',
+          c == null ? '' : fmt(u.fromMeters(c.tangent), d),
+          u.symbol
+        ],
+        <String>[
+          '曲线长 L',
+          c == null ? '' : fmt(u.fromMeters(c.curveLength), d),
+          u.symbol
+        ],
+        <String>[
+          '外距 E',
+          c == null ? '' : fmt(u.fromMeters(c.external), d),
+          u.symbol
+        ],
+        <String>[
+          '切曲差 q',
+          c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d),
+          u.symbol
+        ],
+        <String>[
+          '弦长 C',
+          c == null ? '' : fmt(u.fromMeters(c.chordLength), d),
+          u.symbol
+        ],
+        <String>[
+          '中央纵距 M',
+          c == null ? '' : fmt(u.fromMeters(c.midOrdinate), d),
+          u.symbol
+        ],
+        <String>[
+          'ZY 直圆点',
+          c == null ? '' : fmt(u.fromMeters(c.zyStation), d),
+          u.symbol
+        ],
+        <String>[
+          'QZ 曲中点',
+          c == null ? '' : fmt(u.fromMeters(c.qzStation), d),
+          u.symbol
+        ],
+        <String>[
+          'YZ 圆直点',
+          c == null ? '' : fmt(u.fromMeters(c.yzStation), d),
+          u.symbol
+        ],
       ],
       formSheetsBuilder: c != null
           ? () {
@@ -123,7 +163,12 @@ class _CircularCurvePageState extends State<CircularCurvePage>
                     '校核：2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m（q = ${fmt(c.tangentDefect, 3)} m）',
                   ],
                   sketch: GeometryPlotSketch(
-                    points: <({double x, double y, String label, bool emphasis})>[
+                    points: <({
+                      double x,
+                      double y,
+                      String label,
+                      bool emphasis
+                    })>[
                       (x: 0.0, y: 0.0, label: 'ZY', emphasis: true),
                       (x: c.tangent, y: 0.0, label: 'JD', emphasis: false),
                       (x: qzPt.x, y: qzPt.y, label: 'QZ', emphasis: false),
@@ -205,7 +250,8 @@ class _CircularCurvePageState extends State<CircularCurvePage>
       label: 'JD',
       draggable: false,
     );
-    final yzPt = circularCurveOffset(radius: c.radius, arcLength: c.curveLength);
+    final yzPt =
+        circularCurveOffset(radius: c.radius, arcLength: c.curveLength);
     final yz = PlotPoint(
       x: u.fromMeters(yzPt.x),
       y: u.fromMeters(yzPt.y),
@@ -412,7 +458,12 @@ class _CircularCurvePageState extends State<CircularCurvePage>
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
-        const PageTutorial(id: 'circular_curve'),
+        PageTutorial(id: 'circular_curve', workedSteps: [
+          if (c != null) ...[
+            'T = ${fmt(c.radius, 3)} tan(${fmt(c.alphaDeg, 5)}° ÷ 2) = ${fmt(c.tangent, 3)} m',
+            'L = π × ${fmt(c.radius, 3)} × ${fmt(c.alphaDeg, 5)} ÷ 180 = ${fmt(c.curveLength, 3)} m',
+          ],
+        ]),
         InputCard(
           step: 1,
           icon: Icons.architecture_outlined,
@@ -468,7 +519,8 @@ class _CircularCurvePageState extends State<CircularCurvePage>
           if (arcM != null && arcM >= 0)
             Builder(
               builder: (_) {
-                final off = circularCurveOffset(radius: c.radius, arcLength: arcM);
+                final off =
+                    circularCurveOffset(radius: c.radius, arcLength: arcM);
                 return ResultGrid(
                   items: [
                     ResultTile(
@@ -504,7 +556,7 @@ class ClothoidPage extends StatefulWidget {
 class _ClothoidPageState extends State<ClothoidPage>
     with DraftMixin<ClothoidPage> {
   final _alphaKey = GlobalKey<AngleFieldState>();
-  final _alphaCtrl = TextEditingController(text: '35.0000');
+  final _alphaCtrl = TextEditingController(text: '35deg');
   final _r = _ctrl('300');
   final _ls = _ctrl('60');
   final _jd = _ctrl('1000');
@@ -526,7 +578,7 @@ class _ClothoidPageState extends State<ClothoidPage>
         'r': '300',
         'ls': '60',
         'jd': '1000',
-        'alpha': '35.0000',
+        'alpha': '35deg',
       };
 
   /// 导出：缓和曲线要素 + 五个主点里程。
@@ -542,22 +594,76 @@ class _ClothoidPageState extends State<ClothoidPage>
         <String>['半径 R', _r.text.trim(), u.symbol],
         <String>['缓和曲线长 ls', _ls.text.trim(), u.symbol],
         <String>['交点里程', _jd.text.trim(), u.symbol],
-        <String>['切线长 T', c == null ? '' : fmt(u.fromMeters(c.tangent), d), u.symbol],
-        <String>['曲线长 L', c == null ? '' : fmt(u.fromMeters(c.curveLength), d), u.symbol],
-        <String>['圆曲线长 Ly', c == null ? '' : fmt(u.fromMeters(c.circularLength), d), u.symbol],
-        <String>['外距 E', c == null ? '' : fmt(u.fromMeters(c.external), d), u.symbol],
-        <String>['切曲差 q', c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d), u.symbol],
-        <String>['内移值 p', c == null ? '' : fmt(u.fromMeters(c.shiftP), dp), u.symbol],
-        <String>['切垂距 m', c == null ? '' : fmt(u.fromMeters(c.tangentOffsetM), dp), u.symbol],
-        <String>['缓和曲线角 β₀', c == null
-            ? ''
-            : fmtAngle(c.transitionAngleDeg, secDigits: 1), ''],
-        <String>['参数 A', c == null ? '' : fmt(u.fromMeters(c.parameter), d), u.symbol],
-        <String>['ZH 直缓点', c == null ? '' : fmt(u.fromMeters(c.zhStation), d), u.symbol],
-        <String>['HY 缓圆点', c == null ? '' : fmt(u.fromMeters(c.hyStation), d), u.symbol],
-        <String>['QZ 曲中点', c == null ? '' : fmt(u.fromMeters(c.qzStation), d), u.symbol],
-        <String>['YH 圆缓点', c == null ? '' : fmt(u.fromMeters(c.yhStation), d), u.symbol],
-        <String>['HZ 缓直点', c == null ? '' : fmt(u.fromMeters(c.hzStation), d), u.symbol],
+        <String>[
+          '切线长 T',
+          c == null ? '' : fmt(u.fromMeters(c.tangent), d),
+          u.symbol
+        ],
+        <String>[
+          '曲线长 L',
+          c == null ? '' : fmt(u.fromMeters(c.curveLength), d),
+          u.symbol
+        ],
+        <String>[
+          '圆曲线长 Ly',
+          c == null ? '' : fmt(u.fromMeters(c.circularLength), d),
+          u.symbol
+        ],
+        <String>[
+          '外距 E',
+          c == null ? '' : fmt(u.fromMeters(c.external), d),
+          u.symbol
+        ],
+        <String>[
+          '切曲差 q',
+          c == null ? '' : fmt(u.fromMeters(c.tangentDefect), d),
+          u.symbol
+        ],
+        <String>[
+          '内移值 p',
+          c == null ? '' : fmt(u.fromMeters(c.shiftP), dp),
+          u.symbol
+        ],
+        <String>[
+          '切垂距 m',
+          c == null ? '' : fmt(u.fromMeters(c.tangentOffsetM), dp),
+          u.symbol
+        ],
+        <String>[
+          '缓和曲线角 β₀',
+          c == null ? '' : fmtAngle(c.transitionAngleDeg, secDigits: 1),
+          ''
+        ],
+        <String>[
+          '参数 A',
+          c == null ? '' : fmt(u.fromMeters(c.parameter), d),
+          u.symbol
+        ],
+        <String>[
+          'ZH 直缓点',
+          c == null ? '' : fmt(u.fromMeters(c.zhStation), d),
+          u.symbol
+        ],
+        <String>[
+          'HY 缓圆点',
+          c == null ? '' : fmt(u.fromMeters(c.hyStation), d),
+          u.symbol
+        ],
+        <String>[
+          'QZ 曲中点',
+          c == null ? '' : fmt(u.fromMeters(c.qzStation), d),
+          u.symbol
+        ],
+        <String>[
+          'YH 圆缓点',
+          c == null ? '' : fmt(u.fromMeters(c.yhStation), d),
+          u.symbol
+        ],
+        <String>[
+          'HZ 缓直点',
+          c == null ? '' : fmt(u.fromMeters(c.hzStation), d),
+          u.symbol
+        ],
       ],
       formSheetsBuilder: c != null
           ? () {
@@ -630,7 +736,11 @@ class _ClothoidPageState extends State<ClothoidPage>
                     ('切曲差 q', fmt(c.tangentDefect, 3), 'm'),
                     ('内移值 p', fmt(c.shiftP, 4), 'm'),
                     ('切垂距 m', fmt(c.tangentOffsetM, 4), 'm'),
-                    ('缓和角 β₀', fmtAngle(c.transitionAngleDeg, secDigits: 1), ''),
+                    (
+                      '缓和角 β₀',
+                      fmtAngle(c.transitionAngleDeg, secDigits: 1),
+                      ''
+                    ),
                     ('参数 A', fmt(c.parameter, 3), ''),
                   ],
                   chainages: <(String, String, double, String)>[
@@ -646,7 +756,12 @@ class _ClothoidPageState extends State<ClothoidPage>
                     '校核：2T − L = ${fmt(2 * c.tangent - c.curveLength, 3)} m（q = ${fmt(c.tangentDefect, 3)} m）',
                   ],
                   sketch: GeometryPlotSketch(
-                    points: <({double x, double y, String label, bool emphasis})>[
+                    points: <({
+                      double x,
+                      double y,
+                      String label,
+                      bool emphasis
+                    })>[
                       (x: 0.0, y: 0.0, label: 'ZH', emphasis: true),
                       (x: hyPtM.x, y: hyPtM.y, label: 'HY', emphasis: false),
                       (x: qzPt.x, y: qzPt.y, label: 'QZ', emphasis: false),
@@ -663,7 +778,11 @@ class _ClothoidPageState extends State<ClothoidPage>
                       ),
                       (from: 5, to: 4, dashed: true, label: 'T'),
                     ],
-                    curvePath: <({double x, double y})>[...entry, ...arcPts, ...exit],
+                    curvePath: <({double x, double y})>[
+                      ...entry,
+                      ...arcPts,
+                      ...exit
+                    ],
                     showNorthArrow: false,
                   ),
                   sketchTitle: '带缓和曲线平曲线略图：',
@@ -765,7 +884,8 @@ class _ClothoidPageState extends State<ClothoidPage>
         ),
       );
     }
-    final hyPtM = clothoidOffset(radius: r, transitionLength: ls, arcLength: ls);
+    final hyPtM =
+        clothoidOffset(radius: r, transitionLength: ls, arcLength: ls);
     final hy = PlotPoint(
       x: u.fromMeters(hyPtM.x),
       y: u.fromMeters(hyPtM.y),
@@ -927,7 +1047,8 @@ class _ClothoidPageState extends State<ClothoidPage>
                   ),
                   ResultTile(
                     label: '缓和曲线角 β₀',
-                    value: fmtAngle(c.transitionAngleDeg, secDigits: s.angleSecDigits),
+                    value: fmtAngle(c.transitionAngleDeg,
+                        secDigits: s.angleSecDigits),
                   ),
                   ResultTile(
                     label: '参数 A',
@@ -978,7 +1099,10 @@ class _ClothoidPageState extends State<ClothoidPage>
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
-        const PageTutorial(id: 'clothoid'),
+        PageTutorial(id: 'clothoid', workedSteps: [
+          if (c != null)
+            'A = √(${fmt(c.radius, 3)} × ${fmt(c.transitionLength, 3)}) = ${fmt(c.parameter, 3)} m',
+        ]),
         InputCard(
           step: 1,
           icon: Icons.architecture_outlined,
@@ -1098,24 +1222,56 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
         <String>['变坡点里程', _vpiSta.text.trim(), u.symbol],
         <String>['变坡点高程', _vpiEle.text.trim(), u.symbol],
         <String>['线形', c == null ? '' : (c.isCrest ? '凸形竖曲线' : '凹形竖曲线'), ''],
-        <String>['切线长 T', c == null ? '' : fmt(u.fromMeters(c.tangent), d), u.symbol],
-        <String>['曲线长 L', c == null ? '' : fmt(u.fromMeters(c.curveLength), d), u.symbol],
-        <String>['外距 E', c == null ? '' : fmt(u.fromMeters(c.external), d), u.symbol],
+        <String>[
+          '切线长 T',
+          c == null ? '' : fmt(u.fromMeters(c.tangent), d),
+          u.symbol
+        ],
+        <String>[
+          '曲线长 L',
+          c == null ? '' : fmt(u.fromMeters(c.curveLength), d),
+          u.symbol
+        ],
+        <String>[
+          '外距 E',
+          c == null ? '' : fmt(u.fromMeters(c.external), d),
+          u.symbol
+        ],
         <String>['坡度差 ω', c == null ? '' : fmt(c.gradeChange * 100, 3), '%'],
-        <String>['BVC 里程', c == null ? '' : fmt(u.fromMeters(c.bvcStation), d), u.symbol],
-        <String>['BVC 高程', c == null ? '' : fmt(u.fromMeters(c.bvcElevation), d), u.symbol],
-        <String>['EVC 里程', c == null ? '' : fmt(u.fromMeters(c.evcStation), d), u.symbol],
-        <String>['EVC 高程', c == null ? '' : fmt(u.fromMeters(c.evcElevation), d), u.symbol],
+        <String>[
+          'BVC 里程',
+          c == null ? '' : fmt(u.fromMeters(c.bvcStation), d),
+          u.symbol
+        ],
+        <String>[
+          'BVC 高程',
+          c == null ? '' : fmt(u.fromMeters(c.bvcElevation), d),
+          u.symbol
+        ],
+        <String>[
+          'EVC 里程',
+          c == null ? '' : fmt(u.fromMeters(c.evcStation), d),
+          u.symbol
+        ],
+        <String>[
+          'EVC 高程',
+          c == null ? '' : fmt(u.fromMeters(c.evcElevation), d),
+          u.symbol
+        ],
         <String>['桩号', _sta.text.trim(), u.symbol],
-        <String>['设计高程', queryEle == null ? '' : fmt(u.fromMeters(queryEle), d), u.symbol],
+        <String>[
+          '设计高程',
+          queryEle == null ? '' : fmt(u.fromMeters(queryEle), d),
+          u.symbol
+        ],
       ],
       formSheetsBuilder: c != null
           ? () {
               final curvePath = <({double x, double y})>[
                 for (var i = 0; i <= 30; i++)
                   () {
-                    final s =
-                        c.bvcStation + (c.evcStation - c.bvcStation) * (i / 30.0);
+                    final s = c.bvcStation +
+                        (c.evcStation - c.bvcStation) * (i / 30.0);
                     return (
                       x: s,
                       y: verticalElevationAt(curve: c, station: s),
@@ -1123,9 +1279,24 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
                   }(),
               ];
               final pts = <({double x, double y, String label, bool emphasis})>[
-                (x: c.bvcStation, y: c.bvcElevation, label: 'BVC', emphasis: true),
-                (x: c.vpiStation, y: c.vpiElevation, label: 'VPI', emphasis: false),
-                (x: c.evcStation, y: c.evcElevation, label: 'EVC', emphasis: true),
+                (
+                  x: c.bvcStation,
+                  y: c.bvcElevation,
+                  label: 'BVC',
+                  emphasis: true
+                ),
+                (
+                  x: c.vpiStation,
+                  y: c.vpiElevation,
+                  label: 'VPI',
+                  emphasis: false
+                ),
+                (
+                  x: c.evcStation,
+                  y: c.evcElevation,
+                  label: 'EVC',
+                  emphasis: true
+                ),
                 if (staM != null && queryEle != null)
                   (
                     x: staM,
@@ -1148,9 +1319,24 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
                     ('坡度差 ω', fmt(c.gradeChange * 100, 3), '%'),
                   ],
                   chainages: <(String, String, double, String)>[
-                    ('BVC', 'VPI − T', c.bvcStation, '高程 ${fmt(c.bvcElevation, 3)} m'),
-                    ('VPI', '变坡点', c.vpiStation, '高程 ${fmt(c.vpiElevation, 3)} m'),
-                    ('EVC', 'VPI + T', c.evcStation, '高程 ${fmt(c.evcElevation, 3)} m'),
+                    (
+                      'BVC',
+                      'VPI − T',
+                      c.bvcStation,
+                      '高程 ${fmt(c.bvcElevation, 3)} m'
+                    ),
+                    (
+                      'VPI',
+                      '变坡点',
+                      c.vpiStation,
+                      '高程 ${fmt(c.vpiElevation, 3)} m'
+                    ),
+                    (
+                      'EVC',
+                      'VPI + T',
+                      c.evcStation,
+                      '高程 ${fmt(c.evcElevation, 3)} m'
+                    ),
                     if (staM != null && queryEle != null)
                       ('待求点', '纵断面公式', staM, '设计高程 ${fmt(queryEle, 3)} m'),
                   ],
@@ -1332,7 +1518,12 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
       ),
       sideVisual: sideVisual,
       children: [
-        const PageTutorial(id: 'vertical_curve'),
+        PageTutorial(id: 'vertical_curve', workedSteps: [
+          if (c != null) ...[
+            'L = ${fmt(c.radius, 3)} × |${fmt(c.gradeChange, 6)}| = ${fmt(c.curveLength, 3)} m',
+            'T = ${fmt(c.curveLength, 3)} ÷ 2 = ${fmt(c.tangent, 3)} m',
+          ],
+        ]),
         InputCard(
           step: 1,
           icon: Icons.show_chart_outlined,
@@ -1561,12 +1752,18 @@ class _RouteStakePageState extends State<RouteStakePage>
         <String>['所在段落', solved.segment, ''],
         <String>['切线支距 x', off == null ? '' : fmt(off.x, 3), 'm'],
         <String>['法向支距 y', off == null ? '' : fmt(off.y, 3), 'm'],
-        <String>['切线偏角', off == null
-            ? ''
-            : fmtAngle(solved.deflectDeg, secDigits: s.angleSecDigits), ''],
-        <String>['弦长', off == null
-            ? ''
-            : fmt(math.sqrt(off.x * off.x + off.y * off.y), 3), 'm'],
+        <String>[
+          '切线偏角',
+          off == null
+              ? ''
+              : fmtAngle(solved.deflectDeg, secDigits: s.angleSecDigits),
+          ''
+        ],
+        <String>[
+          '弦长',
+          off == null ? '' : fmt(math.sqrt(off.x * off.x + off.y * off.y), 3),
+          'm'
+        ],
       ],
       notes: <String>[
         '以 ZH(ZY) 为原点、切线为 x 轴；x 沿切线，y 垂直于切线。',
@@ -1592,9 +1789,11 @@ class _RouteStakePageState extends State<RouteStakePage>
           if (ls <= 0) {
             pt = circularCurveOffset(radius: rM, arcLength: ss);
           } else if (ss <= ls) {
-            pt = clothoidOffset(radius: rM, transitionLength: ls, arcLength: ss);
+            pt =
+                clothoidOffset(radius: rM, transitionLength: ls, arcLength: ss);
           } else {
-            final hy = clothoidOffset(radius: rM, transitionLength: ls, arcLength: ls);
+            final hy =
+                clothoidOffset(radius: rM, transitionLength: ls, arcLength: ls);
             final beta0 = ls / (2 * rM);
             final phi = (ss - ls) / rM;
             pt = CurveOffset(
@@ -1653,7 +1852,8 @@ class _RouteStakePageState extends State<RouteStakePage>
       } else if (s <= ls) {
         pt = clothoidOffset(radius: r, transitionLength: ls, arcLength: s);
       } else {
-        final hy = clothoidOffset(radius: r, transitionLength: ls, arcLength: ls);
+        final hy =
+            clothoidOffset(radius: r, transitionLength: ls, arcLength: ls);
         final beta0 = ls / (2 * r);
         final phi = (s - ls) / r;
         pt = CurveOffset(
@@ -1797,7 +1997,12 @@ class _RouteStakePageState extends State<RouteStakePage>
       ),
       sideVisual: sideVisual,
       children: [
-        const PageTutorial(id: 'route_stake'),
+        PageTutorial(id: 'route_stake', workedSteps: [
+          if (off != null) ...[
+            's = ${fmt(l, 3)} m',
+            '(x, y) = (${fmt(off.x, 3)}, ${fmt(off.y, 3)}) m',
+          ],
+        ]),
         InputCard(
           step: 1,
           icon: Icons.route_outlined,

@@ -59,7 +59,8 @@ Future<void> _pumpPage(
 
 void main() {
   setUp(() {
-    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    final dispatcher =
+        TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
     dispatcher.localesTestValue = const [Locale('zh', 'CN')];
     addTearDown(dispatcher.clearLocalesTestValue);
   });
@@ -191,7 +192,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('玻璃侧栏在宽屏可用（BackdropFilter）且不溢出', (tester) async {
+  testWidgets('玻璃侧栏在宽屏操作台支持 BackdropFilter且不溢出', (tester) async {
     SharedPreferences.setMockInitialValues({'glass_nav': true});
     addTearDown(() => SharedPreferences.setMockInitialValues({}));
     final settings = AppSettings();
@@ -205,7 +206,7 @@ void main() {
 
     expect(find.byType(GlassNavBar), findsNothing);
     expect(find.byType(BackdropFilter), findsWidgets);
-    expect(find.text('Survey Toolkit'), findsWidgets);
+    expect(find.byTooltip('展开侧栏'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -225,7 +226,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GlassNavBar), findsNothing);
     expect(find.byType(NavigationRail), findsNothing);
-    expect(find.text('Survey Toolkit'), findsWidgets);
+    expect(find.byTooltip('展开侧栏'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -239,9 +240,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byTooltip('展开侧栏'), findsOneWidget);
+    await tester.tap(find.byTooltip('展开侧栏'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('收起侧栏'), findsOneWidget);
     await tester.tap(find.byTooltip('收起侧栏'));
     await tester.pumpAndSettle();
-    expect(find.text('Survey Toolkit'), findsNothing);
     await tester.tap(find.byTooltip('工具库'));
     await tester.pumpAndSettle();
     final librarySearch = find.descendant(
@@ -268,7 +272,7 @@ void main() {
 
     await tester.tap(find.byTooltip('展开侧栏'));
     await tester.pumpAndSettle();
-    expect(find.text('Survey Toolkit'), findsOneWidget);
+    expect(find.byTooltip('收起侧栏'), findsOneWidget);
     expect(tester.widget<TextField>(librarySearch).controller!.text, '坐标反算');
     expect(tester.takeException(), isNull);
   });
@@ -283,19 +287,110 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('查找工具或公式'));
-    await tester.pumpAndSettle();
-    final dialog = find.byType(Dialog);
     await tester.enterText(
-      find.descendant(of: dialog, matching: find.byType(TextField)),
-      '反算',
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: dialog, matching: find.text('坐标反算')),
-    );
+        find.byKey(const ValueKey('workspace-command-input')), '坐标反算');
+    await tester.tap(find.byTooltip('执行'));
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('计算详情保留 Windows 侧栏，缩窄后只显示工具顶栏', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      SurveyApp(settings: AppSettings(), drafts: DraftStore()),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('快速跳转'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(
+            of: find.byType(Dialog), matching: find.byType(TextField)),
+        '坐标反算');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsOneWidget);
+    expect(find.byTooltip('展开侧栏'), findsOneWidget);
+    await tester.tap(find.byTooltip('展开侧栏'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('收起侧栏'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsOneWidget);
+    expect(find.byTooltip('打开工作区菜单'), findsNothing);
+    expect(
+        find.byKey(const ValueKey('workspace-detail-header')), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsNothing);
+    await tester.tap(find.byTooltip('打开工作区菜单'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Drawer), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭菜单'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('首页侧推跟手，工具页侧滑返回带主页视差', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      SurveyApp(settings: AppSettings(), drafts: DraftStore()),
+    );
+    await tester.pumpAndSettle();
+
+    const rootHeader = ValueKey('workspace-root-header');
+    const detailHeader = ValueKey('workspace-detail-header');
+    final foreground = find.byKey(const ValueKey('push-aside-foreground'));
+    final drawerSwipe = await tester.startGesture(const Offset(5, 345));
+    await drawerSwipe.moveBy(const Offset(28, 0));
+    await tester.pump();
+    await drawerSwipe.moveBy(const Offset(75, 0));
+    await tester.pump();
+    final drawerX = tester.getTopLeft(foreground).dx;
+    expect(drawerX, inExclusiveRange(35, 180));
+    await drawerSwipe.moveBy(const Offset(160, 0));
+    await tester.pump(const Duration(milliseconds: 120));
+    await drawerSwipe.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(Drawer), findsOneWidget);
+    expect(tester.getTopLeft(foreground).dx, greaterThan(240));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(Drawer), findsNothing);
+
+    await tester.enterText(
+        find.byKey(const ValueKey('workspace-command-input')), '坐标反算');
+    await tester.tap(find.byTooltip('执行'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(rootHeader), findsNothing);
+    expect(find.byKey(detailHeader), findsOneWidget);
+    expect(
+        tester.getSize(find.byTooltip('返回')).width, greaterThanOrEqualTo(48));
+
+    final returnSwipe = await tester.startGesture(const Offset(5, 374));
+    await returnSwipe.moveBy(const Offset(30, 0));
+    await tester.pump();
+    await returnSwipe.moveBy(const Offset(80, 0));
+    await tester.pump();
+    final toolX = tester.getTopLeft(find.byKey(detailHeader)).dx;
+    expect(toolX, inExclusiveRange(40, 180));
+    final homeX =
+        tester.getTopLeft(find.byKey(rootHeader, skipOffstage: false)).dx;
+    expect(homeX, inExclusiveRange(-130, -20));
+    await returnSwipe.moveBy(const Offset(170, 0));
+    await tester.pump(const Duration(milliseconds: 110));
+    await returnSwipe.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsNothing);
+    expect(find.byKey(rootHeader), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

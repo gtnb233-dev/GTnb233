@@ -64,7 +64,8 @@ class _PageActionsState extends State<PageActions> {
     try {
       final drafts = DraftScope.read(context);
       await drafts.flushAll();
-      final table = build();
+      if (!mounted) return;
+      final table = build().localizeLabels(SurveyStrings.of(context).translate);
       final onlyHeaderRow = table.rows.length <= 1 &&
           table.xlsxBuilder == null &&
           table.formSheetsBuilder == null;
@@ -111,7 +112,9 @@ class _PageActionsState extends State<PageActions> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          savedAt == null ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
+          savedAt == null
+              ? Icons.cloud_off_outlined
+              : Icons.cloud_done_outlined,
           size: 14,
           color: savedAt == null ? scheme.onSurfaceVariant : scheme.primary,
         ),
@@ -208,13 +211,12 @@ class _PageActionsState extends State<PageActions> {
         ),
       if (widget.showAngleSelector)
         SurveyTooltip(
-          message: '点击切换角度输入格式（度分秒 / 十进制度）',
+          message: '点击切换角度输入格式（度分秒 / 十进制度 / 弧度）',
           child: InkWell(
             borderRadius: BorderRadius.circular(Radii.field),
             onTap: () async {
-              final next = settings.angleMode == AngleInputMode.dmsCompact
-                  ? AngleInputMode.decimalDegrees
-                  : AngleInputMode.dmsCompact;
+              final modes = AngleInputMode.values;
+              final next = modes[(settings.angleMode.index + 1) % modes.length];
               await SettingsScope.read(context).setAngleMode(next);
               if (widget.onAngleModeChanged != null) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -222,10 +224,8 @@ class _PageActionsState extends State<PageActions> {
                 });
               }
               if (!context.mounted) return;
-              final label = next == AngleInputMode.dmsCompact
-                  ? '度分秒分格'
-                  : '十进制度';
-              SurveyToast.info(context, '角度格式已切换为 $label');
+              SurveyToast.info(context,
+                  context.tr('角度格式已切换为 {unit}', {'unit': next.symbol}));
             },
             child: LiquidGlassSurface(
               borderRadius: BorderRadius.circular(Radii.field),

@@ -1182,12 +1182,16 @@ class SurveyForms {
       if (row.length > maxCols) maxCols = row.length;
     }
     final lastCol = maxCols - 1;
-    final dateStr = _todayLabel(date);
+    const originalDateLabel = '制表日期：{date}';
+    final dateLabel = table.label(originalDateLabel);
+    final dateStr = dateLabel == originalDateLabel
+        ? _todayLabel(date)
+        : (date ?? DateTime.now()).toIso8601String().split('T').first;
 
     final rawTitle = table.title.trim();
     final formTitle = (rawTitle.endsWith('表') || rawTitle.endsWith('簿'))
         ? rawTitle
-        : '$rawTitle成果计算表';
+        : table.label('{title}成果计算表').replaceFirst('{title}', rawTitle);
 
     rowHeights[1] = 30;
     add(1, 0, formTitle, style: XlsxCellStyle.title, forceString: true);
@@ -1196,7 +1200,7 @@ class SurveyForms {
     rowHeights[2] = 20;
     final metaParts = <String>[
       ...metaItems,
-      '制表日期：$dateStr',
+      dateLabel.replaceFirst('{date}', dateStr),
     ];
     add(2, 0, metaParts.join('    '), style: XlsxCellStyle.metaLine, forceString: true);
     merge(2, 0, 2, lastCol);
@@ -1273,8 +1277,8 @@ class SurveyForms {
         rowHeights[rr] = 21;
       }
       final noteBody = table.notes.isEmpty
-          ? '说明：本成果由工程测量工具箱离线解算。'
-          : '计算说明与检核附注：\n${table.notes.join('\n')}';
+          ? table.label('说明：本成果由工程测量工具箱离线解算。')
+          : '${table.label('计算说明与检核附注：')}\n${table.notes.join('\n')}';
 
       if (sketch != null && maxCols >= 3) {
         final splitCol = (maxCols ~/ 2).clamp(1, lastCol - 1);
@@ -1283,7 +1287,7 @@ class SurveyForms {
         add(
           rFootStart,
           splitCol + 1,
-          sketchTitle,
+          table.label(sketchTitle),
           style: XlsxCellStyle.cellLeftTop,
           forceString: true,
         );
@@ -1294,7 +1298,7 @@ class SurveyForms {
             c1: splitCol + 1,
             r2: rFootEnd,
             c2: lastCol,
-            headerText: sketchTitle,
+            headerText: table.label(sketchTitle),
             sketch: sketch,
           ),
         );
@@ -1313,7 +1317,8 @@ class SurveyForms {
     add(
       cursor,
       0,
-      '制表：________    计算：________    复核：________    日期：$dateStr',
+      table.label('制表：________    计算：________    复核：________    日期：{date}')
+          .replaceFirst('{date}', dateStr),
       style: XlsxCellStyle.metaLine,
       forceString: true,
     );

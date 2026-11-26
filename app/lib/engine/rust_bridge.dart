@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:math' as math;
+
+import 'package:ffi/ffi.dart';
+import 'package:survey_core/survey_core.dart';
 
 enum ComputeBackend {
   rustFfi,
@@ -79,8 +83,57 @@ class NearestPointMatch {
   final double distance;
 }
 
+final class _TinNativeResult extends ffi.Struct {
+  @ffi.Double()
+  external double cut;
+  @ffi.Double()
+  external double fill;
+  @ffi.Double()
+  external double net;
+  @ffi.Double()
+  external double area;
+}
+
+typedef _TinNative = _TinNativeResult Function(ffi.Pointer<ffi.Double>,
+    ffi.Uint32, ffi.Pointer<ffi.Uint32>, ffi.Uint32, ffi.Double);
+typedef _TinCall = _TinNativeResult Function(
+    ffi.Pointer<ffi.Double>, int, ffi.Pointer<ffi.Uint32>, int, double);
+typedef _NearestNative = ffi.Int32 Function(ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Double>, ffi.Uint32, ffi.Double, ffi.Double);
+typedef _NearestCall = int Function(
+    ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>, int, double, double);
+typedef _ParseDxfCall = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+
 typedef _AbiVersionNative = ffi.Uint32 Function();
 typedef _AbiVersionDart = int Function();
+typedef _TraverseNative = ffi.Void Function(
+    ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Double>,
+    ffi.Uint32,
+    ffi.Double,
+    ffi.Double,
+    ffi.Double,
+    ffi.Double,
+    ffi.Uint32);
+typedef _TraverseCall = void Function(ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Double>, int, double, double, double, double, int);
+
+final class _LevelingStationNative extends ffi.Struct {
+  @ffi.Array(9)
+  external ffi.Array<ffi.Double> values;
+  @ffi.Uint32()
+  external int issues;
+}
+
+typedef _LevelingNative = ffi.Void Function(
+    ffi.Pointer<ffi.Double>,
+    ffi.Pointer<_LevelingStationNative>,
+    ffi.Uint32,
+    ffi.Double,
+    ffi.Double,
+    ffi.Double);
+typedef _LevelingCall = void Function(ffi.Pointer<ffi.Double>,
+    ffi.Pointer<_LevelingStationNative>, int, double, double, double);
 
 /// Rust + Flutter 混合计算内核桥接层。
 ///
@@ -96,6 +149,110 @@ class SurveyHybridEngine {
 
   ComputeBackend _backend = ComputeBackend.dartFallback;
   int _nativeAbiVersion = 0;
+  _TinCall? _tin;
+  _NearestCall? _nearest;
+  _ParseDxfCall? _parseDxf;
+  void Function(ffi.Pointer<Utf8>)? _freeDxf;
+  _LevelingCall? _levelingCheck;
+  _TraverseCall? _distributeTraverse;
+
+  (List<double>, List<double>)? distributeLargeTraverse(
+    List<double> dx,
+    List<double> dy,
+    List<double> distances,
+    double fx,
+    double fy,
+    double targetX,
+    double targetY,
+    MisclosureDistribution distribution,
+  ) {
+    final distribute = _distributeTraverse;
+    final count = distances.length;
+    if (distribute == null || count < 256) return null;
+    final input = calloc<ffi.Double>(count * 3);
+    final output = calloc<ffi.Double>(count * 2);
+    try {
+      final values = input.asTypedList(count * 3);
+      for (var i = 0; i < count; i++) {
+        values[i * 3] = dx[i];
+        values[i * 3 + 1] = dy[i];
+        values[i * 3 + 2] = distances[i];
+      }
+      distribute(input, output, count, fx, fy, targetX, targetY,
+          distribution == MisclosureDistribution.byCoordinateComponent ? 1 : 0);
+      final result = output.asTypedList(count * 2);
+      return (
+        List.generate(count, (i) => result[i * 2]),
+        List.generate(count, (i) => result[i * 2 + 1]),
+      );
+    } finally {
+      calloc.free(output);
+      calloc.free(input);
+    }
+  }
+
+  List<DoubleStaffStationResult> checkLeveling(
+    List<DoubleStaffObservation> observations, {
+    required double distanceLimit,
+    required double sightLimit,
+    required double heightLimit,
+  }) {
+    final check = _levelingCheck;
+    if (check == null || observations.isEmpty) {
+      return doubleStaffLeveling(observations,
+              distanceDiffToleranceM: distanceLimit,
+              sightLimitM: sightLimit,
+              heightDifferenceLimitMm: heightLimit)
+          .stations;
+    }
+    final input = calloc<ffi.Double>(observations.length * 8);
+    final output = calloc<_LevelingStationNative>(observations.length);
+    try {
+      final data = input.asTypedList(observations.length * 8);
+      for (var index = 0; index < observations.length; index++) {
+        final o = observations[index];
+        final offset = index * 8;
+        data.setAll(offset, [
+          o.backDirectM ?? (o.backUpper - o.backLower).abs() * .1,
+          o.frontDirectM ?? (o.frontUpper - o.frontLower).abs() * .1,
+          o.backBlack,
+          o.backRed,
+          o.frontBlack,
+          o.frontRed,
+          o.kBack,
+          o.kFront,
+        ]);
+      }
+      check(input, output, observations.length, distanceLimit, sightLimit,
+          heightLimit);
+      return List.generate(observations.length, (index) {
+        final station = output[index];
+        final v = station.values;
+        bool ok(int bit) => station.issues & (1 << bit) == 0;
+        return DoubleStaffStationResult(
+          index: index + 1,
+          backDistanceM: v[0],
+          frontDistanceM: v[1],
+          distanceDiffM: v[2],
+          cumulativeDistanceDiffM: v[3],
+          backConstantDiffMm: v[4],
+          frontConstantDiffMm: v[5],
+          blackDiffMm: v[6],
+          redDiffMm: v[7],
+          meanDiffMm: v[8],
+          backConstantOk: ok(0),
+          frontConstantOk: ok(1),
+          distanceOk: ok(2),
+          cumulativeOk: ok(3),
+          sightOk: ok(4),
+          heightDifferenceOk: ok(5),
+        );
+      });
+    } finally {
+      calloc.free(output);
+      calloc.free(input);
+    }
+  }
 
   ComputeBackend get activeBackend => _backend;
   int get nativeAbiVersion => _nativeAbiVersion;
@@ -109,7 +266,12 @@ class SurveyHybridEngine {
     try {
       final ffi.DynamicLibrary lib;
       if (Platform.isWindows) {
-        lib = ffi.DynamicLibrary.open('survey_rust_core.dll');
+        final adjacent = File.fromUri(File(Platform.resolvedExecutable)
+            .absolute
+            .uri
+            .resolve('survey_rust_core.dll'));
+        lib = ffi.DynamicLibrary.open(
+            adjacent.existsSync() ? adjacent.path : 'survey_rust_core.dll');
       } else if (Platform.isAndroid || Platform.isLinux) {
         lib = ffi.DynamicLibrary.open('libsurvey_rust_core.so');
       } else if (Platform.isMacOS || Platform.isIOS) {
@@ -122,16 +284,86 @@ class SurveyHybridEngine {
       );
       final ver = fn();
       if (ver >= 1) {
+        _tin = lib
+            .lookupFunction<_TinNative, _TinCall>('survey_tin_compute_volume');
+        _nearest = lib.lookupFunction<_NearestNative, _NearestCall>(
+            'survey_spatial_nearest_2d');
+        if (ver >= 2) {
+          _parseDxf = lib.lookupFunction<_ParseDxfCall, _ParseDxfCall>(
+              'survey_dxf_parse_json');
+          _freeDxf = lib.lookupFunction<ffi.Void Function(ffi.Pointer<Utf8>),
+              void Function(ffi.Pointer<Utf8>)>('survey_string_free');
+        }
+        if (ver >= 3) {
+          _levelingCheck = lib.lookupFunction<_LevelingNative, _LevelingCall>(
+              'survey_leveling_check');
+        }
+        if (ver >= 4) {
+          _distributeTraverse =
+              lib.lookupFunction<_TraverseNative, _TraverseCall>(
+                  'survey_traverse_distribute');
+        }
         _nativeAbiVersion = ver;
         _backend = ComputeBackend.rustFfi;
       }
     } catch (_) {
+      _tin = null;
+      _nearest = null;
+      _parseDxf = null;
+      _freeDxf = null;
+      _levelingCheck = null;
+      _distributeTraverse = null;
       _backend = ComputeBackend.dartFallback;
     }
   }
 
   /// 解析 ASCII DXF `ENTITIES` 段中的 `POINT` / `LINE` / `LWPOLYLINE`。
   List<DxfEntityRecord> parseDxfEntities(String content) {
+    final parse = _parseDxf;
+    final free = _freeDxf;
+    if (parse != null && free != null && !content.contains('\u0000')) {
+      final source = content.toNativeUtf8();
+      var result = ffi.nullptr.cast<Utf8>();
+      try {
+        result = parse(source);
+        if (result != ffi.nullptr) {
+          final rows = (jsonDecode(result.toDartString()) as List).cast<List>();
+          return rows.map((row) {
+            final layer = row[1] as String;
+            double number(int i) => (row[i] as num).toDouble();
+            return switch (row[0]) {
+              'point' => DxfPointRecord(
+                  layer: layer, x: number(2), y: number(3), z: number(4)),
+              'line' => DxfLineRecord(
+                  layer: layer,
+                  x1: number(2),
+                  y1: number(3),
+                  z1: number(4),
+                  x2: number(5),
+                  y2: number(6),
+                  z2: number(7)),
+              'polyline' => DxfLwPolylineRecord(
+                  layer: layer,
+                  closed: row[2] as bool,
+                  vertices: (row[3] as List)
+                      .cast<List>()
+                      .map((v) =>
+                          ((v[0] as num).toDouble(), (v[1] as num).toDouble()))
+                      .toList()),
+              _ => throw const FormatException(),
+            };
+          }).toList();
+        }
+      } on FormatException {
+        // An older native parser can return an unrecognized payload.
+      } on TypeError {
+        // Invalid coordinates are handled by the caller after parsing.
+      } finally {
+        if (result != ffi.nullptr) free(result);
+        malloc.free(source);
+      }
+    }
+
     final lines = content.split(RegExp(r'\r?\n'));
     var inEntities = false;
     String? currentType;
@@ -238,6 +470,35 @@ class SurveyHybridEngine {
     List<(int, int, int)> triangles,
     double designZ,
   ) {
+    final native = _tin;
+    if (native != null && points.isNotEmpty && triangles.isNotEmpty) {
+      final coordinates = calloc<ffi.Double>(points.length * 3);
+      final indices = calloc<ffi.Uint32>(triangles.length * 3);
+      try {
+        for (var i = 0; i < points.length; i++) {
+          final p = points[i];
+          coordinates[i * 3] = p.x;
+          coordinates[i * 3 + 1] = p.y;
+          coordinates[i * 3 + 2] = p.z;
+        }
+        for (var i = 0; i < triangles.length; i++) {
+          final (a, b, c) = triangles[i];
+          indices[i * 3] = a < 0 || a >= points.length ? points.length : a;
+          indices[i * 3 + 1] = b < 0 || b >= points.length ? points.length : b;
+          indices[i * 3 + 2] = c < 0 || c >= points.length ? points.length : c;
+        }
+        final result = native(
+            coordinates, points.length, indices, triangles.length, designZ);
+        return TinEarthworkResult(
+            cutVolume: result.cut,
+            fillVolume: result.fill,
+            netVolume: result.net,
+            planArea: result.area);
+      } finally {
+        calloc.free(coordinates);
+        calloc.free(indices);
+      }
+    }
     var cut = 0.0;
     var fill = 0.0;
     var areaSum = 0.0;
@@ -258,7 +519,8 @@ class SurveyHybridEngine {
           ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)).abs();
       if (area <= 1e-12) continue;
       areaSum += area;
-      final dzAvg = ((p0.z - designZ) + (p1.z - designZ) + (p2.z - designZ)) / 3.0;
+      final dzAvg =
+          ((p0.z - designZ) + (p1.z - designZ) + (p2.z - designZ)) / 3.0;
       final vol = area * dzAvg;
       if (vol >= 0) {
         cut += vol;
@@ -282,6 +544,27 @@ class SurveyHybridEngine {
     double targetY,
   ) {
     if (points.isEmpty) return null;
+    final native = _nearest;
+    if (native != null) {
+      final xs = calloc<ffi.Double>(points.length);
+      final ys = calloc<ffi.Double>(points.length);
+      try {
+        for (var i = 0; i < points.length; i++) {
+          xs[i] = points[i].$1;
+          ys[i] = points[i].$2;
+        }
+        final i = native(xs, ys, points.length, targetX, targetY);
+        if (i >= 0 && i < points.length) {
+          final dx = xs[i] - targetX;
+          final dy = ys[i] - targetY;
+          return NearestPointMatch(
+              index: i, distance: math.sqrt(dx * dx + dy * dy));
+        }
+      } finally {
+        calloc.free(xs);
+        calloc.free(ys);
+      }
+    }
     var bestIdx = 0;
     var bestD2 = double.infinity;
     for (var i = 0; i < points.length; i++) {

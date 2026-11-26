@@ -49,8 +49,7 @@ class PlotPoint {
       other.draggable == draggable;
 
   @override
-  int get hashCode =>
-      Object.hash(x, y, label, color, emphasis, draggable);
+  int get hashCode => Object.hash(x, y, label, color, emphasis, draggable);
 }
 
 /// 数据点之间的连线。
@@ -543,7 +542,8 @@ class _LivePlotState extends State<LivePlot>
     );
   }
 
-  PlotRange _currentRange() => _frozenRange ?? _manualRange ?? _animatedAutoRange();
+  PlotRange _currentRange() =>
+      _frozenRange ?? _manualRange ?? _animatedAutoRange();
 
   bool get _empty =>
       widget.points.isEmpty &&
@@ -702,8 +702,9 @@ class _LivePlotState extends State<LivePlot>
                     if (!widget.interactiveViewport) return;
                     if (event is PointerScrollEvent) {
                       final keys = HardwareKeyboard.instance.logicalKeysPressed;
-                      final ctrl = keys.contains(LogicalKeyboardKey.controlLeft) ||
-                          keys.contains(LogicalKeyboardKey.controlRight);
+                      final ctrl =
+                          keys.contains(LogicalKeyboardKey.controlLeft) ||
+                              keys.contains(LogicalKeyboardKey.controlRight);
                       if (!ctrl) return;
                       final factor = event.scrollDelta.dy > 0 ? 1.18 : 0.85;
                       _zoomBy(factor, focalLocal: event.localPosition);
@@ -741,8 +742,8 @@ class _LivePlotState extends State<LivePlot>
                                   _PointPanRecognizer.new,
                                   (recognizer) {
                                     recognizer.canStart = (local) {
-                                      final idx =
-                                          _hitIndex(local, size, _currentRange());
+                                      final idx = _hitIndex(
+                                          local, size, _currentRange());
                                       if (idx != null && _canDrag(idx)) {
                                         return true;
                                       }
@@ -773,11 +774,12 @@ class _LivePlotState extends State<LivePlot>
                                     };
                                     recognizer.onUpdate = (details) {
                                       if (_dragIndex != null) {
-                                        _updateDrag(details.localPosition, size);
+                                        _updateDrag(
+                                            details.localPosition, size);
                                       } else if (_panningView &&
                                           _panLastLocal != null) {
-                                        final delta =
-                                            details.localPosition - _panLastLocal!;
+                                        final delta = details.localPosition -
+                                            _panLastLocal!;
                                         _panLastLocal = details.localPosition;
                                         final cur = _currentRange();
                                         final scale = math.min(
@@ -789,13 +791,17 @@ class _LivePlotState extends State<LivePlot>
                                           setState(() {
                                             _manualRange = widget.surveyNorthUp
                                                 ? PlotRange(
-                                                    minX: cur.minX + delta.dy / scale,
-                                                    minY: cur.minY - delta.dx / scale,
+                                                    minX: cur.minX +
+                                                        delta.dy / scale,
+                                                    minY: cur.minY -
+                                                        delta.dx / scale,
                                                     span: cur.span,
                                                   )
                                                 : PlotRange(
-                                                    minX: cur.minX - delta.dx / scale,
-                                                    minY: cur.minY + delta.dy / scale,
+                                                    minX: cur.minX -
+                                                        delta.dx / scale,
+                                                    minY: cur.minY +
+                                                        delta.dy / scale,
                                                     span: cur.span,
                                                   );
                                           });
@@ -849,21 +855,21 @@ class _LivePlotState extends State<LivePlot>
                                   size: size,
                                   painter: _PlotPainter(
                                     range: _currentRange(),
-                                      points: widget.points,
-                                      lines: [
-                                        for (final l in widget.lines)
-                                          if (l.label != null)
-                                            PlotLine(
-                                              from: l.from,
-                                              to: l.to,
-                                              color: l.color,
-                                              dashed: l.dashed,
-                                              label: context.tr(l.label!),
-                                            )
-                                          else
-                                            l,
-                                      ],
-                                      polygons: widget.polygons,
+                                    points: widget.points,
+                                    lines: [
+                                      for (final l in widget.lines)
+                                        if (l.label != null)
+                                          PlotLine(
+                                            from: l.from,
+                                            to: l.to,
+                                            color: l.color,
+                                            dashed: l.dashed,
+                                            label: context.tr(l.label!),
+                                          )
+                                        else
+                                          l,
+                                    ],
+                                    polygons: widget.polygons,
                                     arcs: widget.arcs,
                                     arrows: widget.arrows,
                                     paths: widget.paths,
@@ -912,11 +918,15 @@ class _LivePlotState extends State<LivePlot>
                                 context.tr(
                                   hudText ??
                                       (widget.surveyNorthUp
-                                          ? 'X(北) ${widget.points.first.x.toStringAsFixed(3)} · Y(东) ${widget.points.first.y.toStringAsFixed(3)}'
+                                          ? _engineeringCoordinates(
+                                              widget.points.first.x,
+                                              widget.points.first.y,
+                                              digits: 3)
                                           : 'X ${widget.points.first.x.toStringAsFixed(3)} · Y ${widget.points.first.y.toStringAsFixed(3)}'),
                                 ),
                                 style: TextStyle(
                                   fontFamily: kSurveyMono,
+                                  fontFamilyFallback: const ['Noto Sans SC'],
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w500,
                                   color: scheme.onSurface,
@@ -971,7 +981,7 @@ class _LivePlotState extends State<LivePlot>
                               builder: (context) {
                                 final scale =
                                     math.min(size.width, size.height) /
-                                    curRange.span;
+                                        curRange.span;
                                 final step = niceScaleLength(scale);
                                 final barW = (step * scale).clamp(24.0, 96.0);
                                 final label = step >= 1
@@ -1075,15 +1085,23 @@ class _LivePlotState extends State<LivePlot>
       final p = widget.points[_hoverIndex!];
       final x = (_dragIndex == _hoverIndex && _dragX != null) ? _dragX! : p.x;
       final y = (_dragIndex == _hoverIndex && _dragY != null) ? _dragY! : p.y;
-      final tag = p.label.isEmpty ? '点' : p.label;
+      final tag = p.label.isEmpty ? context.tr('点') : p.label;
       return widget.surveyNorthUp
-          ? '$tag · X(北)=${x.toStringAsFixed(2)}  Y(东)=${y.toStringAsFixed(2)}'
+          ? '$tag · ${_engineeringCoordinates(x, y)}'
           : '$tag · X=${x.toStringAsFixed(2)}  Y=${y.toStringAsFixed(2)}';
     }
     final data = _toData(hover, size, range);
     return widget.surveyNorthUp
-        ? 'X(北)=${data.dx.toStringAsFixed(2)}  Y(东)=${data.dy.toStringAsFixed(2)}'
+        ? _engineeringCoordinates(data.dx, data.dy)
         : 'X=${data.dx.toStringAsFixed(2)}  Y=${data.dy.toStringAsFixed(2)}';
+  }
+
+  String _engineeringCoordinates(double north, double east, {int digits = 2}) {
+    final x = north.toStringAsFixed(digits);
+    final y = east.toStringAsFixed(digits);
+    return SurveyStrings.of(context).languageCode == 'zh'
+        ? 'X(北) $x · Y(东) $y'
+        : 'N $x · E $y';
   }
 
   /// 悬停：更新实时十字坐标，命中可拖点时切换移动光标。
@@ -1490,7 +1508,8 @@ class _PlotPainter extends CustomPainter {
         _drawText(
           canvas,
           label,
-          Offset(_sx(mid.x, mid.y, size, scale), _sy(mid.x, mid.y, size, scale) - 10),
+          Offset(_sx(mid.x, mid.y, size, scale),
+              _sy(mid.x, mid.y, size, scale) - 10),
           p.color ?? scheme.primary,
           fontSize: 10.5,
           anchor: _TextAnchor.center,
@@ -1502,8 +1521,7 @@ class _PlotPainter extends CustomPainter {
   void _paintLines(Canvas canvas, Size size, double scale) {
     for (final line in lines) {
       final lineColor = line.color ?? scheme.primary.withValues(alpha: 0.75);
-      final isNorthRay =
-          line.color?.toARGB32() == 0xFFFF3B30 ||
+      final isNorthRay = line.color?.toARGB32() == 0xFFFF3B30 ||
           line.color?.toARGB32() == 0xFFD32F2F;
       final paint = Paint()
         ..color = lineColor
@@ -1550,7 +1568,8 @@ class _PlotPainter extends CustomPainter {
       );
       final rect = Rect.fromCircle(center: center, radius: arc.radiusPx);
       final color = arc.color ?? scheme.tertiary;
-      final screenStart = surveyNorthUp ? arc.startRad - math.pi / 2 : -arc.startRad;
+      final screenStart =
+          surveyNorthUp ? arc.startRad - math.pi / 2 : -arc.startRad;
       final screenSweep = surveyNorthUp ? arc.sweepRad : -arc.sweepRad;
       canvas.drawArc(
         rect,
@@ -1757,7 +1776,8 @@ class _PlotPainter extends CustomPainter {
       ..strokeCap = StrokeCap.square;
     canvas.drawLine(Offset(left, bottom), Offset(right, bottom), paint);
     canvas.drawLine(Offset(left, bottom - 4), Offset(left, bottom + 4), paint);
-    canvas.drawLine(Offset(right, bottom - 4), Offset(right, bottom + 4), paint);
+    canvas.drawLine(
+        Offset(right, bottom - 4), Offset(right, bottom + 4), paint);
     final scaleText = formatScaleLength(step);
     final label = unit.isEmpty ? scaleText : '$scaleText $unit';
     _drawText(
@@ -1864,7 +1884,8 @@ class _PlotPainter extends CustomPainter {
       old.surveyNorthUp != surveyNorthUp ||
       old.unit != unit ||
       old.fontFamily != fontFamily ||
-      !_listEq(old.fontFamilyFallback ?? const [], fontFamilyFallback ?? const []) ||
+      !_listEq(
+          old.fontFamilyFallback ?? const [], fontFamilyFallback ?? const []) ||
       old.selectedIndex != selectedIndex ||
       old.hoverLocal != hoverLocal ||
       old.draggingIndex != draggingIndex ||

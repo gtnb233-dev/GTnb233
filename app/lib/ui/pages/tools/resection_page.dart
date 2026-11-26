@@ -1,0 +1,220 @@
+import 'package:flutter/material.dart';
+import 'package:survey_core/survey_core.dart';
+
+import '../../../export/export_service.dart';
+import '../../../l10n/survey_strings.dart';
+import '../../../state/settings.dart';
+import '../../../theme/tokens.dart';
+import '../../page_scaffold.dart';
+import '../../widgets/draft_mixin.dart';
+import '../../widgets/page_actions.dart';
+import '../../widgets/tutorial_panel.dart';
+import '../../widgets/widgets.dart';
+
+const _defaults = <String, String>{
+  'ax': '100',
+  'ay': '0',
+  'bx': '120',
+  'by': '120',
+  'cx': '0',
+  'cy': '100',
+  'ab': '45deg',
+  'bc': '45deg',
+};
+
+class ResectionPage extends StatefulWidget {
+  const ResectionPage({super.key});
+
+  @override
+  State<ResectionPage> createState() => _ResectionPageState();
+}
+
+class _ResectionPageState extends State<ResectionPage>
+    with DraftMixin<ResectionPage> {
+  final _inputs = {
+    for (final entry in _defaults.entries)
+      entry.key: TextEditingController(text: entry.value),
+  };
+  final _ab = GlobalKey<AngleFieldState>();
+  final _bc = GlobalKey<AngleFieldState>();
+  Point2? _position;
+  List<Point2> _control = [];
+
+  @override
+  String get draftPageId => 'intersection/resection';
+
+  @override
+  Map<String, TextEditingController> get draftFields => _inputs;
+
+  @override
+  Map<String, String> get draftDefaults => _defaults;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _calculate();
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    for (final input in _inputs.values) {
+      input.dispose();
+    }
+  }
+
+  void _calculate() {
+    final settings = SettingsScope.read(context);
+    final control = <Point2>[];
+    for (final id in ['a', 'b', 'c']) {
+      final x = double.tryParse(_inputs['${id}x']!.text);
+      final y = double.tryParse(_inputs['${id}y']!.text);
+      if (x != null && y != null && x.isFinite && y.isFinite) {
+        control.add(Point2(
+            settings.lengthUnit.toMeters(x), settings.lengthUnit.toMeters(y)));
+      }
+    }
+    final ab = _ab.currentState?.value;
+    final bc = _bc.currentState?.value;
+    setState(() {
+      _control = control.length == 3 ? control : [];
+      _position = _control.length == 3 && ab != null && bc != null
+          ? angularResection(
+              a: control[0],
+              b: control[1],
+              c: control[2],
+              abTurnDeg: ab,
+              bcTurnDeg: bc)
+          : null;
+    });
+  }
+
+  void _loadExample() {
+    final unit = SettingsScope.read(context).lengthUnit;
+    for (final entry in _defaults.entries) {
+      _inputs[entry.key]!.text = entry.key == 'ab' || entry.key == 'bc'
+          ? entry.value
+          : unit.fromMeters(double.parse(entry.value)).toString();
+    }
+    _calculate();
+  }
+
+  SheetTable _table() {
+    final p = _position;
+    return SheetTable(
+      title: context.tr('三点后方交会'),
+      rows: p == null
+          ? []
+          : [
+              [context.tr('点号'), 'X / N (m)', 'Y / E (m)'],
+              ['P', p.x.toString(), p.y.toString()],
+            ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = SettingsScope.of(context);
+    final unit = settings.lengthUnit;
+    final p = _position;
+    final points = [
+      for (var i = 0; i < _control.length; i++)
+        PlotPoint(
+            x: _control[i].x, y: _control[i].y, label: ['A', 'B', 'C'][i]),
+      if (p != null) PlotPoint(x: p.x, y: p.y, label: 'P', emphasis: true),
+    ];
+    return DetailScaffold(
+      title: '三点后方交会',
+      subtitle: '在未知测站 P 顺时针观测 A→B 和 B→C 的水平角',
+      actions: [
+        TextButton(onPressed: _loadExample, child: const LocalText('教材算例')),
+      ],
+      toolbar: PageActions(
+          pageId: draftPageId,
+          buildTable: _table,
+          showAngleSelector: true,
+          showUnitSelector: true,
+          onUnitChanged: _calculate),
+      sideVisual: p == null
+          ? const SurveyAlert(
+              tone: AlertTone.warning,
+              title: '无法确定测站',
+              message: '请核对点位和顺时针角度。危险圆或退化几何无法唯一定位。',
+            )
+          : Column(
+              children: [
+                LivePlot(
+                  points: points,
+                  surveyNorthUp: true,
+                  selectedIndex: 3,
+                  lines: [
+                    for (final control in points.take(3))
+                      PlotLine(from: points.last, to: control)
+                  ],
+                ),
+                const SizedBox(height: Insets.s),
+                ResultGrid(items: [
+                  ResultTile(
+                      label: 'X / N',
+                      value: fmt(unit.fromMeters(p.x), settings.coordDigits),
+                      unit: unit.symbol),
+                  ResultTile(
+                      label: 'Y / E',
+                      value: fmt(unit.fromMeters(p.y), settings.coordDigits),
+                      unit: unit.symbol),
+                ]),
+              ],
+            ),
+      children: [
+        PageTutorial(id: 'resection', workedSteps: [
+          if (p != null) ...[
+            'P = (${fmt(p.x, 3)}, ${fmt(p.y, 3)}) m',
+            '∠APB = ${fmtAngle(wrapDeg(azimuthDeg(p, _control[1]) - azimuthDeg(p, _control[0])))}',
+            '∠BPC = ${fmtAngle(wrapDeg(azimuthDeg(p, _control[2]) - azimuthDeg(p, _control[1])))}',
+          ],
+        ]),
+        InputCard(
+          step: 1,
+          title: '已知控制点 A、B、C',
+          fields: [
+            for (final id in ['a', 'b', 'c'])
+              Row(
+                children: [
+                  for (final axis in ['x', 'y']) ...[
+                    if (axis == 'y') const SizedBox(width: Insets.s),
+                    Expanded(
+                        child: NumberField(
+                      controller: _inputs['$id$axis']!,
+                      label: '${id.toUpperCase()} ${axis.toUpperCase()}',
+                      lengthUnit: unit,
+                      onChanged: (_) => _calculate(),
+                    )),
+                  ],
+                ],
+              ),
+          ],
+        ),
+        InputCard(
+          step: 2,
+          title: '测站水平角',
+          fields: [
+            AngleField(
+                key: _ab,
+                label: '∠APB',
+                controller: _inputs['ab'],
+                mode: settings.angleMode,
+                onChanged: (_) => _calculate()),
+            AngleField(
+                key: _bc,
+                label: '∠BPC',
+                controller: _inputs['bc'],
+                mode: settings.angleMode,
+                onChanged: (_) => _calculate()),
+          ],
+        ),
+      ],
+    );
+  }
+}

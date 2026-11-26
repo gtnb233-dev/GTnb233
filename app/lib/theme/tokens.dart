@@ -56,14 +56,14 @@ abstract final class IosColors {
   static const Color systemPurpleLight = Color(0xFF52525B);
   static const Color systemPurpleDark = Color(0xFFA1A1AA);
 
-  /// Graphite 阶梯表面：浅色 #FAFAFA / 深色 #141415（侧栏最深层 #0F0F10）
+  /// Graphite 阶梯表面：浅色 #FAFAFA / 深色 #141415（侧栏最深层 #18181A）
   static const Color lightGroupedBg = Color(0xFFFAFAFA);
   static const Color darkGroupedBg = Color(0xFF141415);
-  static const Color darkSidebarBg = Color(0xFF0F0F10);
+  static const Color darkSidebarBg = Color(0xFF18181A);
 
-  /// 哑光卡片层：浅色纯白 #FFFFFF / 深色 #19191B
+  /// 哑光卡片层：浅色纯白 #FFFFFF / 深色 #1C1C1E
   static const Color lightCard = Color(0xFFFFFFFF);
-  static const Color darkCard = Color(0xFF19191B);
+  static const Color darkCard = Color(0xFF1C1C1E);
 
   /// 抬升/输入凹槽层：浅色 #F4F4F5 / 深色 #232325
   static const Color lightFill = Color(0xFFF4F4F5);

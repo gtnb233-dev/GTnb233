@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../workspace_page_route.dart';
 import 'package:survey_core/survey_core.dart';
+import '../../../l10n/survey_strings.dart';
 
 import '../../../export/export_service.dart';
 import '../../../state/settings.dart';
@@ -97,7 +99,12 @@ class _ConvertPageState extends State<ConvertPage>
         <String>['坡度', '千分数', fmt(percent * 10, 3), '‰'],
         <String>['长度', '输入值', _length.text.trim(), unitLabels[_lengthUnit]],
         for (var i = 0; i < toMeter.length; i++)
-          <String>['长度', '换算为 ${unitLabels[i]}', fmt(meters / toMeter[i], 6), unitLabels[i]],
+          <String>[
+            '长度',
+            '换算为 ${unitLabels[i]}',
+            fmt(meters / toMeter[i], 6),
+            unitLabels[i]
+          ],
       ],
       notes: const [
         '坡度角 α = atan(i)，i 为百分比坡度；千分数 = 百分比 × 10。',
@@ -149,7 +156,13 @@ class _ConvertPageState extends State<ConvertPage>
         },
       ),
       children: [
-        const PageTutorial(id: 'convert'),
+        PageTutorial(id: 'convert', workedSteps: [
+          if (deg != null)
+            '${fmt(deg, 6)}° × π ÷ 180 = ${fmt(degToRad(deg), 9)} rad',
+          'i = tan(${fmt(slopeAngleDeg, 6)}°) × 100 = ${fmt(percent, 4)}%',
+          if (_num(_length) case final length?)
+            '${fmt(length, 6)} × ${toMeter[_lengthUnit]} = ${fmt(meters, 6)} m',
+        ]),
         InputCard(
           step: 1,
           icon: Icons.rotate_90_degrees_ccw_outlined,
@@ -338,7 +351,7 @@ class _ConvertPageState extends State<ConvertPage>
             subtitle: 'R = α / 180°−α / α−180° / 360°−α，四象限双向即时换算',
             icon: Icons.explore_outlined,
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
+              WorkspacePageRoute<void>(
                 builder: (_) => const QuadrantPage(),
               ),
             ),
@@ -354,8 +367,7 @@ class _ConvertPageState extends State<ConvertPage>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '角度输入模式可在「设置」或右上角切换：'
-                  '当前为${s.angleMode == AngleInputMode.dmsCompact ? '度分秒分格（度°/分′/秒″，按空格或小数点自动跳格，也支持直接粘贴 90.3030 或 90 30 30）' : '十进制度（也兼容 90 30 15 / 90.30.15 度分秒写法）'}。',
+                  context.tr('当前角度输入格式：{unit}', {'unit': s.angleMode.symbol}),
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.55,

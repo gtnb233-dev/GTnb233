@@ -11,6 +11,20 @@ enum AngleInputMode {
 
   /// 十进制度：`123.758333`。
   decimalDegrees,
+  radians;
+
+  String get symbol => switch (this) {
+        dmsCompact => 'DMS',
+        decimalDegrees => 'DD',
+        radians => 'RAD',
+      };
+
+  /// A unit-qualified value can also be read under a different input mode.
+  String encodeDegrees(double degrees) => switch (this) {
+        dmsCompact => '${degrees}deg',
+        decimalDegrees => degrees.toString(),
+        radians => degToRad(degrees).toString(),
+      };
 }
 
 /// 弧度/度换算常数。
@@ -63,8 +77,7 @@ class Dms {
       (degree.abs() + minute / 60.0 + second / 3600.0);
 
   @override
-  String toString() =>
-      '${isNegative ? '-' : ''}${degree.abs()}°$minute′'
+  String toString() => '${isNegative ? '-' : ''}${degree.abs()}°$minute′'
       '${second.toStringAsFixed(2)}″';
 }
 
@@ -110,6 +123,21 @@ double parseAngle(
   String text, {
   AngleInputMode mode = AngleInputMode.dmsCompact,
 }) {
+  final qualified = RegExp(r'^(.+?)\s*(deg|rad)$', caseSensitive: false)
+      .firstMatch(text.trim());
+  if (qualified != null) {
+    final scalar = _num(qualified[1]!.replaceAll('−', '-'), text);
+    return qualified[2]!.toLowerCase() == 'rad' ? radToDeg(scalar) : scalar;
+  }
+  final degrees =
+      RegExp(r'^([+\-−]?\d+(?:\.\d+)?)\s*[°º˚度]$').firstMatch(text.trim());
+  if (degrees != null) return _num(degrees[1]!.replaceAll('−', '-'), text);
+  if (mode == AngleInputMode.radians) {
+    final radians = double.tryParse(text.trim().replaceAll('−', '-'));
+    if (radians != null) {
+      return radToDeg(_num(radians.toString(), text));
+    }
+  }
   var t = text
       .trim()
       .replaceAll('。', '.')
@@ -216,6 +244,8 @@ double parseAngle(
     } else {
       final single = _num(s, text);
       switch (mode) {
+        case AngleInputMode.radians:
+          value = radToDeg(single.abs());
         case AngleInputMode.decimalDegrees:
           value = single.abs();
         case AngleInputMode.dmsCompact:
@@ -228,7 +258,7 @@ double parseAngle(
 
 double _num(String s, String whole) {
   final v = double.tryParse(s);
-  if (v == null) {
+  if (v == null || !v.isFinite) {
     throw FormatException('角度格式不正确：“$whole”');
   }
   return v;
@@ -269,8 +299,7 @@ double _compactToDeg(double compact) {
 String fmtDmsCompact(double deg, {int secDigits = 1}) {
   final dms = degToDms(deg, secDigits: secDigits);
   final sign = dms.isNegative ? '-' : '';
-  final compact =
-      dms.degree.abs() + dms.minute / 100.0 + dms.second / 10000.0;
+  final compact = dms.degree.abs() + dms.minute / 100.0 + dms.second / 10000.0;
   var text = compact.toStringAsFixed(4 + secDigits);
   // 去掉多余的尾零，但至少保留 4 位小数（分两位 + 秒两位）。
   final minLen = text.length - secDigits;

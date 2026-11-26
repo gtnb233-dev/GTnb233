@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../state/drafts.dart';
+import 'inputs.dart' show draftInputText;
 
 /// 计算页的草稿自动保存混入。
 ///
@@ -52,7 +53,7 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
       }
       void listener() {
         if (!_suppressDraft) {
-          store.put(draftPageId, field, controller.text);
+          store.put(draftPageId, field, draftInputText(controller));
         }
       }
       controller.addListener(listener);

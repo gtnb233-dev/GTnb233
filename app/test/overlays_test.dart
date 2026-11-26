@@ -101,8 +101,8 @@ void main() {
           tester.getRect(find.byKey(const ValueKey<String>('survey-toast')));
       expect(
         toastRect.center.dy,
-        greaterThan(860 * 0.55),
-        reason: 'Toast 应位于屏幕底部区域',
+        lessThan(860 * 0.25),
+        reason: 'Toast 应位于屏幕顶部区域',
       );
 
       await tester.tap(find.text('触发动作'));
@@ -164,7 +164,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('4. Modal（模态弹窗）：confirm 正确返回取消 false / 确认 true', (tester) async {
+    testWidgets('4. Modal（模态弹窗）：confirm 正确返回取消 false / 确认 true',
+        (tester) async {
       bool? lastConfirmed;
       await _pumpHost(
         tester,
@@ -206,8 +207,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('5. Popconfirm（气泡确认框）：就近弹出、小屏不溢出、取消与确认语义清晰',
-        (tester) async {
+    testWidgets('5. Popconfirm（气泡确认框）：就近弹出、小屏不溢出、取消与确认语义清晰', (tester) async {
       var confirmCount = 0;
       await _pumpHost(
         tester,
@@ -328,7 +328,8 @@ void main() {
         size: const Size(420, 1000),
       );
 
-      expect(find.byKey(const ValueKey<String>('leveling4-row-3')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('leveling4-row-3')),
+          findsOneWidget);
 
       // 点击第一站删除按钮 -> 弹出 Popconfirm
       final delBtns = find.byIcon(Icons.remove_circle_outline);
@@ -340,34 +341,44 @@ void main() {
       // 点删除 -> 从 4 站变为 3 站
       await tester.tap(find.text('删除'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey<String>('leveling4-row-3')), findsNothing);
+      expect(
+          find.byKey(const ValueKey<String>('leveling4-row-3')), findsNothing);
 
       // 点顶部清空 -> 弹出 Popconfirm，确认后恢复 4 站规范算例
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('页面工具栏'));
+      await tester.pumpAndSettle();
       final clearBtn = find.text('清空');
-      await tester.ensureVisible(clearBtn);
       await tester.tap(clearBtn);
       await tester.pumpAndSettle();
       expect(find.text('清空本页草稿？'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(FilledButton, '清空'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey<String>('leveling4-row-3')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('leveling4-row-3')),
+          findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('显式点击计算按钮成功时在底部弹出 Toast，参数无效时不弹出', (tester) async {
+    testWidgets('显式点击计算按钮成功时在顶部弹出 Toast，参数无效时不弹出', (tester) async {
       for (final item in <(Widget page, String expectedText)>[
         (const InversePage(), '坐标反算计算成功'),
         (const TraversePage(), '导线平差计算成功'),
         (const CircularCurvePage(), '圆曲线要素计算成功'),
       ]) {
         await _pumpHost(tester, item.$1, size: const Size(420, 860));
-        expect(find.byKey(const ValueKey<String>('survey-toast')), findsNothing);
+        expect(
+            find.byKey(const ValueKey<String>('survey-toast')), findsNothing);
 
         final btn = find.byType(PrimaryAction);
-        await tester.ensureVisible(btn);
+        await tester.dragUntilVisible(
+          btn.hitTestable(),
+          find.byType(CustomScrollView),
+          const Offset(0, -310),
+        );
         await tester.tap(btn);
         await tester.pumpAndSettle();
 
@@ -376,8 +387,8 @@ void main() {
         expect(find.text(item.$2), findsOneWidget);
         expect(
           tester.getRect(toastFinder).center.dy,
-          greaterThan(860 * 0.55),
-          reason: '${item.$2} 必须位于底部',
+          lessThan(860 * 0.25),
+          reason: '${item.$2} 必须位于顶部',
         );
 
         await tester.pump(const Duration(seconds: 3));

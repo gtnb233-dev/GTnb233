@@ -80,6 +80,9 @@ class AppSettings extends ChangeNotifier {
   static const _kAngleDigits = 'angle_digits';
   static const _kHaptic = 'haptic';
   static const _kLastTool = 'last_tool';
+  static const _kLastDraft = 'last_draft';
+  static const _kSidebar = 'sidebar_collapsed';
+  static const _kWorkspaceEllipsoid = 'workspace_ellipsoid';
   static const _kUiStyle = 'ui_style';
   static const _kGlassNav = 'glass_nav';
   static const _kMonet = 'monet';
@@ -87,13 +90,13 @@ class AppSettings extends ChangeNotifier {
   static const _kPinnedTools = 'pinned_tools';
 
   static const List<String> kDefaultPinnedTools = [
-    'inverse',
-    'traverse',
     'leveling4',
-    'area',
+    'traverse',
+    'projection',
+    'earthwork',
   ];
 
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode = ThemeMode.system;
   AppLanguage _language = AppLanguage.system;
   AngleInputMode _angleMode = AngleInputMode.dmsCompact;
   LengthUnit _lengthUnit = LengthUnit.meter;
@@ -101,6 +104,9 @@ class AppSettings extends ChangeNotifier {
   int _angleSecDigits = 1;
   bool _haptic = true;
   String? _lastTool;
+  String? _lastDraftId;
+  bool _sidebarCollapsed = true;
+  String _workspaceEllipsoid = 'CGCS2000';
 
   UiStyle _uiStyle = UiStyle.classic;
 
@@ -119,11 +125,15 @@ class AppSettings extends ChangeNotifier {
   String get angleModeLabel => switch (_angleMode) {
         AngleInputMode.dmsCompact => '度分秒 (度/分/秒)',
         AngleInputMode.decimalDegrees => '十进制度',
+        AngleInputMode.radians => '弧度',
       };
 
   /// 角度输入方式的短标签（胶囊/徽标用，避免窄屏被长标签撑爆）。
-  String get angleModeShortLabel =>
-      _angleMode == AngleInputMode.dmsCompact ? '度分秒' : '十进制';
+  String get angleModeShortLabel => switch (_angleMode) {
+        AngleInputMode.dmsCompact => '度分秒',
+        AngleInputMode.decimalDegrees => '十进制',
+        AngleInputMode.radians => '弧度',
+      };
 
   /// 当前长度/坐标输入量级。
   LengthUnit get lengthUnit => _lengthUnit;
@@ -139,6 +149,9 @@ class AppSettings extends ChangeNotifier {
 
   bool get haptic => _haptic;
   String? get lastTool => _lastTool;
+  String? get lastDraftId => _lastDraftId;
+  bool get sidebarCollapsed => _sidebarCollapsed;
+  String get workspaceEllipsoid => _workspaceEllipsoid;
 
   /// 当前界面风格。
   UiStyle get uiStyle => _uiStyle;
@@ -163,16 +176,21 @@ class AppSettings extends ChangeNotifier {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       'system' => ThemeMode.system,
-      _ => ThemeMode.dark,
+      _ => ThemeMode.system,
     };
-    _angleMode = p.getString(_kAngle) == 'decimal'
-        ? AngleInputMode.decimalDegrees
-        : AngleInputMode.dmsCompact;
+    _angleMode = switch (p.getString(_kAngle)) {
+      'decimal' => AngleInputMode.decimalDegrees,
+      'rad' => AngleInputMode.radians,
+      _ => AngleInputMode.dmsCompact,
+    };
     _lengthUnit = LengthUnit.parse(p.getString(_kLengthUnit));
     _coordDigits = p.getInt(_kCoordDigits) ?? 3;
     _angleSecDigits = p.getInt(_kAngleDigits) ?? 1;
     _haptic = p.getBool(_kHaptic) ?? true;
     _lastTool = p.getString(_kLastTool);
+    _lastDraftId = p.getString(_kLastDraft);
+    _sidebarCollapsed = p.getBool(_kSidebar) ?? true;
+    _workspaceEllipsoid = p.getString(_kWorkspaceEllipsoid) ?? 'CGCS2000';
     _uiStyle = UiStyle.parse(p.getString(_kUiStyle));
     _glassNav = p.getBool(_kGlassNav);
     _monet = p.getBool(_kMonet) ?? false;
@@ -203,7 +221,11 @@ class AppSettings extends ChangeNotifier {
     await _persist(
       (p) => p.setString(
         _kAngle,
-        mode == AngleInputMode.decimalDegrees ? 'decimal' : 'dms',
+        switch (mode) {
+          AngleInputMode.dmsCompact => 'dms',
+          AngleInputMode.decimalDegrees => 'decimal',
+          AngleInputMode.radians => 'rad',
+        },
       ),
     );
   }
@@ -271,9 +293,31 @@ class AppSettings extends ChangeNotifier {
     await _persist((p) => p.setString(_kMonetSeed, seed.name));
   }
 
-  Future<void> setLastTool(String key) async {
+  Future<void> setLastTool(String key, {String? draftId}) async {
     _lastTool = key;
-    await _persist((p) => p.setString(_kLastTool, key));
+    _lastDraftId = draftId;
+    notifyListeners();
+    await _persist((p) async {
+      await p.setString(_kLastTool, key);
+      if (draftId == null) {
+        await p.remove(_kLastDraft);
+      } else {
+        await p.setString(_kLastDraft, draftId);
+      }
+    });
+  }
+
+  Future<void> setSidebarCollapsed(bool collapsed) async {
+    _sidebarCollapsed = collapsed;
+    notifyListeners();
+    await _persist((p) => p.setBool(_kSidebar, collapsed));
+  }
+
+  Future<void> setWorkspaceEllipsoid(String ellipsoid) async {
+    if (_workspaceEllipsoid == ellipsoid) return;
+    _workspaceEllipsoid = ellipsoid;
+    notifyListeners();
+    await _persist((p) => p.setString(_kWorkspaceEllipsoid, ellipsoid));
   }
 
   /// 切换首页「常用工具」固定状态（至少保留 1 个工具）。

@@ -466,7 +466,14 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
               ],
             ),
       children: [
-        const PageTutorial(id: 'batch_stakeout'),
+        PageTutorial(id: 'batch_stakeout', workedSteps: [
+          if ((activeValidPos == null ? ok.firstOrNull : ok[activeValidPos])
+              case final target?)
+            if (target.result case final r?) ...[
+              '${target.label}: D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
+              'β = αₚ − αᵦ ⇒ ${fmtAngle(r.horizontalAngleDeg)}',
+            ],
+        ]),
         InputCard(
           step: 1,
           title: '测站与后视定向',

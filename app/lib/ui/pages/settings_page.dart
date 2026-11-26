@@ -42,7 +42,8 @@ class SettingsPage extends StatelessWidget {
                       for (final language in AppLanguage.values)
                         DropdownMenuItem(
                           value: language,
-                          child: Text(language.nativeName ?? context.tr('跟随系统')),
+                          child:
+                              Text(language.nativeName ?? context.tr('跟随系统')),
                         ),
                     ],
                     onChanged: (language) {
@@ -123,7 +124,8 @@ class SettingsPage extends StatelessWidget {
                 ),
                 segments: [
                   for (final style in UiStyle.values)
-                    ButtonSegment(value: style, label: Text(context.tr(style.label))),
+                    ButtonSegment(
+                        value: style, label: Text(context.tr(style.label))),
                 ],
                 selected: {s.uiStyle},
                 onSelectionChanged: (v) => s.setUiStyle(v.first),
@@ -149,14 +151,15 @@ class SettingsPage extends StatelessWidget {
             children: [
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                value: wide ? s.glassNav : s.floatingGlassNav,
+                value: s.floatingGlassNav,
                 onChanged: s.setGlassNav,
                 title: Text(
-                  context.tr(wide ? '玻璃侧栏' : '液态玻璃导航'),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  context.tr('液态玻璃'),
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  context.tr(wide ? '在侧栏使用半透明玻璃背景' : '悬浮底栏与可滑动的玻璃胶囊'),
+                  context.tr(wide ? '悬浮操作台使用半透明背景' : '悬浮操作台与底栏使用半透明背景'),
                   style: const TextStyle(fontSize: 11.5),
                 ),
               ),
@@ -215,9 +218,13 @@ class SettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                context.tr(s.angleMode == AngleInputMode.dmsCompact
-                    ? '度分秒分格（度°/分′/秒″）：空格或小数点自动跳格，也支持粘贴 GG.MMSS'
-                    : '十进制度：90.5 表示 90°30′00″（亦兼容空格或小数点直填度分秒）'),
+                context.tr(switch (s.angleMode) {
+                  AngleInputMode.dmsCompact =>
+                    '度分秒分格（度°/分′/秒″）：空格或小数点自动跳格，也支持粘贴 GG.MMSS',
+                  AngleInputMode.decimalDegrees =>
+                    '十进制度：90.5 表示 90°30′00″（亦兼容空格或小数点直填度分秒）',
+                  AngleInputMode.radians => '弧度：π rad = 180°，请输入数值',
+                }),
                 style: TextStyle(
                   fontSize: 11.5,
                   color: scheme.onSurfaceVariant,
@@ -235,6 +242,8 @@ class SettingsPage extends StatelessWidget {
                     value: AngleInputMode.decimalDegrees,
                     label: LocalText('十进制度'),
                   ),
+                  ButtonSegment(
+                      value: AngleInputMode.radians, label: LocalText('弧度')),
                 ],
                 selected: {s.angleMode},
                 onSelectionChanged: (v) => s.setAngleMode(v.first),
@@ -246,7 +255,11 @@ class SettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                context.tr('当前按 {unit} 录入与显示（1 m = 100 cm = 1000 mm 自动换算，默认米制）', {'unit': '${context.tr(s.lengthUnit.label)} (${s.lengthUnit.symbol})'}),
+                context.tr(
+                    '当前按 {unit} 录入与显示（1 m = 100 cm = 1000 mm 自动换算，默认米制）', {
+                  'unit':
+                      '${context.tr(s.lengthUnit.label)} (${s.lengthUnit.symbol})'
+                }),
                 style: TextStyle(
                   fontSize: 11.5,
                   color: scheme.onSurfaceVariant,
@@ -375,7 +388,8 @@ class SettingsPage extends StatelessWidget {
                 title: '清空全部本地草稿',
                 subtitle: savedDraftCount == 0
                     ? '当前没有已保存的工具草稿'
-                    : context.tr('当前共保存 {count} 个工具页的草稿输入', {'count': savedDraftCount}),
+                    : context.tr(
+                        '当前共保存 {count} 个工具页的草稿输入', {'count': savedDraftCount}),
                 onTap: () async {
                   if (drafts == null || savedDraftCount == 0) {
                     SurveyToast.info(context, '当前没有可清空的本地草稿');
@@ -385,7 +399,8 @@ class SettingsPage extends StatelessWidget {
                     context,
                     title: '清空全部本地草稿？',
                     subtitle: '不可撤销的本地清理操作',
-                    message: context.tr('将删除全部 {count} 个工具页的已保存输入，且无法恢复。', {'count': savedDraftCount}),
+                    message: context.tr('将删除全部 {count} 个工具页的已保存输入，且无法恢复。',
+                        {'count': savedDraftCount}),
                     confirmLabel: '确认清空',
                     destructive: true,
                   );
@@ -435,7 +450,8 @@ class SettingsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          context.tr('版本 {version} · 离线计算', {'version': kAppVersion}),
+                          context.tr(
+                              '版本 {version} · 离线计算', {'version': kAppVersion}),
                           style: const TextStyle(fontSize: 11.5),
                         ),
                       ],

@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
@@ -49,12 +51,33 @@ class LiquidGlassSurface extends StatelessWidget {
       content = Padding(padding: padding!, child: content);
     }
 
+    final translucent = blurSigma > 0;
+    if (translucent) {
+      content = ClipRRect(
+        borderRadius: borderRadius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: fill.withValues(alpha: isDark ? .76 : .84),
+              borderRadius: borderRadius,
+              border: Border(
+                top: BorderSide(
+                    color: Colors.white.withValues(alpha: isDark ? .12 : .84)),
+              ),
+            ),
+            child: content,
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: fill,
+        color: translucent ? Colors.transparent : fill,
         borderRadius: borderRadius,
         border: Border.all(
           color: IosColors.separator(brightness),
@@ -149,6 +172,36 @@ class GlassIconOrb extends StatefulWidget {
 
   @override
   State<GlassIconOrb> createState() => _GlassIconOrbState();
+}
+
+/// A 40 dp circular surface with a 48 dp button target.
+class WorkspaceGlassButton extends StatelessWidget {
+  const WorkspaceGlassButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        tooltip: label,
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        icon: LiquidGlassSurface(
+          width: 40,
+          height: 40,
+          borderRadius: BorderRadius.circular(20),
+          elevated: false,
+          blurSigma: 12,
+          child: Center(child: Icon(icon, size: 18)),
+        ),
+      );
 }
 
 class _GlassIconOrbState extends State<GlassIconOrb> {

@@ -36,10 +36,10 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('首次使用默认深色，显式选择的主题在重启后仍保留', () async {
+  test('首次使用跟随系统，显式选择的主题在重启后仍保留', () async {
     final settings = AppSettings();
     await settings.load();
-    expect(settings.themeMode, ThemeMode.dark);
+    expect(settings.themeMode, ThemeMode.system);
 
     for (final mode in [ThemeMode.system, ThemeMode.light]) {
       await settings.setThemeMode(mode);
@@ -55,7 +55,7 @@ void main() {
     for (final style in UiStyle.values) {
       expect(find.text(style.label), findsOneWidget);
     }
-    expect(find.text('液态玻璃导航'), findsOneWidget);
+    expect(find.text('液态玻璃'), findsOneWidget);
     expect(find.text('莫奈调色'), findsOneWidget);
     expect(find.byType(FilterChip), findsNWidgets(MonetSeed.values.length));
     for (final seed in MonetSeed.values) {
@@ -72,7 +72,7 @@ void main() {
 
     expect(settings.floatingGlassNav, isTrue);
     expect(settings.glassNav, isFalse);
-    await _tap(tester, find.text('液态玻璃导航'));
+    await _tap(tester, find.text('液态玻璃'));
     expect(settings.floatingGlassNav, isFalse);
     final reloaded = AppSettings();
     await reloaded.load();

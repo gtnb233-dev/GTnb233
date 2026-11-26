@@ -160,6 +160,51 @@ class XlsxSheetData {
 
   /// 略图区域列表（Excel 中作占位提示框，PNG 导出在框内渲染矢量简图）。
   final List<XlsxSketchArea> sketches;
+
+  XlsxSheetData localizeLabels(String Function(String) translate) {
+    const labels = {
+      XlsxCellStyle.boldHeader,
+      XlsxCellStyle.title,
+      XlsxCellStyle.headerCenter,
+      XlsxCellStyle.sectionTitle,
+      XlsxCellStyle.headerSub,
+    };
+    return XlsxSheetData(
+      sheetName: translate(sheetName),
+      cells: [
+        for (final cell in cells)
+          if (labels.contains(cell.style))
+            XlsxCell(
+                row: cell.row,
+                col: cell.col,
+                value: translate(cell.value),
+                style: cell.style,
+                forceString: cell.forceString)
+          else
+            cell,
+      ],
+      merges: merges,
+      colWidths: colWidths,
+      rowHeights: rowHeights,
+      landscape: landscape,
+      fitToWidth: fitToWidth,
+      fitToHeight: fitToHeight,
+      paperSize: paperSize,
+      tableOuterStartRow: tableOuterStartRow,
+      tableOuterEndRow: tableOuterEndRow,
+      tableOuterEndCol: tableOuterEndCol,
+      sketches: [
+        for (final area in sketches)
+          XlsxSketchArea(
+              r1: area.r1,
+              c1: area.c1,
+              r2: area.r2,
+              c2: area.c2,
+              headerText: translate(area.headerText),
+              sketch: area.sketch),
+      ],
+    );
+  }
 }
 
 /// 极简 xlsx 生成器：不引任何第三方依赖，直接拼 OOXML + STORED 的 ZIP。
@@ -386,7 +431,8 @@ class XlsxWriter {
   static String _sheetXml(List<List<String>> rows) {
     final sb = StringBuffer();
     sb.write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-    sb.write('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">');
+    sb.write(
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">');
     // 列宽：按每列最长文本估一个宽度，中文按 2 个字宽算。
     final widths = <int, int>{};
     for (final row in rows) {
@@ -400,7 +446,8 @@ class XlsxWriter {
       sb.write('<cols>');
       for (final c in cols) {
         final w = (widths[c]! + 2).clamp(8, 42);
-        sb.write('<col min="${_colIndex(c) + 1}" max="${_colIndex(c) + 1}" width="$w" customWidth="1"/>');
+        sb.write(
+            '<col min="${_colIndex(c) + 1}" max="${_colIndex(c) + 1}" width="$w" customWidth="1"/>');
       }
       sb.write('</cols>');
     }
@@ -417,7 +464,8 @@ class XlsxWriter {
           final normalized = t.startsWith('+') ? t.substring(1) : t;
           sb.write('<c r="$ref"$style><v>$normalized</v></c>');
         } else if (v.isNotEmpty) {
-          sb.write('<c r="$ref"$style t="inlineStr"><is><t xml:space="preserve">${_esc(v)}</t></is></c>');
+          sb.write(
+              '<c r="$ref"$style t="inlineStr"><is><t xml:space="preserve">${_esc(v)}</t></is></c>');
         }
       }
       sb.write('</row>');
@@ -460,7 +508,8 @@ class XlsxWriter {
     return sb.toString();
   }
 
-  static const String _rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+  static const String _rootRels =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
       '</Relationships>';
@@ -502,7 +551,8 @@ class XlsxWriter {
   }
 
   /// cellXfs 序号对应 [XlsxCellStyle] 枚举顺序：0/1 与简表兼容，2..11 供观测手簿，12..17 供工程打印表。
-  static const String _styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+  static const String _styles =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
       '<fonts count="14">'
       '<font><sz val="11"/><name val="Calibri"/></font>'
@@ -629,9 +679,11 @@ class XlsxWriter {
     return (date, time);
   }
 
-  static Uint8List _u16(int v) => Uint8List(2)..buffer.asByteData().setUint16(0, v, Endian.little);
+  static Uint8List _u16(int v) =>
+      Uint8List(2)..buffer.asByteData().setUint16(0, v, Endian.little);
 
-  static Uint8List _u32(int v) => Uint8List(4)..buffer.asByteData().setUint32(0, v, Endian.little);
+  static Uint8List _u32(int v) =>
+      Uint8List(4)..buffer.asByteData().setUint32(0, v, Endian.little);
 
   static final List<int> _crcTable = List<int>.generate(256, (n) {
     var c = n;

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
+import '../../../l10n/survey_strings.dart';
 
 import '../../../export/export_service.dart';
 import '../../../export/leveling_handbook_xlsx.dart';
@@ -205,10 +206,7 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
   Future<void> _openPointNamesDialog() async {
     final count = _stationPairs.isNotEmpty
         ? _stationPairs.length
-        : (_obs.text
-                .split('\n')
-                .where((e) => e.trim().isNotEmpty)
-                .length)
+        : (_obs.text.split('\n').where((e) => e.trim().isNotEmpty).length)
             .clamp(1, 50);
     final res = await showPointNamesDialog(
       context,
@@ -243,14 +241,16 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
           fromPoint: i < _stationPairs.length
               ? _stationPairs[i].$1
               : (i == 0 ? _startPoint : _defaultToPoint(i - 1)),
-          toPoint:
-              i < _stationPairs.length ? _stationPairs[i].$2 : _defaultToPoint(i),
+          toPoint: i < _stationPairs.length
+              ? _stationPairs[i].$2
+              : _defaultToPoint(i),
           observation: _last[i],
           result: r.stations[i],
           backRodLabel: _backRodLabel,
           frontRodLabel: _frontRodLabel,
         ),
     ];
+    final strings = SurveyStrings.of(context);
     final table = SheetTable(
       title: '三四等水准测量观测手簿',
       rows: const <List<String>>[],
@@ -260,11 +260,12 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
         kFront: _kMode.kFront,
         backRodLabel: _backRodLabel,
         frontRodLabel: _frontRodLabel,
+        translateNote: strings.languageCode == 'zh' ? null : strings.translate,
       ),
     );
     try {
       final out = await ExportService.export(
-        table,
+        table.localizeLabels(strings.translate),
         format: format,
         fileNameHint: '三四等水准测量观测手簿',
       );
@@ -409,7 +410,9 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
                   final nums = r.sublist(1).map((e) => e.trim()).toList();
                   if (nums.any((e) => e.isEmpty)) continue;
                   final name = r[0].trim();
-                  lines.add(name.isEmpty ? nums.join(' ') : '$name ${nums.join(' ')}');
+                  lines.add(name.isEmpty
+                      ? nums.join(' ')
+                      : '$name ${nums.join(' ')}');
                 }
                 return [lines.join('\n')];
               },
@@ -439,17 +442,20 @@ class _DoubleFaceLevelingViewState extends State<DoubleFaceLevelingView> {
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.table_view_rounded, size: 15),
-                  label: const Text('导出手簿 Excel', style: TextStyle(fontSize: 12)),
+                  label:
+                      const Text('导出手簿 Excel', style: TextStyle(fontSize: 12)),
                   visualDensity: VisualDensity.compact,
-                  onPressed:
-                      r != null ? () => _exportHandbook(ExportFormat.xlsx) : null,
+                  onPressed: r != null
+                      ? () => _exportHandbook(ExportFormat.xlsx)
+                      : null,
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.image_outlined, size: 15),
                   label: const Text('导出手簿图片', style: TextStyle(fontSize: 12)),
                   visualDensity: VisualDensity.compact,
-                  onPressed:
-                      r != null ? () => _exportHandbook(ExportFormat.png) : null,
+                  onPressed: r != null
+                      ? () => _exportHandbook(ExportFormat.png)
+                      : null,
                 ),
               ],
             ),

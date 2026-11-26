@@ -13,6 +13,7 @@ import 'theme/app_theme.dart';
 import 'theme/monet.dart';
 import 'theme/ui_style.dart';
 import 'ui/shell.dart';
+import 'ui/widgets/workspace_commands.dart';
 
 /// 允许 Windows 鼠标左键拖拽横向表格/手簿（与触屏行为一致）。
 class _AppScrollBehavior extends MaterialScrollBehavior {
@@ -110,6 +111,13 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     if (_lastWindowDark == isDark) return;
     _lastWindowDark = isDark;
     unawaited(Monet.setWindowBrightness(isDark));
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: const Color(0x00000000),
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      systemNavigationBarColor: Color(isDark ? 0xFF141415 : 0xFFFAFAFA),
+      systemNavigationBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
+    ));
   }
 
   /// 开了莫奈且种子选「自动」时，去读一次系统强调色；其余情况不用读。
@@ -148,7 +156,8 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
                   buildAppTheme(Brightness.dark, seed: seed, style: style),
               themeMode: settings.themeMode,
               locale: settings.language.locale,
-              localeListResolutionCallback: (locales, _) => AppLanguage.resolve(locales),
+              localeListResolutionCallback: (locales, _) =>
+                  AppLanguage.resolve(locales),
               supportedLocales: AppLanguage.supportedLocales,
               localizationsDelegates: SurveyStrings.delegates,
               home: const AppShell(),
@@ -162,7 +171,8 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
                       maxScaleFactor: 1.3,
                     ),
                   ),
-                  child: child ?? const SizedBox.shrink(),
+                  child: WorkspaceCommandsEnabled(
+                      child: child ?? const SizedBox.shrink()),
                 );
               },
             );

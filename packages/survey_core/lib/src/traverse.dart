@@ -179,9 +179,7 @@ AngleSumDecision decideAngleSum({
         : AngleSumDecision(exterior, AngleConvention.exteriorSum);
   }
   return AngleSumDecision(
-    leftAngles
-        ? endAz - startAz + 180.0 * n
-        : startAz - endAz + 180.0 * n,
+    leftAngles ? endAz - startAz + 180.0 * n : startAz - endAz + 180.0 * n,
     null,
   );
 }
@@ -238,6 +236,7 @@ TraverseResult? traverseAdjust({
   double angleLimitCoefficient = 40,
   double relativeLimitDenominator = 4000,
   MisclosureDistribution distribution = MisclosureDistribution.byLength,
+  TraverseCoordinateAdjustment? adjustCoordinates,
 }) {
   final n = anglesDeg.length;
   final m = distances.length;
@@ -316,6 +315,76 @@ TraverseResult? traverseAdjust({
   // 最后一条边吸收浮点残差，保证平差后终点严格落在已知点上（最后一点配平）。
   final targetX = actualEnd.x - start.x;
   final targetY = actualEnd.y - start.y;
+  final (closedDx, closedDy) = adjustCoordinates?.call(
+        dx,
+        dy,
+        distances,
+        fx,
+        fy,
+        targetX,
+        targetY,
+        distribution,
+      ) ??
+      distributeTraverseCoordinates(
+        dx,
+        dy,
+        distances,
+        fx,
+        fy,
+        targetX,
+        targetY,
+        distribution,
+      );
+
+  return TraverseResult(
+    angleSum: angleSum,
+    expectedAngleSum: expectedSum,
+    angleMisclosureSec: misclosureSec,
+    angleLimitSec: limitSec,
+    correctedAnglesDeg: correctedAngles,
+    azimuthsDeg: azimuths,
+    distances: distances,
+    points: points,
+    dx: dx,
+    dy: dy,
+    closedDx: closedDx,
+    closedDy: closedDy,
+    fx: fx,
+    fy: fy,
+    linearMisclosure: linear,
+    totalLength: totalLength,
+    relativeDenominator: relDenom,
+    relativeLimitDenominator: relativeLimitDenominator,
+    isClosed: closed,
+    distribution: distribution,
+    angleConvention: decision.convention,
+  );
+}
+
+typedef TraverseCoordinateAdjustment = (List<double>, List<double>)? Function(
+  List<double> dx,
+  List<double> dy,
+  List<double> distances,
+  double fx,
+  double fy,
+  double targetX,
+  double targetY,
+  MisclosureDistribution distribution,
+);
+
+(List<double>, List<double>) distributeTraverseCoordinates(
+  List<double> dx,
+  List<double> dy,
+  List<double> distances,
+  double fx,
+  double fy,
+  double targetX,
+  double targetY,
+  MisclosureDistribution distribution,
+) {
+  final m = distances.length;
+  final totalLength =
+      distances.fold<double>(0, (sum, distance) => sum + distance);
   final sumAbsDx = dx.fold<double>(0, (s, v) => s + v.abs());
   final sumAbsDy = dy.fold<double>(0, (s, v) => s + v.abs());
   // 分量比例要求两个方向的分母都大于 0，否则整体回落按边长比例。
@@ -343,29 +412,7 @@ TraverseResult? traverseAdjust({
     closedDy[m - 1] = targetY - sumY;
   }
 
-  return TraverseResult(
-    angleSum: angleSum,
-    expectedAngleSum: expectedSum,
-    angleMisclosureSec: misclosureSec,
-    angleLimitSec: limitSec,
-    correctedAnglesDeg: correctedAngles,
-    azimuthsDeg: azimuths,
-    distances: distances,
-    points: points,
-    dx: dx,
-    dy: dy,
-    closedDx: closedDx,
-    closedDy: closedDy,
-    fx: fx,
-    fy: fy,
-    linearMisclosure: linear,
-    totalLength: totalLength,
-    relativeDenominator: relDenom,
-    relativeLimitDenominator: relativeLimitDenominator,
-    isClosed: closed,
-    distribution: distribution,
-    angleConvention: decision.convention,
-  );
+  return (closedDx, closedDy);
 }
 
 /// 用平差后的坐标增量重新推算各点坐标（从起点开始，终点自然落到已知点）。

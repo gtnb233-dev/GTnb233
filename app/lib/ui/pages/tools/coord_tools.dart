@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../workspace_page_route.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../l10n/survey_strings.dart';
@@ -15,6 +16,7 @@ import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
 import 'intersection_table.dart';
+import 'resection_page.dart';
 
 double? _num(TextEditingController c) {
   final t = c.text.trim();
@@ -88,9 +90,21 @@ class _InversePageState extends State<InversePage>
         ['A 点 Y', _ay.text.trim(), u.symbol],
         ['B 点 X', _bx.text.trim(), u.symbol],
         ['B 点 Y', _by.text.trim(), u.symbol],
-        ['ΔX', r == null ? '' : u.fromMeters(r.dx).toStringAsFixed(d), u.symbol],
-        ['ΔY', r == null ? '' : u.fromMeters(r.dy).toStringAsFixed(d), u.symbol],
-        ['距离 D', r == null ? '' : u.fromMeters(r.distance).toStringAsFixed(d), u.symbol],
+        [
+          'ΔX',
+          r == null ? '' : u.fromMeters(r.dx).toStringAsFixed(d),
+          u.symbol
+        ],
+        [
+          'ΔY',
+          r == null ? '' : u.fromMeters(r.dy).toStringAsFixed(d),
+          u.symbol
+        ],
+        [
+          '距离 D',
+          r == null ? '' : u.fromMeters(r.distance).toStringAsFixed(d),
+          u.symbol
+        ],
         ['方位角 α', r == null ? '' : fmtAzimuth(r.azimuthDeg, secDigits: sd), ''],
         ['象限角', r == null ? '' : _quadrantText(r.azimuthDeg), ''],
       ],
@@ -116,7 +130,8 @@ class _InversePageState extends State<InversePage>
                 from: 0,
                 to: 1,
                 dashed: false,
-                label: 'D=${u.fromMeters(r.distance).toStringAsFixed(d)}${u.symbol}',
+                label:
+                    'D=${u.fromMeters(r.distance).toStringAsFixed(d)}${u.symbol}',
               ),
             ],
             showNorthArrow: true,
@@ -227,7 +242,8 @@ class _InversePageState extends State<InversePage>
             ],
             lines: [
               PlotLine(
-                from: PlotPoint(x: _num(_ax) ?? 0, y: _num(_ay) ?? 0, label: 'A'),
+                from:
+                    PlotPoint(x: _num(_ax) ?? 0, y: _num(_ay) ?? 0, label: 'A'),
                 to: PlotPoint(x: _num(_bx) ?? 0, y: _num(_by) ?? 0, label: 'B'),
                 label: distDisp == null ? null : 'D=${fmt(distDisp, 2)}',
               ),
@@ -252,7 +268,9 @@ class _InversePageState extends State<InversePage>
                   unit: u.symbol,
                   emphasis: true,
                   icon: Icons.straighten,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(r.distance, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.distance, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: '方位角 α',
@@ -267,14 +285,18 @@ class _InversePageState extends State<InversePage>
                   value: fmt(dxDisp!, d),
                   unit: u.symbol,
                   icon: Icons.north,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(r.dx, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.dx, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: 'ΔY',
                   value: fmt(dyDisp!, d),
                   unit: u.symbol,
                   icon: Icons.east,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(r.dy, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.dy, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: '象限角',
@@ -287,11 +309,19 @@ class _InversePageState extends State<InversePage>
         ],
       ),
       children: [
-        const PageTutorial(id: 'inverse'),
+        PageTutorial(id: 'inverse', workedSteps: [
+          if (r != null) ...[
+            'ΔX = ${fmt(r.to.x, 3)} − ${fmt(r.from.x, 3)} = ${fmt(r.dx, 3)} m',
+            'ΔY = ${fmt(r.to.y, 3)} − ${fmt(r.from.y, 3)} = ${fmt(r.dy, 3)} m',
+            'D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
+            'α = atan2(${fmt(r.dy, 3)}, ${fmt(r.dx, 3)}) ⇒ ${fmtAngle(r.azimuthDeg)}',
+          ],
+        ]),
         InputCard(
           step: 1,
           title: '已知两点坐标',
-          caption: context.tr('X 为纵轴（北向），Y 为横轴（东向）；当前量级：{unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
+          caption: context.tr('X 为纵轴（北向），Y 为横轴（东向）；当前量级：{unit}',
+              {'unit': '${context.tr(u.label)} (${u.symbol})'}),
           trailing: TextButton.icon(
             onPressed: _swapPoints,
             icon: const Icon(Icons.swap_horiz, size: 16),
@@ -371,7 +401,7 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
   final _azKey = GlobalKey<AngleFieldState>();
 
   /// 方位角文本也交给草稿：AngleField(controller:) 直接读写它。
-  final _azCtrl = TextEditingController(text: '45.0000');
+  final _azCtrl = TextEditingController(text: '45deg');
   double _az = 45;
   Point2? _p;
 
@@ -391,7 +421,7 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         'x': '1000.000',
         'y': '2000.000',
         'dist': '100.000',
-        'az': '45.0000',
+        'az': '45deg',
       };
 
   /// 导出：起算数据 + 推算点位。
@@ -411,10 +441,26 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         ['起点 Y', _y.text.trim(), u.symbol],
         ['方位角 α', fmtAzimuth(_az, secDigits: sd), ''],
         ['水平距离 D', _dist.text.trim(), u.symbol],
-        ['待定点 X', p == null ? '' : u.fromMeters(p.x).toStringAsFixed(d), u.symbol],
-        ['待定点 Y', p == null ? '' : u.fromMeters(p.y).toStringAsFixed(d), u.symbol],
-        ['ΔX', p == null ? '' : u.fromMeters(p.x - sxMeters).toStringAsFixed(d), u.symbol],
-        ['ΔY', p == null ? '' : u.fromMeters(p.y - syMeters).toStringAsFixed(d), u.symbol],
+        [
+          '待定点 X',
+          p == null ? '' : u.fromMeters(p.x).toStringAsFixed(d),
+          u.symbol
+        ],
+        [
+          '待定点 Y',
+          p == null ? '' : u.fromMeters(p.y).toStringAsFixed(d),
+          u.symbol
+        ],
+        [
+          'ΔX',
+          p == null ? '' : u.fromMeters(p.x - sxMeters).toStringAsFixed(d),
+          u.symbol
+        ],
+        [
+          'ΔY',
+          p == null ? '' : u.fromMeters(p.y - syMeters).toStringAsFixed(d),
+          u.symbol
+        ],
       ],
       notes: const [
         'X = X0 + D·cosα，Y = Y0 + D·sinα；α 自北方向顺时针量取。',
@@ -489,8 +535,8 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
     final s = SettingsScope.read(context);
     final u = s.lengthUnit;
     final x = _num(_x), y = _num(_y), d = _num(_dist);
-    final az = _azKey.currentState?.value ??
-        _tryParseAngle(_azCtrl.text, s.angleMode);
+    final az =
+        _azKey.currentState?.value ?? _tryParseAngle(_azCtrl.text, s.angleMode);
     if (x == null || y == null || d == null || az == null) {
       setState(() => _p = null);
       return;
@@ -546,7 +592,8 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
             surveyNorthUp: true,
             points: [
               station,
-              if (p != null) PlotPoint(x: pxDisp!, y: pyDisp!, label: 'P', emphasis: true),
+              if (p != null)
+                PlotPoint(x: pxDisp!, y: pyDisp!, label: 'P', emphasis: true),
             ],
             lines: [
               if (p != null)
@@ -576,7 +623,9 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
                   unit: u.symbol,
                   emphasis: true,
                   icon: Icons.north,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(p.x, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(p.x, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: 'Y',
@@ -584,19 +633,25 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
                   unit: u.symbol,
                   emphasis: true,
                   icon: Icons.east,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(p.y, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(p.y, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: 'ΔX',
                   value: fmt(u.fromMeters(p.x - sxMeters), digits),
                   unit: u.symbol,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(p.x - sxMeters, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(p.x - sxMeters, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: 'ΔY',
                   value: fmt(u.fromMeters(p.y - syMeters), digits),
                   unit: u.symbol,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(p.y - syMeters, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(p.y - syMeters, s.coordDigits)} m',
                 ),
               ],
             ),
@@ -604,11 +659,17 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
         ],
       ),
       children: [
-        const PageTutorial(id: 'polar'),
+        PageTutorial(id: 'polar', workedSteps: [
+          if (p != null) ...[
+            'Xₚ = X₀ + D cos(${fmtAngle(_az)}) = ${fmt(p.x, 3)} m',
+            'Yₚ = Y₀ + D sin(${fmtAngle(_az)}) = ${fmt(p.y, 3)} m',
+          ],
+        ]),
         InputCard(
           step: 1,
           title: '起算测站',
-          caption: context.tr('当前量级：{unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
+          caption: context.tr(
+              '当前量级：{unit}', {'unit': '${context.tr(u.label)} (${u.symbol})'}),
           fields: [
             Row(
               children: [
@@ -733,11 +794,27 @@ class _StakeoutPageState extends State<StakeoutPage>
         ['后视 Y', _by.text.trim(), u.symbol],
         ['目标 X', _tx.text.trim(), u.symbol],
         ['目标 Y', _ty.text.trim(), u.symbol],
-        ['水平角 β', r == null ? '' : fmtAngle(r.horizontalAngleDeg, secDigits: sd), ''],
-        ['平距 D', r == null ? '' : u.fromMeters(r.distance).toStringAsFixed(d), u.symbol],
+        [
+          '水平角 β',
+          r == null ? '' : fmtAngle(r.horizontalAngleDeg, secDigits: sd),
+          ''
+        ],
+        [
+          '平距 D',
+          r == null ? '' : u.fromMeters(r.distance).toStringAsFixed(d),
+          u.symbol
+        ],
         ['方位角 α', r == null ? '' : fmtAzimuth(r.azimuthDeg, secDigits: sd), ''],
-        ['ΔX', r == null ? '' : u.fromMeters(r.dx).toStringAsFixed(d), u.symbol],
-        ['ΔY', r == null ? '' : u.fromMeters(r.dy).toStringAsFixed(d), u.symbol],
+        [
+          'ΔX',
+          r == null ? '' : u.fromMeters(r.dx).toStringAsFixed(d),
+          u.symbol
+        ],
+        [
+          'ΔY',
+          r == null ? '' : u.fromMeters(r.dy).toStringAsFixed(d),
+          u.symbol
+        ],
       ],
       notes: const [
         'β 为自后视方向顺时针转到前视方向的水平角，范围 [0, 360)。',
@@ -762,9 +839,24 @@ class _StakeoutPageState extends State<StakeoutPage>
           base,
           sketch: GeometryPlotSketch(
             points: <({double x, double y, String label, bool emphasis})>[
-              (x: u.toMeters(sx), y: u.toMeters(sy), label: '测站', emphasis: false),
-              (x: u.toMeters(bx), y: u.toMeters(by), label: '后视', emphasis: false),
-              (x: u.toMeters(tx), y: u.toMeters(ty), label: '目标', emphasis: true),
+              (
+                x: u.toMeters(sx),
+                y: u.toMeters(sy),
+                label: '测站',
+                emphasis: false
+              ),
+              (
+                x: u.toMeters(bx),
+                y: u.toMeters(by),
+                label: '后视',
+                emphasis: false
+              ),
+              (
+                x: u.toMeters(tx),
+                y: u.toMeters(ty),
+                label: '目标',
+                emphasis: true
+              ),
             ],
             lines: <({int from, int to, bool dashed, String? label})>[
               (from: 0, to: 1, dashed: true, label: '后视定向'),
@@ -772,7 +864,8 @@ class _StakeoutPageState extends State<StakeoutPage>
                 from: 0,
                 to: 2,
                 dashed: false,
-                label: 'D=${u.fromMeters(r.distance).toStringAsFixed(d)}${u.symbol}',
+                label:
+                    'D=${u.fromMeters(r.distance).toStringAsFixed(d)}${u.symbol}',
               ),
             ],
             showNorthArrow: true,
@@ -813,8 +906,12 @@ class _StakeoutPageState extends State<StakeoutPage>
     final sx = _num(_sx), sy = _num(_sy);
     final bx = _num(_bx), by = _num(_by);
     final tx = _num(_tx), ty = _num(_ty);
-    if (sx == null || sy == null || bx == null || by == null ||
-        tx == null || ty == null) {
+    if (sx == null ||
+        sy == null ||
+        bx == null ||
+        by == null ||
+        tx == null ||
+        ty == null) {
       setState(() => _r = null);
       return;
     }
@@ -928,7 +1025,8 @@ class _StakeoutPageState extends State<StakeoutPage>
               items: [
                 ResultTile(
                   label: '水平角 β',
-                  value: fmtAngle(r.horizontalAngleDeg, secDigits: s.angleSecDigits),
+                  value: fmtAngle(r.horizontalAngleDeg,
+                      secDigits: s.angleSecDigits),
                   emphasis: true,
                   copyable: true,
                   icon: Icons.rotate_right,
@@ -940,7 +1038,9 @@ class _StakeoutPageState extends State<StakeoutPage>
                   unit: u.symbol,
                   emphasis: true,
                   icon: Icons.straighten,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(r.distance, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.distance, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: '方位角 α',
@@ -951,13 +1051,17 @@ class _StakeoutPageState extends State<StakeoutPage>
                   label: 'ΔX',
                   value: fmt(dxDisp!, digits),
                   unit: u.symbol,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(r.dx, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.dx, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: 'ΔY',
                   value: fmt(dyDisp!, digits),
                   unit: u.symbol,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(r.dy, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.dy, s.coordDigits)} m',
                 ),
               ],
             ),
@@ -965,7 +1069,12 @@ class _StakeoutPageState extends State<StakeoutPage>
         ],
       ),
       children: [
-        const PageTutorial(id: 'stakeout'),
+        PageTutorial(id: 'stakeout', workedSteps: [
+          if (r != null) ...[
+            'D = √[${fmt(r.dx, 3)}² + ${fmt(r.dy, 3)}²] = ${fmt(r.distance, 3)} m',
+            'β = αₚ − αᵦ ⇒ ${fmtAngle(r.horizontalAngleDeg)}',
+          ],
+        ]),
         InputCard(
           step: 1,
           title: '测站与后视定向',
@@ -1092,8 +1201,8 @@ class _IntersectionPageState extends State<IntersectionPage>
   final _betaKey = GlobalKey<AngleFieldState>();
 
   /// 观测角文本（GG.MMSS）交给草稿，重开页面能原样回填。
-  final _alphaCtrl = TextEditingController(text: '69.1103');
-  final _betaCtrl = TextEditingController(text: '59.4239');
+  final _alphaCtrl = TextEditingController(text: '69 11 03');
+  final _betaCtrl = TextEditingController(text: '59 42 39');
   int _mode = 0;
 
   @override
@@ -1119,8 +1228,8 @@ class _IntersectionPageState extends State<IntersectionPage>
         'by': '654.051',
         'ap': '100.000',
         'bp': '120.000',
-        'alpha': '69.1103',
-        'beta': '59.4239',
+        'alpha': '69 11 03',
+        'beta': '59 42 39',
       };
 
   /// 导出：教材表格 9 行逐格 + 交会角与 AP/BP。
@@ -1148,23 +1257,22 @@ class _IntersectionPageState extends State<IntersectionPage>
     final a = _a;
     final b = _b;
     final u = s.lengthUnit;
-    final canForm = a != null &&
-        b != null &&
-        (t != null || (_dist != null && _dist!.ok));
+    final canForm =
+        a != null && b != null && (t != null || (_dist != null && _dist!.ok));
     return SheetTable(
       title: '测角交会',
       rows: rows,
       formSheetsBuilder: canForm
           ? () => <XlsxSheetData>[
-              SurveyForms.buildIntersectionFormSheet(
-                table: t,
-                distResult: _dist,
-                a: Point2(u.toMeters(a.x), u.toMeters(a.y)),
-                b: Point2(u.toMeters(b.x), u.toMeters(b.y)),
-                coordDigits: d,
-                secDigits: sd,
-              ),
-            ]
+                SurveyForms.buildIntersectionFormSheet(
+                  table: t,
+                  distResult: _dist,
+                  a: Point2(u.toMeters(a.x), u.toMeters(a.y)),
+                  b: Point2(u.toMeters(b.x), u.toMeters(b.y)),
+                  coordDigits: d,
+                  secDigits: sd,
+                ),
+              ]
           : null,
       notes: <String>[
         if (t != null)
@@ -1180,6 +1288,7 @@ class _IntersectionPageState extends State<IntersectionPage>
       ],
     );
   }
+
   ForwardIntersectionTable? _table;
   DistanceIntersectionResult? _dist;
   String? _distPick;
@@ -1499,13 +1608,13 @@ class _IntersectionPageState extends State<IntersectionPage>
     final scheme = Theme.of(context).colorScheme;
     final t = _table;
     final hint = t == null ? null : _gammaHint(t, s);
-    final abLenMeters = (_a != null && _b != null)
-        ? u.toMeters(distance(_a!, _b!))
-        : null;
+    final abLenMeters =
+        (_a != null && _b != null) ? u.toMeters(distance(_a!, _b!)) : null;
     final abLenDisp = abLenMeters == null ? null : u.fromMeters(abLenMeters);
     return DetailScaffold(
       title: '测角交会',
       subtitle: '前方交会按教材表格逐格计算；交会角 γ 宜在 30°–150°',
+      mobileSubtitle: _mode == 0 ? '前方交会 · 30°–150°' : '距离交会',
       toolbar: PageActions(
         pageId: draftPageId,
         showUnitSelector: true,
@@ -1569,20 +1678,26 @@ class _IntersectionPageState extends State<IntersectionPage>
                   value: fmt(u.fromMeters(t.distanceAp), digits),
                   unit: u.symbol,
                   emphasis: true,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(t.distanceAp, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(t.distanceAp, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: 'BP 距离',
                   value: fmt(u.fromMeters(t.distanceBp), digits),
                   unit: u.symbol,
                   emphasis: true,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(t.distanceBp, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(t.distanceBp, s.coordDigits)} m',
                 ),
                 ResultTile(
                   label: '基线 AB',
                   value: fmt(abLenDisp!, digits),
                   unit: u.symbol,
-                  note: u == LengthUnit.meter ? null : '= ${fmt(abLenMeters!, s.coordDigits)} m',
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(abLenMeters!, s.coordDigits)} m',
                 ),
               ],
             ),
@@ -1614,7 +1729,8 @@ class _IntersectionPageState extends State<IntersectionPage>
                     padding: const EdgeInsets.all(Insets.s),
                     child: WideTable(
                       columns: kIntersectionTableColumns,
-                      rows: intersectionTableRows(t, coordDigits: s.coordDigits),
+                      rows:
+                          intersectionTableRows(t, coordDigits: s.coordDigits),
                       columnWidths: kIntersectionTableWidths,
                       highlightRows: const <int>{8},
                     ),
@@ -1626,12 +1742,14 @@ class _IntersectionPageState extends State<IntersectionPage>
                       tone: CardTone.normal,
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, size: 18, color: scheme.error),
+                          Icon(Icons.error_outline,
+                              size: 18, color: scheme.error),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _dist!.error ?? '无解',
-                              style: TextStyle(fontSize: 12.5, color: scheme.error),
+                              style: TextStyle(
+                                  fontSize: 12.5, color: scheme.error),
                             ),
                           ),
                         ],
@@ -1664,7 +1782,9 @@ class _IntersectionPageState extends State<IntersectionPage>
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    fontFeatures: [FontFeature.tabularFigures()],
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures()
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1688,7 +1808,16 @@ class _IntersectionPageState extends State<IntersectionPage>
             )
           : null,
       children: [
-        const PageTutorial(id: 'intersection'),
+        PageTutorial(id: 'intersection', workedSteps: [
+          if (_mode == 0 && t != null) ...[
+            'γ = 180° − ${fmtAngle(t.alphaDeg)} − ${fmtAngle(t.betaDeg)} = ${fmtAngle(t.gammaDeg)}',
+            'tan α + tan β ≈ ${fmt(t.tanAlphaPlusTanBeta, 8)}',
+            'P = (${fmt(t.xp, digits)}, ${fmt(t.yp, digits)}) ${u.symbol}',
+          ],
+          if (_mode == 1 && _dist?.ok == true)
+            for (final (index, point) in _dist!.solutions.indexed)
+              'P${index + 1} = (${fmt(point.x, digits)}, ${fmt(point.y, digits)}) ${u.symbol}',
+        ]),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<int>(
@@ -1702,6 +1831,19 @@ class _IntersectionPageState extends State<IntersectionPage>
               _mode = v.first;
               _calc();
             }),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            icon: const Icon(Icons.my_location_outlined, size: 16),
+            label: const LocalText('三点后方交会'),
+            onPressed: () {
+              SettingsScope.read(context).setLastTool('intersection',
+                  draftId: 'intersection/resection');
+              Navigator.of(context).push(WorkspacePageRoute<void>(
+                  builder: (_) => const ResectionPage()));
+            },
           ),
         ),
         const SizedBox(height: Insets.m),

@@ -1,19 +1,22 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../engine/rust_bridge.dart';
 import '../l10n/survey_strings.dart';
-import '../app_info.dart';
+import '../state/drafts.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import 'pages/home_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/tools_page.dart';
 import 'widgets/command_palette.dart';
-import 'widgets/glass_nav.dart';
 import 'widgets/outline_symbol.dart';
+import 'widgets/glass_nav.dart';
 import 'widgets/sliding_bottom_nav.dart';
+import 'widgets/workspace_commands.dart';
+import 'widgets/liquid_glass.dart';
+import 'widgets/push_aside_drawer.dart';
+import 'workspace_page_route.dart';
 
 class NavItem {
   const NavItem(this.label, this.icon, this.activeIcon);
@@ -39,8 +42,12 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _index = 0;
-  bool _sidebarCollapsed = false;
+  final _drawer = GlobalKey<PushAsideDrawerState>();
+  final _workspaceNavigator = GlobalKey<NavigatorState>();
+  final _destination = ValueNotifier(0);
+  int get _index => _destination.value;
+  BuildContext get _workspaceContext =>
+      _workspaceNavigator.currentContext ?? context;
 
   static final _glassItems = [
     for (final item in kNavItems)
@@ -52,145 +59,226 @@ class _AppShellState extends State<AppShell> {
   ];
 
   void _go(int index) {
-    if (index == _index) return;
-    setState(() => _index = index);
+    _drawer.currentState?.close();
+    _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
+    if (_index != index) setState(() => _destination.value = index);
+  }
+
+  @override
+  void dispose() {
+    _destination.dispose();
+    super.dispose();
+  }
+
+  Widget _workspacePages() {
+    return NavigatorPopHandler<Object?>(
+      onPopWithResult: (result) {
+        _workspaceNavigator.currentState?.maybePop(result);
+      },
+      child: Navigator(
+        key: _workspaceNavigator,
+        onGenerateRoute: (_) => WorkspacePageRoute<void>(
+          builder: (_) => WorkspacePanelBackground(
+            child: ValueListenableBuilder<int>(
+              valueListenable: _destination,
+              builder: (context, index, _) => _rootFrame(
+                  context,
+                  Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      IndexedStack(
+                        index: index,
+                        children: [
+                          HomePage(
+                              onNavigate: _go, onOpenSettings: () => _go(4)),
+                          const CoordPage(),
+                          const FormulaPage(),
+                          const ToolsPage(),
+                          const SettingsPage(),
+                        ],
+                      ),
+                      if (index == 0)
+                        const Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: QuickCommandBar()),
+                    ],
+                  )),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  _WorkspaceSidebar _sidebar(AppSettings settings, {required bool wide}) =>
+      _WorkspaceSidebar(
+        collapsed: wide && settings.sidebarCollapsed,
+        index: _index,
+        onPage: _go,
+        onToggle: wide
+            ? () => settings.setSidebarCollapsed(!settings.sidebarCollapsed)
+            : () => _drawer.currentState?.close(),
+        beforeAction: () => _drawer.currentState?.close(),
+        actionContext: () => _workspaceContext,
+        drawer: !wide,
+      );
+
+  Widget _rootFrame(BuildContext context, Widget pages) {
+    final settings = SettingsScope.of(context);
+    final compact =
+        MediaQuery.sizeOf(context).width < kSidebarNavigationMinWidth;
+    final scheme = Theme.of(context).colorScheme;
+    final floatingNav = settings.floatingGlassNav;
+    final bottom = compact
+        ? floatingNav
+            ? SafeArea(
+                top: false,
+                child: GlassNavBar(
+                    index: _index, items: _glassItems, onSelect: _go),
+              )
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: scheme.outlineVariant.withValues(alpha: 0.55),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SlidingBottomNav(
+                    selectedIndex: _index,
+                    itemCount: kNavItems.length,
+                    onSelect: _go,
+                    indicatorColor: scheme.secondaryContainer,
+                    child: NavigationBar(
+                      height: 62,
+                      backgroundColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                      elevation: 0,
+                      indicatorColor: Colors.transparent,
+                      selectedIndex: _index,
+                      onDestinationSelected: _go,
+                      destinations: [
+                        for (final item in kNavItems)
+                          NavigationDestination(
+                            icon: OutlineSymbol(item.icon, size: 20),
+                            selectedIcon:
+                                OutlineSymbol(item.activeIcon, size: 20),
+                            label: context.tr(item.label),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+        : null;
+    return PushAsideDrawer(
+      key: _drawer,
+      enabled: compact,
+      drawer: Drawer(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(),
+        child: _sidebar(settings, wide: false),
+      ),
+      child: Scaffold(
+        bottomNavigationBar: bottom,
+        body: Column(
+          children: [
+            if (compact)
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  key: const ValueKey('workspace-root-header'),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Row(
+                    children: [
+                      WorkspaceGlassButton(
+                        icon: Icons.drag_handle_rounded,
+                        label: context.tr('打开工作区菜单'),
+                        onPressed: () => _drawer.currentState?.open(),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: TextButton(
+                            onPressed: () => _drawer.currentState?.open(),
+                            child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('Survey Pro',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w700)),
+                                    const SizedBox(width: 3),
+                                    const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 16),
+                                  ],
+                                )),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                ),
+              ),
+            Expanded(child: pages),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final wide = MediaQuery.sizeOf(context).width >= kSidebarNavigationMinWidth;
-    final floatingNav = !wide && settings.floatingGlassNav;
-
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
-            showCommandPalette(context),
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
-            showCommandPalette(context),
-      },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          body: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (wide)
-                _WorkspaceSidebar(
-                  collapsed: _sidebarCollapsed,
-                  index: _index,
-                  settings: settings,
-                  onToggle: () => setState(
-                    () => _sidebarCollapsed = !_sidebarCollapsed,
-                  ),
-                  onSelect: _go,
-                ),
-              Expanded(
-                key: const ValueKey('workspace-content'),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    IndexedStack(
-                      index: _index,
-                      children: [
-                        HomePage(onNavigate: _go, onOpenSettings: () => _go(4)),
-                        const CoordPage(),
-                        const FormulaPage(),
-                        const ToolsPage(),
-                        const SettingsPage(),
-                      ],
+    return WorkspacePanelBackground(
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+              showCommandPalette(_workspaceContext),
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
+              showCommandPalette(_workspaceContext),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: Row(
+              children: [
+                if (wide)
+                  AnimatedContainer(
+                    key: const ValueKey('workspace-sidebar'),
+                    width: settings.sidebarCollapsed ? 64 : 252,
+                    duration: Motion.base,
+                    curve: Motion.ease,
+                    clipBehavior: Clip.hardEdge,
+                    decoration: BoxDecoration(
+                      border: Border(
+                          right: BorderSide(
+                        color:
+                            IosColors.separator(Theme.of(context).brightness),
+                      )),
                     ),
-                    if (floatingNav) ...[
-                      const Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: IgnorePointer(child: _BottomScrim()),
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: SafeArea(
-                          top: false,
-                          child: GlassNavBar(
-                            index: _index,
-                            items: _glassItems,
-                            onSelect: _go,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+                    child: _sidebar(settings, wide: true),
+                  ),
+                Expanded(
+                    key: const ValueKey('workspace-content'),
+                    child: _workspacePages()),
+              ],
+            ),
           ),
-          bottomNavigationBar: wide || floatingNav
-              ? null
-              : DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.surface,
-                    border: Border(
-                      top: BorderSide(
-                        color: scheme.outlineVariant.withValues(alpha: 0.55),
-                        width: 0.5,
-                      ),
-                    ),
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: SlidingBottomNav(
-                      selectedIndex: _index,
-                      itemCount: kNavItems.length,
-                      onSelect: _go,
-                      indicatorColor: scheme.secondaryContainer,
-                      child: NavigationBar(
-                        height: 62,
-                        backgroundColor: Colors.transparent,
-                        surfaceTintColor: Colors.transparent,
-                        elevation: 0,
-                        indicatorColor: Colors.transparent,
-                        selectedIndex: _index,
-                        onDestinationSelected: _go,
-                        destinations: [
-                          for (final item in kNavItems)
-                            NavigationDestination(
-                              icon: OutlineSymbol(item.icon, size: 20),
-                              selectedIcon: OutlineSymbol(item.activeIcon, size: 20),
-                              label: context.tr(item.label),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomScrim extends StatelessWidget {
-  const _BottomScrim();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final dark = scheme.brightness == Brightness.dark;
-    return Container(
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            scheme.surface.withValues(alpha: 0),
-            scheme.surface.withValues(alpha: dark ? 0.12 : 0.15),
-            scheme.surface.withValues(alpha: dark ? 0.50 : 0.42),
-          ],
-          stops: const [0, 0.55, 1],
         ),
       ),
     );
@@ -201,270 +289,208 @@ class _WorkspaceSidebar extends StatelessWidget {
   const _WorkspaceSidebar({
     required this.collapsed,
     required this.index,
-    required this.settings,
+    required this.onPage,
     required this.onToggle,
-    required this.onSelect,
+    required this.beforeAction,
+    required this.actionContext,
+    required this.drawer,
   });
 
   final bool collapsed;
+  final bool drawer;
   final int index;
-  final AppSettings settings;
+  final ValueChanged<int> onPage;
   final VoidCallback onToggle;
-  final ValueChanged<int> onSelect;
+  final VoidCallback beforeAction;
+  final BuildContext Function() actionContext;
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final dark = scheme.brightness == Brightness.dark;
-    final menuButton = IconButton(
-      tooltip: context.tr(collapsed ? '展开侧栏' : '收起侧栏'),
-      onPressed: onToggle,
-      icon: OutlineSymbol(collapsed ? Icons.menu_open : Icons.first_page,
-          size: 20),
-    );
-
-    final contents = Material(
-      color: dark ? IosColors.darkSidebarBg : IosColors.lightFill,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: ListView(
-              primary: false,
-              padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-              children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (collapsed || constraints.maxWidth < 130) {
-                      return Center(child: menuButton);
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Row(
-                        children: [
-                          OutlineSymbol(Icons.architecture,
-                              color: scheme.primary, size: 22),
-                          const SizedBox(width: Insets.s),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                LocalText(
-                                  '工程测量',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                Text(
-                                  'Survey Toolkit',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          menuButton,
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: Insets.l),
-                _SidebarAction(
-                  collapsed: collapsed,
-                  label: '快速跳转',
-                  icon: Icons.search,
-                  shortcut: 'Ctrl+K',
-                  onPressed: () => showCommandPalette(context),
-                ),
-                const SizedBox(height: Insets.m),
-                for (var i = 0; i < kNavItems.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 2),
-                  _SidebarAction(
-                    collapsed: collapsed,
-                    label: kNavItems[i].label,
-                    icon: i == index
-                        ? kNavItems[i].activeIcon
-                        : kNavItems[i].icon,
-                    selected: i == index,
-                    onPressed: () => onSelect(i),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (!collapsed)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ThemeSwitcher(settings: settings),
-                  const SizedBox(height: Insets.s),
-                  Text(
-                    '$kAppVersionLabel · ${context.tr(kAppPlatforms)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-
-    final sidebar = DecoratedBox(
-      decoration: BoxDecoration(
-        color: dark ? IosColors.darkSidebarBg : IosColors.lightFill,
-        border: Border(
-          right: BorderSide(
-            color: IosColors.separator(scheme.brightness),
-            width: 1.0,
-          ),
-        ),
-      ),
-      child: contents,
-    );
-
-    return SafeArea(
-      right: false,
-      child: AnimatedContainer(
-        duration: Motion.quick,
-        curve: Motion.ease,
-        width: collapsed ? 64 : 240,
-        child: settings.glassNav
-            ? ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                  child: sidebar,
-                ),
-              )
-            : sidebar,
-      ),
-    );
+  void _action(VoidCallback go) {
+    beforeAction();
+    go();
   }
-}
-
-class _SidebarAction extends StatelessWidget {
-  const _SidebarAction({
-    required this.collapsed,
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    this.selected,
-    this.shortcut,
-  });
-
-  final bool collapsed;
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool? selected;
-  final String? shortcut;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    final active = selected ?? false;
-    final activeBg = isDark ? IosColors.darkTertiary : Colors.white;
-    final color = active ? scheme.onSurface : scheme.onSurfaceVariant;
-    if (collapsed) {
-      return Center(
-        child: IconButton(
-          tooltip: context.tr(label),
-          onPressed: onPressed,
-          icon: OutlineSymbol(icon, size: 18),
-          isSelected: selected,
-          style: IconButton.styleFrom(
-            foregroundColor: color,
-            backgroundColor: active ? activeBg : null,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(Radii.field),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Semantics(
-      selected: selected,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          alignment: Alignment.centerLeft,
-          minimumSize: const Size(0, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          foregroundColor: color,
-          backgroundColor: active ? activeBg : null,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Radii.field),
-            side: active || shortcut != null
-                ? BorderSide(
-                    color: IosColors.separator(scheme.brightness),
-                    width: 1.0,
-                  )
-                : BorderSide.none,
-          ),
-        ),
-        onPressed: onPressed,
+    final colors = theme.colorScheme;
+    final drafts = DraftScope.maybeOf(context);
+    final settings = SettingsScope.of(context);
+    final ids = drafts?.recentIds ?? const <String>[];
+    final active = settings.lastDraftId ?? settings.lastTool;
+    final project = active == null ? null : draftTitle(context, drafts, active);
+    final logo = IconButton(
+      tooltip: context.tr('首页'),
+      style: IconButton.styleFrom(foregroundColor: colors.primary),
+      onPressed: () => onPage(0),
+      icon: const OutlineSymbol(Icons.architecture, size: 23),
+    );
+    return Material(
+      color: colors.brightness == Brightness.dark
+          ? IosColors.darkSidebarBg
+          : IosColors.lightFill,
+      child: SafeArea(
+        right: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth < 72) {
-              return Center(child: OutlineSymbol(icon, size: 16));
-            }
-            return Row(
-              children: [
-                OutlineSymbol(icon, size: 16),
-                const SizedBox(width: Insets.s),
-                Expanded(
-                  child: Text(
-                    context.tr(label),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-                      fontSize: 13.5,
+            final compact = collapsed || constraints.maxWidth < 188;
+            Widget entry(
+              String title,
+              IconData icon,
+              VoidCallback tap, {
+              bool selected = false,
+              bool translate = true,
+            }) =>
+                _SidebarEntry(
+                  title: translate ? context.tr(title) : title,
+                  icon: icon,
+                  onTap: tap,
+                  compact: compact,
+                  selected: selected,
+                );
+            return Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 6 : 8, vertical: 8),
+              child: Column(
+                children: [
+                  if (compact)
+                    Column(
+                      children: [
+                        logo,
+                        IconButton(
+                          tooltip: context.tr('展开侧栏'),
+                          onPressed: onToggle,
+                          icon:
+                              const OutlineSymbol(Icons.view_sidebar_outlined),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        logo,
+                        const Expanded(
+                            child: Text('Survey Pro',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontWeight: FontWeight.w700))),
+                        IconButton(
+                          tooltip: context.tr('快速跳转'),
+                          onPressed: () => _action(
+                              () => showCommandPalette(actionContext())),
+                          icon: const OutlineSymbol(Icons.search, size: 18),
+                        ),
+                        IconButton(
+                          tooltip: context.tr(drawer ? '关闭菜单' : '收起侧栏'),
+                          onPressed: onToggle,
+                          icon: OutlineSymbol(
+                              drawer ? Icons.close : Icons.first_page,
+                              size: 18),
+                        ),
+                      ],
+                    ),
+                  Expanded(
+                    child: ListView(
+                      primary: false,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      children: [
+                        entry(
+                            '新建草稿',
+                            Icons.add,
+                            () => _action(
+                                () => showWorkspaceCreate(actionContext()))),
+                        if (compact)
+                          entry(
+                              '快速跳转',
+                              Icons.search,
+                              () => _action(
+                                  () => showCommandPalette(actionContext()))),
+                        entry('工具库', Icons.widgets_outlined, () => onPage(3),
+                            selected: index == 3),
+                        entry(
+                            '最近历史',
+                            Icons.history,
+                            () => _action(
+                                () => showDraftHistory(actionContext()))),
+                        entry(
+                            '坐标系预设',
+                            Icons.layers_outlined,
+                            () => _action(
+                                () => showCoordinatePresets(actionContext()))),
+                        if (!compact) ...[
+                          const Divider(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: LocalText('全部工程与草稿',
+                                    style: theme.textTheme.labelMedium),
+                              )),
+                              IconButton(
+                                tooltip: context.tr('筛选草稿'),
+                                onPressed: () => _action(
+                                    () => showDraftHistory(actionContext())),
+                                icon: const OutlineSymbol(Icons.filter_list,
+                                    size: 17),
+                              ),
+                            ],
+                          ),
+                          if (ids.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: LocalText('暂无草稿',
+                                  style: theme.textTheme.bodySmall),
+                            ),
+                          for (final id in ids)
+                            entry(
+                                draftTitle(context, drafts, id),
+                                Icons.description_outlined,
+                                () => _action(() =>
+                                    openWorkspaceDraft(actionContext(), id)),
+                                selected: id == active,
+                                translate: false),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-                if (shortcut != null && constraints.maxWidth >= 110)
-                  Flexible(
-                    flex: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: isDark ? IosColors.darkTertiary : Colors.white,
-                        borderRadius: BorderRadius.circular(Radii.chip),
-                        border: Border.all(
-                          color: IosColors.separator(scheme.brightness),
-                          width: 1.0,
-                        ),
+                  const Divider(height: 12),
+                  Row(
+                    children: [
+                      if (!compact)
+                        Expanded(
+                            child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(project ?? context.tr('本地工作区'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium),
+                              Text(
+                                  SurveyHybridEngine.instance.isNativeLoaded
+                                      ? 'Rust FFI'
+                                      : 'Dart · ${context.tr('离线')}',
+                                  style: theme.textTheme.bodySmall,
+                                  maxLines: 1),
+                            ],
+                          ),
+                        )),
+                      IconButton(
+                        tooltip: context.tr('设置'),
+                        onPressed: () => onPage(4),
+                        icon: const OutlineSymbol(Icons.settings_outlined),
                       ),
-                      child: Text(
-                        shortcut!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: kSurveyMono,
-                          fontSize: 10.5,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
-              ],
+                  if (compact)
+                    Tooltip(
+                      message: project ?? context.tr('本地工作区'),
+                      child: Icon(Icons.circle,
+                          size: 8, color: IosColors.green(colors.brightness)),
+                    ),
+                ],
+              ),
             );
           },
         ),
@@ -473,85 +499,51 @@ class _SidebarAction extends StatelessWidget {
   }
 }
 
-class _ThemeSwitcher extends StatelessWidget {
-  const _ThemeSwitcher({required this.settings});
-
-  final AppSettings settings;
+class _SidebarEntry extends StatelessWidget {
+  const _SidebarEntry({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+    required this.compact,
+    required this.selected,
+  });
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool compact;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 116) {
-          final next = ThemeMode
-              .values[(settings.themeMode.index + 1) % ThemeMode.values.length];
-          return Center(
-            child: IconButton(
-              tooltip: context.tr('切换外观'),
-              onPressed: () => settings.setThemeMode(next),
-              icon: Icon(
-                switch (settings.themeMode) {
-                  ThemeMode.system => Icons.brightness_auto_outlined,
-                  ThemeMode.light => Icons.light_mode_outlined,
-                  ThemeMode.dark => Icons.dark_mode_outlined,
-                },
-                size: 16,
-              ),
-              style: IconButton.styleFrom(
-                minimumSize: const Size(32, 32),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-          );
-        }
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: isDark ? IosColors.darkTertiary : const Color(0xFFE9E9EE),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.45),
-              width: 0.5,
-            ),
-            borderRadius: BorderRadius.circular(Radii.pill),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              for (final mode in ThemeMode.values)
-                IconButton(
-                  tooltip: context.tr(switch (mode) {
-                    ThemeMode.system => '跟随系统',
-                    ThemeMode.light => '浅色',
-                    ThemeMode.dark => '深色',
-                  }),
-                  isSelected: mode == settings.themeMode,
-                  onPressed: () => settings.setThemeMode(mode),
-                  icon: Icon(
-                    switch (mode) {
-                      ThemeMode.system => Icons.brightness_auto_outlined,
-                      ThemeMode.light => Icons.light_mode_outlined,
-                      ThemeMode.dark => Icons.dark_mode_outlined,
-                    },
-                    size: 16,
-                  ),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(34, 34),
-                    backgroundColor: mode == settings.themeMode
-                        ? (isDark ? const Color(0xFF48484A) : Colors.white)
-                        : null,
-                    foregroundColor: mode == settings.themeMode
-                        ? scheme.primary
-                        : scheme.onSurfaceVariant,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+    final colors = Theme.of(context).colorScheme;
+    final background = selected ? colors.primary.withValues(alpha: .10) : null;
+    final foreground = selected ? colors.primary : colors.onSurfaceVariant;
+    if (compact) {
+      return IconButton(
+        tooltip: title,
+        onPressed: onTap,
+        style: IconButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          backgroundColor: background,
+          foregroundColor: foreground,
+        ),
+        icon: OutlineSymbol(icon, size: 19),
+      );
+    }
+    return Semantics(
+      selected: selected,
+      child: TextButton.icon(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: foreground,
+          backgroundColor: background,
+          minimumSize: const Size.fromHeight(48),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        icon: OutlineSymbol(icon, size: 18),
+        label: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
     );
   }
 }

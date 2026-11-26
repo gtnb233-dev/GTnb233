@@ -9,6 +9,9 @@ license = "MIT"
 name = "survey_rust_core"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
+[dependencies]
+serde_json = "1"
+
 [profile.release]
 opt-level = 3
 lto = true
