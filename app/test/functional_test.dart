@@ -77,6 +77,8 @@ void main() {
   testWidgets('公式计算：打开内置公式，结果随参数实时算出', (tester) async {
     await _pump(tester, const FormulaToolPage());
     expect(tester.takeException(), isNull);
+    await tester.tap(find.text('自由输入'));
+    await tester.pumpAndSettle();
     final tiles = find.byType(ChoiceTile);
     expect(tiles.evaluate().length, greaterThan(10), reason: '公式库没列出条目');
     await tester.tap(tiles.first);

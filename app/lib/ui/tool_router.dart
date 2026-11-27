@@ -78,25 +78,28 @@ Future<void> openTool(
     context,
     name: name,
     argument: resume,
-    builder: (context) => defer
-        ? DeferredTransitionChild(
-            afterFrame: true,
-            placeholder: ColoredBox(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 20),
-                    child: Text(context.tr(tool.title),
-                        style: Theme.of(context).textTheme.titleMedium),
+    builder: (context) => ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: defer
+          ? DeferredTransitionChild(
+              afterFrame: true,
+              placeholder: ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: SafeArea(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Text(context.tr(tool.title),
+                          style: Theme.of(context).textTheme.titleMedium),
+                    ),
                   ),
                 ),
               ),
-            ),
-            child: buildTool(context),
-          )
-        : buildTool(context),
+              child: buildTool(context),
+            )
+          : buildTool(context),
+    ),
     replaceExistingTool: replaceExistingTool,
   );
 }

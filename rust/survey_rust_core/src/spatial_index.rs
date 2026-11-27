@@ -1,34 +1,44 @@
-//! Fast planar nearest-point spatial query kernel for large survey point clouds.
+//! 大规模平面测点最近邻空间查询内核。
 
+/// 最近邻匹配结果。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NearestMatch {
+    /// 最近点在输入数组中的下标（0 起）。
     pub index: usize,
+    /// 到目标点的平面欧氏距离（m）。
     pub distance: f64,
 }
 
+/// 在 `(xs, ys)` 点集中查找距离 `(target_x, target_y)` 最近的测点；点集为空或目标非有限数时返回 `None`。
 pub fn find_nearest_point_2d(
     xs: &[f64],
     ys: &[f64],
     target_x: f64,
     target_y: f64,
 ) -> Option<NearestMatch> {
+    if !target_x.is_finite() || !target_y.is_finite() {
+        return None;
+    }
     let n = xs.len().min(ys.len());
     if n == 0 {
         return None;
     }
-    let mut best_idx = 0usize;
+    let mut best_idx: Option<usize> = None;
     let mut best_d2 = f64::INFINITY;
     for i in 0..n {
+        if !xs[i].is_finite() || !ys[i].is_finite() {
+            continue;
+        }
         let dx = xs[i] - target_x;
         let dy = ys[i] - target_y;
         let d2 = dx * dx + dy * dy;
         if d2 < best_d2 {
             best_d2 = d2;
-            best_idx = i;
+            best_idx = Some(i);
         }
     }
-    Some(NearestMatch {
-        index: best_idx,
+    best_idx.map(|index| NearestMatch {
+        index,
         distance: best_d2.sqrt(),
     })
 }

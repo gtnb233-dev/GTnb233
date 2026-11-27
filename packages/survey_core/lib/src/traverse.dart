@@ -102,9 +102,13 @@ class TraverseResult {
   /// 附合导线为 null。
   final AngleConvention? angleConvention;
 
+  /// 角度闭合差是否满足限差。
   bool get angleOk => angleMisclosureSec.abs() <= angleLimitSec;
+
+  /// 全长相对闭合差是否满足限差（K ≥ 限差分母）。
   bool get linearOk => relativeDenominator >= relativeLimitDenominator;
 
+  /// 结构化超限条目清单（供界面本地化展示）。
   List<SurveyStructuredError> get structuredIssues {
     final out = <SurveyStructuredError>[];
     if (!angleOk) {
@@ -269,6 +273,16 @@ TraverseResult? traverseAdjust({
   final actualEnd = closed ? start : end;
   final actualEndAz = closed ? startAzimuthDeg : endAzimuthDeg;
   if (actualEnd == null || actualEndAz == null) return null;
+  if (!start.x.isFinite ||
+      !start.y.isFinite ||
+      !startAzimuthDeg.isFinite ||
+      !actualEnd.x.isFinite ||
+      !actualEnd.y.isFinite ||
+      !actualEndAz.isFinite ||
+      anglesDeg.any((a) => !a.isFinite) ||
+      distances.any((d) => !d.isFinite || d < 0)) {
+    return null;
+  }
 
   // 角度闭合差 fβ = Σβ测 − Σβ理；理论值口径集中在 decideAngleSum()。
   // 闭合导线量右角时，右角是内角还是外角取决于绕行方向，这里按实测角和就近判定。

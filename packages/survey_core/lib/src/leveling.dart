@@ -56,6 +56,11 @@ class LevelingResult {
   final bool byStation;
 }
 
+/// 水准路线平差计算（附合 / 闭合 / 支线）。
+///
+/// [startElevation] 为起点已知高程（m），[endElevation] 为终点已知高程（m，闭合时等于起点），
+/// [differences] 为各段实测高差（m），[distancesKm] 为各段长度（km）或测站数（当 [byStation] 为 true）。
+/// 改正数按权分配且最后一段吸收浮点残差，保证 `Σv == -fh` 严格成立。
 LevelingResult levelingAdjust({
   required double startElevation,
   required double endElevation,
@@ -83,9 +88,12 @@ LevelingResult levelingAdjust({
   final adjusted = <double>[];
   final elevations = <double>[startElevation];
   var running = startElevation;
+  var acc = 0.0;
   for (var i = 0; i < n; i++) {
     final share = totalWeight <= 0 ? 0.0 : weights[i] / totalWeight;
-    final v = -misclosureMm * share; // mm
+    // 最后一段吸收浮点残差，保证 Σv == -fh 严格成立。
+    final v = i == n - 1 ? -misclosureMm - acc : -misclosureMm * share; // mm
+    acc += v;
     corrections.add(v);
     final h = differences[i] + v / 1000.0;
     adjusted.add(h);

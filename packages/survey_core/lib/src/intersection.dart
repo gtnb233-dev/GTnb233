@@ -4,8 +4,11 @@ import 'angle.dart';
 import 'errors.dart';
 import 'vec.dart';
 
-/// Three-point angular resection. Both directions turn clockwise at the
-/// unknown station P, from A to B and from B to C respectively.
+/// 三点后方交会（测角交会）。
+///
+/// 在待定点 P 观测三个已知控制点 A、B、C，[abTurnDeg] 与 [bcTurnDeg] 分别为
+/// P 点顺时针由 A 转向 B、由 B 转向 C 的水平角（度）。
+/// 当控制点重合、观测角奇异（0°/180°）或位于危险圆（P、A、B、C 共圆）上时返回 `null`。
 Point2? angularResection({
   required Point2 a,
   required Point2 b,
@@ -14,8 +17,10 @@ Point2? angularResection({
   required double bcTurnDeg,
 }) {
   if (![a.x, a.y, b.x, b.y, c.x, c.y, abTurnDeg, bcTurnDeg]
-      .every((value) => value.isFinite)) return null;
-  // Solve relative to B with a scale derived from the control baselines.
+      .every((value) => value.isFinite)) {
+    return null;
+  }
+  // 以 B 为原点、控制网最大边长为尺度归一化求解，避免大坐标下精度损失。
   final scale =
       math.max(distance(a, b), math.max(distance(b, c), distance(a, c)));
   if (scale == 0 || !scale.isFinite) return null;
@@ -24,20 +29,21 @@ Point2? angularResection({
   if (u.norm < 1e-10 || v.norm < 1e-10 || (u - v).norm < 1e-10) return null;
   final alpha = degToRad(wrapDeg(abTurnDeg));
   final beta = degToRad(wrapDeg(bcTurnDeg));
-  if (math.sin(alpha).abs() < 1e-10 || math.sin(beta).abs() < 1e-10)
+  if (math.sin(alpha).abs() < 1e-10 || math.sin(beta).abs() < 1e-10) {
     return null;
+  }
 
-  // The circle through each pair has its centre on the perpendicular
-  // bisector of the chord, at signed distance halfChord × cot(turn).
+  // 两对控制点弦的中垂线上分别存在对应圆心，圆心距为 半弦长 × cot(转角)。
   final cotA = math.cos(alpha) / math.sin(alpha);
   final cotB = math.cos(beta) / math.sin(beta);
   final first = Point2((u.x + cotA * u.y) / 2, (u.y - cotA * u.x) / 2);
   final second = Point2((v.x - cotB * v.y) / 2, (v.y + cotB * v.x) / 2);
   final between = second - first;
   final centreDistance = between.norm;
-  // Coincident circles correspond to the danger circle.
-  if (centreDistance < 1e-9 * math.max(1, math.max(first.norm, second.norm)))
+  // 两圆重合即位于危险圆上，交会无唯一解。
+  if (centreDistance < 1e-9 * math.max(1, math.max(first.norm, second.norm))) {
     return null;
+  }
   final direction =
       Point2(-between.y / centreDistance, between.x / centreDistance);
   final t = 2 * (direction.x * first.x + direction.y * first.y);
@@ -51,7 +57,9 @@ Point2? angularResection({
 
   const origin = Point2(0, 0);
   if (residual(u, origin, abTurnDeg) > 1e-6 ||
-      residual(origin, v, bcTurnDeg) > 1e-6) return null;
+      residual(origin, v, bcTurnDeg) > 1e-6) {
+    return null;
+  }
   return Point2(b.x + p.x * scale, b.y + p.y * scale);
 }
 
@@ -82,13 +90,21 @@ class ForwardIntersectionResult {
   final double distanceBp;
 }
 
-/// 前方交会计算。三内角均须大于 0° 且交会角不宜小于 30°。
+/// 前方交会计算。三内角均须大于 0° 且交会角必须大于 0.5°（工程上不宜小于 30°），
+/// 已知点 A、B 须有限且不重合；退化或奇异时返回 `null`。
 ForwardIntersectionResult? forwardIntersection({
   required Point2 a,
   required Point2 b,
   required double alphaDeg,
   required double betaDeg,
 }) {
+  if (!a.x.isFinite ||
+      !a.y.isFinite ||
+      !b.x.isFinite ||
+      !b.y.isFinite ||
+      distance(a, b) < 1e-9) {
+    return null;
+  }
   if (!alphaDeg.isFinite ||
       !betaDeg.isFinite ||
       alphaDeg <= 0 ||

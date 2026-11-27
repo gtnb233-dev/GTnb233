@@ -210,6 +210,16 @@ Helmert7Fit? fitHelmert7({
 }) {
   if (from.length != to.length || from.length < 3) return null;
   final n = from.length;
+  for (var i = 0; i < n; i++) {
+    if (!from[i].x.isFinite ||
+        !from[i].y.isFinite ||
+        !from[i].z.isFinite ||
+        !to[i].x.isFinite ||
+        !to[i].y.isFinite ||
+        !to[i].z.isFinite) {
+      return null;
+    }
+  }
   var fx = 0.0;
   var fy = 0.0;
   var fz = 0.0;

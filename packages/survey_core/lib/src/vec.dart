@@ -85,6 +85,7 @@ class InverseResult {
   /// Δy（横坐标增量）。
   final double dy;
 
+  /// 方位角（度，`[0, 360)`）。
   double get azimuthDeg => radToDeg(azimuthRad);
 
   /// 象限角文字。
@@ -101,8 +102,7 @@ InverseResult inverse(Point2 a, Point2 b) => InverseResult(
       dy: b.y - a.y,
     );
 
-/// 极坐标放样：由测站、后视方向与目标点，反算水平角（后视→目标，顺时针）
-/// 与平距。角度单位为度。
+/// 极坐标放样结果：包含水平角（后视→目标，顺时针）、平距与目标方位角。
 class StakeoutResult {
   const StakeoutResult({
     required this.horizontalAngleDeg,
@@ -120,6 +120,7 @@ class StakeoutResult {
   final double dy;
 }
 
+/// 极坐标放样计算：由测站、后视方向与目标点，反算顺时针水平角（度）与平距（m）。
 StakeoutResult stakeoutFromBacksight({
   required Point2 station,
   required Point2 backsight,

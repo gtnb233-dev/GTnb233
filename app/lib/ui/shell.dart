@@ -103,15 +103,18 @@ class _AppShellState extends State<AppShell> {
       onPopWithResult: (result) {
         if (!overlayOpen) _workspaceNavigator.currentState?.maybePop(result);
       },
-      child: Navigator(
-        key: _workspaceNavigator,
-        observers: [_navObserver],
-        onGenerateRoute: (_) => WorkspacePageRoute<void>(
-          builder: (_) => WorkspacePanelBackground(
-            child: ValueListenableBuilder<(int, bool)>(
-              valueListenable: _destination,
-              builder: (context, destination, _) => _rootFrame(
-                  context, _rootPages(context, destination.$1, destination.$2)),
+      child: ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Navigator(
+          key: _workspaceNavigator,
+          observers: [_navObserver],
+          onGenerateRoute: (_) => WorkspacePageRoute<void>(
+            builder: (_) => WorkspacePanelBackground(
+              child: ValueListenableBuilder<(int, bool)>(
+                valueListenable: _destination,
+                builder: (context, destination, _) => _rootFrame(context,
+                    _rootPages(context, destination.$1, destination.$2)),
+              ),
             ),
           ),
         ),
@@ -540,7 +543,8 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                           widget.beforeOpeningDraft();
                           showCommandPalette(scope());
                         },
-                        icon: const OutlineSymbol(Icons.search_rounded, size: 20),
+                        icon:
+                            const OutlineSymbol(Icons.search_rounded, size: 20),
                       ),
                     ),
                   ],

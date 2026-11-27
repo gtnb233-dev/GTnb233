@@ -1,15 +1,23 @@
-//! Minimal zero-dependency ASCII DXF entity parser for CAD stakeout & viewing.
-//! Supports POINT, LINE, and LWPOLYLINE with survey-grade f64 precision.
+//! 零依赖轻量 ASCII DXF 实体解析器（用于 CAD 放样与图形预览）。
+//! 支持 `POINT`、`LINE` 与 `LWPOLYLINE` 实体，坐标保持工程测量级 `f64` 精度。
 
+/// 解析后的 DXF 几何实体。
 #[derive(Debug, Clone, PartialEq)]
 pub enum DxfEntity {
+    /// 单点实体（DXF `POINT`）。
     Point {
+        /// 图层名称。
         layer: String,
+        /// DXF X 坐标（工程测量中通常对应东坐标 Y）。
         x: f64,
+        /// DXF Y 坐标（工程测量中通常对应北坐标 X）。
         y: f64,
+        /// 高程 Z。
         z: f64,
     },
+    /// 直线段实体（DXF `LINE`）。
     Line {
+        /// 图层名称。
         layer: String,
         x1: f64,
         y1: f64,
@@ -18,21 +26,31 @@ pub enum DxfEntity {
         y2: f64,
         z2: f64,
     },
+    /// 二维轻量多段线实体（DXF `LWPOLYLINE`）。
     LwPolyline {
+        /// 图层名称。
         layer: String,
+        /// 是否闭合（组码 70 最低位）。
         closed: bool,
+        /// 顶点 `(x, y)` 序列。
         vertices: Vec<(f64, f64)>,
     },
 }
 
+/// DXF 实体统计摘要。
 #[derive(Debug, Default)]
 pub struct DxfSummary {
+    /// 点实体数量。
     pub point_count: usize,
+    /// 直线实体数量。
     pub line_count: usize,
+    /// 多段线实体数量。
     pub polyline_count: usize,
+    /// 总顶点数（含点、线端点与多段线顶点）。
     pub total_vertices: usize,
 }
 
+/// 解析 ASCII DXF 文本中的 `ENTITIES` 段，提取 `POINT`、`LINE`、`LWPOLYLINE`。
 pub fn parse_ascii_dxf(content: &str) -> Vec<DxfEntity> {
     let mut lines = content.lines();
     let mut in_entities = false;

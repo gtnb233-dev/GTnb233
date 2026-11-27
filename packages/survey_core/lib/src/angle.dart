@@ -15,13 +15,14 @@ enum AngleInputMode {
   decimalDegrees,
   radians;
 
+  /// 模式简称（用于界面标签）。
   String get symbol => switch (this) {
         dmsCompact => 'DMS',
         decimalDegrees => 'DD',
         radians => 'RAD',
       };
 
-  /// A unit-qualified value can also be read under a different input mode.
+  /// 将十进制度编码为当前输入模式下的字符串（紧凑度分秒模式附加 `deg` 后缀避免歧义）。
   String encodeDegrees(double degrees) => switch (this) {
         dmsCompact => '${degrees}deg',
         decimalDegrees => degrees.toString(),
@@ -29,11 +30,16 @@ enum AngleInputMode {
       };
 }
 
-/// 弧度/度换算常数。
+/// 度转弧度常数（π / 180）。
 const double deg2rad = math.pi / 180.0;
+
+/// 弧度转度常数（180 / π）。
 const double rad2deg = 180.0 / math.pi;
 
+/// 十进制度 → 弧度。
 double degToRad(double deg) => deg * deg2rad;
+
+/// 弧度 → 十进制度。
 double radToDeg(double rad) => rad * rad2deg;
 
 /// 归一化到 `[0, 360)` 的度（同时把 `-0.0` 归成 `0.0`）。
@@ -361,17 +367,17 @@ String fmtAzimuth(double azimuthDeg, {int secDigits = 1}) =>
 /// `正北 / 正东 / 正南 / 正西`。
 String azimuthToQuadrant(double azimuthDeg, {int secDigits = 1}) {
   final a = wrapDeg(azimuthDeg);
-  // 先按秒位取整判断是否落在坐标轴上（359°59′59.9″ 视为正北）。
-  final ra = _roundSec(a, secDigits);
-  if (ra == 0 || ra == 360) return '正北';
-  if (ra == 90) return '正东';
-  if (ra == 180) return '正南';
-  if (ra == 270) return '正西';
+  if (!a.isFinite) return '—';
+  // 先按秒位取整判断是否落在坐标轴上（例如 359°59′59.99″ 进位后视为正北）。
+  final totalSec = _roundSec(a * 3600.0, secDigits);
+  const fullCircleSec = 360.0 * 3600.0;
+  if (totalSec == 0 || (totalSec - fullCircleSec).abs() < 1e-9) return '正北';
+  if ((totalSec - 90.0 * 3600.0).abs() < 1e-9) return '正东';
+  if ((totalSec - 180.0 * 3600.0).abs() < 1e-9) return '正南';
+  if ((totalSec - 270.0 * 3600.0).abs() < 1e-9) return '正西';
   if (a < 90) return '北偏东 ${fmtAngle(a, secDigits: secDigits)}';
   if (a < 180) return '南偏东 ${fmtAngle(180 - a, secDigits: secDigits)}';
   if (a < 270) return '南偏西 ${fmtAngle(a - 180, secDigits: secDigits)}';
-  final quad = _roundSec(360 - a, secDigits);
-  if (quad == 0 || quad == 360) return '正北';
   return '北偏西 ${fmtAngle(360 - a, secDigits: secDigits)}';
 }
 

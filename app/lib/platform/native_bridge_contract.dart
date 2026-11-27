@@ -1,15 +1,15 @@
 import 'package:flutter/services.dart';
 
-/// Frozen MethodChannel contract for native window & theme integration (Wave 1 M1).
+/// 原生窗口与主题集成的冻结 MethodChannel 契约名称（Wave 1 M1）。
 const String kSurveyThemeChannel = 'survey/theme';
 
-/// Frozen MethodChannel contract for native file picker & gallery/share integration (Wave 1 M3/M6).
+/// 原生文件选择器与相册/分享集成的冻结 MethodChannel 契约名称（Wave 1 M3/M6）。
 const String kSurveyFilesChannel = 'survey/files';
 
-/// Typed static helpers for [kSurveyThemeChannel].
+/// [kSurveyThemeChannel] 的类型化静态调用封装。
 ///
-/// All methods catch [MissingPluginException] and [PlatformException] gracefully
-/// so non-native targets (web, widget tests) never crash.
+/// 所有方法均捕获 [MissingPluginException] 与 [PlatformException]，
+/// 确保非原生宿主（Web、Widget 测试环境）不会崩溃。
 abstract final class NativeWindowBridge {
   static const MethodChannel _channel = MethodChannel(kSurveyThemeChannel);
 
@@ -105,10 +105,10 @@ abstract final class NativeWindowBridge {
   }
 }
 
-/// Typed static helpers for [kSurveyFilesChannel].
+/// [kSurveyFilesChannel] 的类型化静态调用封装。
 ///
-/// All methods catch [MissingPluginException] and [PlatformException] gracefully
-/// so non-native targets (web, widget tests) fall back cleanly.
+/// 所有方法均捕获 [MissingPluginException] 与 [PlatformException]，
+/// 确保在测试或不支持的平台上安全回退。
 abstract final class NativeFilesBridge {
   static const MethodChannel _channel = MethodChannel(kSurveyFilesChannel);
 

@@ -277,6 +277,10 @@ class VerticalCurveResult {
   final double evcElevation;
 }
 
+/// 竖曲线要素计算（二次抛物线模型）。
+///
+/// [gradeIn]（i₁）与 [gradeOut]（i₂）以小数表示（如 0.03 表示 +3%），
+/// [radius] 为竖曲线半径（m）。当 `i₁ == i₂`（零变坡）时返回零长度曲线。
 VerticalCurveResult verticalCurve({
   required double gradeIn,
   required double gradeOut,
@@ -287,7 +291,7 @@ VerticalCurveResult verticalCurve({
   final w = gradeOut - gradeIn;
   final l = radius * w.abs();
   final t = l / 2;
-  final e = t * t / (2 * radius);
+  final e = radius == 0 ? 0.0 : t * t / (2 * radius);
   final bvcStation = vpiStation - t;
   final bvcElevation = vpiElevation - gradeIn * t;
   final evcStation = vpiStation + t;

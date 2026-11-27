@@ -6,16 +6,24 @@ import 'dart:math' as math;
 import 'package:ffi/ffi.dart';
 import 'package:survey_core/survey_core.dart';
 
+/// 混合计算内核当前使用的后端类型。
 enum ComputeBackend {
+  /// 原生 Rust FFI 动态库内核。
   rustFfi,
+
+  /// 纯 Dart 等价回退实现。
   dartFallback,
 }
 
+/// 解析后的 DXF 实体基类。
 sealed class DxfEntityRecord {
   const DxfEntityRecord({required this.layer});
+
+  /// 所属图层名称。
   final String layer;
 }
 
+/// DXF 点实体记录（`POINT`）。
 class DxfPointRecord extends DxfEntityRecord {
   const DxfPointRecord({
     required super.layer,
@@ -23,11 +31,18 @@ class DxfPointRecord extends DxfEntityRecord {
     required this.y,
     required this.z,
   });
+
+  /// DXF X 坐标（m）。
   final double x;
+
+  /// DXF Y 坐标（m）。
   final double y;
+
+  /// 高程 Z（m）。
   final double z;
 }
 
+/// DXF 直线段实体记录（`LINE`）。
 class DxfLineRecord extends DxfEntityRecord {
   const DxfLineRecord({
     required super.layer,
@@ -38,6 +53,7 @@ class DxfLineRecord extends DxfEntityRecord {
     required this.y2,
     required this.z2,
   });
+
   final double x1;
   final double y1;
   final double z1;
@@ -46,23 +62,31 @@ class DxfLineRecord extends DxfEntityRecord {
   final double z2;
 }
 
+/// DXF 二维轻量多段线实体记录（`LWPOLYLINE`）。
 class DxfLwPolylineRecord extends DxfEntityRecord {
   const DxfLwPolylineRecord({
     required super.layer,
     required this.closed,
     required this.vertices,
   });
+
+  /// 是否闭合。
   final bool closed;
+
+  /// 顶点 `(x, y)` 列表（m）。
   final List<(double x, double y)> vertices;
 }
 
+/// TIN 三维测点（平面 X/Y 及高程 Z，单位 m）。
 class TinPoint3D {
   const TinPoint3D({required this.x, required this.y, required this.z});
+
   final double x;
   final double y;
   final double z;
 }
 
+/// TIN 棱柱体法土方计算结果（单位 m³ / m²）。
 class TinEarthworkResult {
   const TinEarthworkResult({
     required this.cutVolume,
@@ -71,15 +95,27 @@ class TinEarthworkResult {
     required this.planArea,
   });
 
+  /// 挖方总量（m³）。
   final double cutVolume;
+
+  /// 填方总量（m³）。
   final double fillVolume;
+
+  /// 净方量（挖方 − 填方，m³）。
   final double netVolume;
+
+  /// 三角网有效平面投影面积（m²）。
   final double planArea;
 }
 
+/// 平面最近邻测点匹配结果。
 class NearestPointMatch {
   const NearestPointMatch({required this.index, required this.distance});
+
+  /// 命中点在输入列表中的下标（0 起）。
   final int index;
+
+  /// 到目标点的欧氏距离（m）。
   final double distance;
 }
 
@@ -528,9 +564,21 @@ class SurveyHybridEngine {
       final p0 = points[i0];
       final p1 = points[i1];
       final p2 = points[i2];
+      if (!p0.x.isFinite ||
+          !p0.y.isFinite ||
+          !p0.z.isFinite ||
+          !p1.x.isFinite ||
+          !p1.y.isFinite ||
+          !p1.z.isFinite ||
+          !p2.x.isFinite ||
+          !p2.y.isFinite ||
+          !p2.z.isFinite ||
+          !designZ.isFinite) {
+        continue;
+      }
       final area = 0.5 *
           ((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)).abs();
-      if (area <= 1e-12) continue;
+      if (!area.isFinite || area <= 1e-12) continue;
       areaSum += area;
       final dzAvg =
           ((p0.z - designZ) + (p1.z - designZ) + (p2.z - designZ)) / 3.0;

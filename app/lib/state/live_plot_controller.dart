@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// Origin kind of a [LivePlotSnapshot].
+/// 实时绘图快照的数据来源类型。
 enum LivePlotSourceKind {
   activeDraft,
   controlPoints,
@@ -8,7 +8,7 @@ enum LivePlotSourceKind {
   sample,
 }
 
-/// Lightweight point data for [LivePlotSnapshot] (decoupled from UI widgets).
+/// 实时绘图快照中的轻量级点要素（与具体 UI 组件解耦）。
 class LivePlotPointData {
   const LivePlotPointData({
     required this.x,
@@ -173,8 +173,7 @@ class LivePlotSnapshot {
       labels.isEmpty;
 }
 
-/// Global controller holding the active [LivePlotSnapshot], recent history,
-/// and split-pane visibility.
+/// 全局实时绘图控制器，维护当前画布快照 [current]、历史快照与分屏显隐状态。
 class LivePlotController extends ChangeNotifier {
   LivePlotController({int maxRecent = 12}) : _maxRecent = maxRecent;
 

@@ -7,6 +7,8 @@ import '../../state/settings.dart';
 import '../../theme/tokens.dart';
 import '../page_scaffold.dart';
 import '../tool_router.dart';
+import '../widgets/compact_controls.dart';
+import '../widgets/formula_puzzle.dart';
 import '../widgets/tutorial_panel.dart';
 import '../widgets/widgets.dart';
 
@@ -493,6 +495,7 @@ class FormulaPage extends StatefulWidget {
 }
 
 class _FormulaPageState extends State<FormulaPage> {
+  FormulaInputMode _mode = FormulaInputMode.diagram;
   final _expr = TextEditingController(text: 'sqrt((x2-x1)^2 + (y2-y1)^2)');
   final _vars =
       TextEditingController(text: 'x1=1000, y1=2000, x2=1100, y2=2050');
@@ -556,117 +559,143 @@ class _FormulaPageState extends State<FormulaPage> {
           '${_expr.text} = $value',
         ],
       ]),
-      InputCard(
-        title: '表达式计算',
-        caption: '支持 + − × ÷ ^ 与 sqrt、sin、cos、tan、atan2、abs、ln 等函数；'
-            '三角函数按「度」解释，反三角函数返回弧度（用 deg(...) 转度）。',
-        fields: [
-          TextField(
-            controller: _expr,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-            decoration: InputDecoration(
-              labelText: context.tr('表达式'),
-              hintText: context.tr('例如 sqrt((x2-x1)^2 + (y2-y1)^2)'),
-            ),
-            onSubmitted: (_) => _compute(notify: true),
+      SurveySegmentedControl<FormulaInputMode>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(
+            value: FormulaInputMode.diagram,
+            label: LocalText('图解填槽'),
           ),
-          TextField(
-            controller: _vars,
-            style: const TextStyle(fontSize: 14),
-            decoration: InputDecoration(
-              labelText: context.tr('变量（可选，逗号分隔）'),
-              hintText: 'x1=0, y1=0',
-            ),
-            onSubmitted: (_) => _compute(notify: true),
+          ButtonSegment(
+            value: FormulaInputMode.blocks,
+            label: LocalText('积木拼图'),
           ),
-          if (_result != null && _error == null)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                LocalText(
-                  '结果',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                SelectableText(
-                  _result!,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.primary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          if (_error != null)
-            Row(
-              children: [
-                Icon(Icons.error_outline, size: 16, color: scheme.error),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    context.tr(_error!),
-                    style: TextStyle(fontSize: 12.5, color: scheme.error),
-                  ),
-                ),
-              ],
-            ),
+          ButtonSegment(
+            value: FormulaInputMode.free,
+            label: LocalText('自由输入'),
+          ),
         ],
-        action: PrimaryAction(
-          label: '计算',
-          icon: Icons.play_arrow_rounded,
-          onPressed: () => _compute(notify: true),
-        ),
+        selected: {_mode},
+        onSelectionChanged: (v) => setState(() => _mode = v.first),
       ),
-      const SizedBox(height: Insets.l),
-      const SectionHeader(
-        title: '内置公式',
-        caption: '点开即用，填写参数后实时出结果',
-      ),
-      const SizedBox(height: Insets.s),
-      for (final category in formulaCategories()) ...[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Insets.xs, Insets.s, 0, 4),
-          child: Text(
-            context.tr(category),
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-              color: scheme.onSurfaceVariant,
+      const SizedBox(height: Insets.m),
+      if (_mode == FormulaInputMode.diagram)
+        const FormulaDiagramSlotsView()
+      else if (_mode == FormulaInputMode.blocks)
+        const FormulaBlockBuilderView()
+      else ...[
+        InputCard(
+          title: '表达式计算',
+          caption: '支持 + − × ÷ ^ 与 sqrt、sin、cos、tan、atan2、abs、ln 等函数；'
+              '三角函数按「度」解释，反三角函数返回弧度（用 deg(...) 转度）。',
+          fields: [
+            TextField(
+              controller: _expr,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+              decoration: InputDecoration(
+                labelText: context.tr('表达式'),
+                hintText: context.tr('例如 sqrt((x2-x1)^2 + (y2-y1)^2)'),
+              ),
+              onSubmitted: (_) => _compute(notify: true),
             ),
+            TextField(
+              controller: _vars,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                labelText: context.tr('变量（可选，逗号分隔）'),
+                hintText: 'x1=0, y1=0',
+              ),
+              onSubmitted: (_) => _compute(notify: true),
+            ),
+            if (_result != null && _error == null)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  LocalText(
+                    '结果',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  SelectableText(
+                    _result!,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.primary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            if (_error != null)
+              Row(
+                children: [
+                  Icon(Icons.error_outline, size: 16, color: scheme.error),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      context.tr(_error!),
+                      style: TextStyle(fontSize: 12.5, color: scheme.error),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+          action: PrimaryAction(
+            label: '计算',
+            icon: Icons.play_arrow_rounded,
+            onPressed: () => _compute(notify: true),
           ),
         ),
-        SurfaceCard(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            children: [
-              for (final f
-                  in kFormulaLibrary.where((e) => e.category == category))
-                ChoiceTile(
-                  title: f.name,
-                  subtitle: f.expression,
-                  icon: Icons.functions,
-                  onTap: () => openWorkspacePage(
-                    context,
-                    name: 'tool/formula/detail',
-                    argument: f.id,
-                    builder: (_) => FormulaDetailPage(formula: f),
-                  ),
-                  dense: true,
-                ),
-            ],
-          ),
+        const SizedBox(height: Insets.l),
+        const SectionHeader(
+          title: '内置公式',
+          caption: '点开即用，填写参数后实时出结果',
         ),
         const SizedBox(height: Insets.s),
+        for (final category in formulaCategories()) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Insets.xs, Insets.s, 0, 4),
+            child: Text(
+              context.tr(category),
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          SurfaceCard(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: [
+                for (final f
+                    in kFormulaLibrary.where((e) => e.category == category))
+                  ChoiceTile(
+                    title: f.name,
+                    subtitle: f.expression,
+                    icon: Icons.functions,
+                    onTap: () => openWorkspacePage(
+                      context,
+                      name: 'tool/formula/detail',
+                      argument: f.id,
+                      builder: (_) => FormulaDetailPage(formula: f),
+                    ),
+                    dense: true,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Insets.s),
+        ],
       ],
     ];
     if (widget.embedded) {

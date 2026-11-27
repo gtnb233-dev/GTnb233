@@ -446,6 +446,14 @@ Similarity2DFit? _fitSimilarity(
   if (fixedScale != null && (!fixedScale.isFinite || fixedScale <= 0)) {
     return null;
   }
+  for (var i = 0; i < n; i++) {
+    if (!from[i].x.isFinite ||
+        !from[i].y.isFinite ||
+        !to[i].x.isFinite ||
+        !to[i].y.isFinite) {
+      return null;
+    }
+  }
   var fx = 0.0;
   var fy = 0.0;
   var tx = 0.0;

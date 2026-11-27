@@ -78,16 +78,24 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "savePngToGallery" -> {
                         val bytes = call.argument<ByteArray>("bytes")
-                        val filename = call.argument<String>("filename")
-                            ?.takeIf { it.isNotBlank() } ?: "survey_pro.png"
-                        val album = call.argument<String>("album")
-                            ?.takeIf { it.isNotBlank() } ?: "SurveyPro"
+                        val rawFilename = call.argument<String>("filename")
+                            ?.trim()
+                            ?.substringAfterLast('/')
+                            ?.substringAfterLast('\\')
+                            ?.takeIf { it.isNotBlank() && it != "." && it != ".." }
+                            ?: "survey_pro.png"
+                        val rawAlbum = call.argument<String>("album")
+                            ?.trim()
+                            ?.replace("..", "")
+                            ?.trim('/', '\\')
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "SurveyPro"
                         if (bytes == null || bytes.isEmpty()) {
                             result.error("INVALID_ARGS", "PNG bytes must not be empty", null)
                             return@setMethodCallHandler
                         }
                         try {
-                            val saved = savePngToMediaStore(bytes, filename, album)
+                            val saved = savePngToMediaStore(bytes, rawFilename, rawAlbum)
                             result.success(saved)
                         } catch (e: Exception) {
                             result.error("SAVE_FAILED", e.message, null)
@@ -154,6 +162,7 @@ class MainActivity : FlutterActivity() {
     private fun shareContentUri(uriStr: String, subject: String?, mimeType: String): Boolean {
         return runCatching {
             val uri = Uri.parse(uriStr)
+            if (uri.scheme != "content") return false
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)

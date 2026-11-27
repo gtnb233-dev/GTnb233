@@ -71,10 +71,23 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
           ? workspaceSidebarDuration
           : workspaceSlideDuration;
 
-  bool _fadeThrough(Animation<double> animation) =>
-      animation.status == AnimationStatus.reverse
+  bool _fadeThrough(Animation<double> animation, {required bool compact}) =>
+      !compact &&
+      (animation.status == AnimationStatus.reverse
           ? _sidebarExit
-          : sidebarEntrance;
+          : sidebarEntrance);
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: super.buildPage(context, animation, secondaryAnimation),
+    );
+  }
 
   @override
   DelegatedTransitionBuilder get delegatedTransition =>
@@ -99,7 +112,8 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
           final progress = popGestureInProgress
               ? value
               : workspaceMotionCurve.transform(value);
-          final fade = _fadeThrough(secondaryAnimation) && !reduceMotion;
+          final fade = _fadeThrough(secondaryAnimation, compact: compact) &&
+              !reduceMotion;
           final reversing =
               secondaryAnimation.status == AnimationStatus.reverse;
           final incoming = _incomingProgress(1 - value);
@@ -115,7 +129,7 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
                 scale: fade && reversing ? .985 + .015 * incoming : 1,
                 child: FractionalTranslation(
                   translation: Offset(
-                      slide ? -direction * (compact ? .30 : .06) * progress : 0,
+                      slide ? -direction * (compact ? .25 : .06) * progress : 0,
                       0),
                   child: Stack(
                     fit: StackFit.expand,
@@ -153,9 +167,15 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
           color: Theme.of(context).scaffoldBackgroundColor, child: child),
     );
     final native = compact
-        ? super.buildTransitions(context, animation, secondaryAnimation, page)
+        ? super.buildTransitions(
+            context,
+            kAlwaysCompleteAnimation,
+            kAlwaysDismissedAnimation,
+            page,
+          )
         : page;
-    // Retain Flutter’s Cupertino edge gesture recognizer with our motion curve.
+    // Retain Flutter’s Cupertino edge gesture recognizer without Cupertino’s
+    // own slide translation so only our single FractionalTranslation runs.
     final content = native is CupertinoPageTransition ? native.child : native;
     return ClipRect(
       child: AnimatedBuilder(
@@ -166,7 +186,8 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
           final progress = popGestureInProgress || reduceMotion
               ? value
               : workspaceMotionCurve.transform(value);
-          final fade = _fadeThrough(animation) && !reduceMotion;
+          final fade =
+              _fadeThrough(animation, compact: compact) && !reduceMotion;
           final reversing = animation.status == AnimationStatus.reverse;
           final incoming = _incomingProgress(value);
           return GlassBlurSuspensionScope(

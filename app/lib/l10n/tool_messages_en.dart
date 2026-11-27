@@ -1408,4 +1408,61 @@ const toolEnglishMessages = <String, String>{
       'Manage project control points, search, import, and pick coordinates',
   '请先在控制点库中添加或导入控制点':
       'Add or import control points in the library first',
+
+  // Formula Calculator: Diagram Slots & Block Builder
+  '图解填槽': 'Diagram Slots',
+  '积木拼图': 'Block Builder',
+  '自由输入': 'Free Input',
+  '斜距改平距': 'Slope to Horiz.',
+  '已知斜距 S 与竖直角 α，求水平距离 D':
+      'Given slope distance S and vertical angle α, find horizontal distance D',
+  '斜距 S': 'Slope dist. S',
+  '竖直角 α': 'Vertical angle α',
+  '已知平距 D 与方位角 α，求北/东坐标增量':
+      'Given horizontal distance D and azimuth α, find ΔX / ΔY',
+  '方位角 α': 'Azimuth α',
+  '高差与坡度': 'Height & Slope',
+  '已知斜距 S 与竖直角 α，求高差 Δh 与坡度 i':
+      'Given slope distance S and vertical angle α, find Δh and slope i',
+  '余弦定理求边': 'Law of Cosines (Side)',
+  '已知两边 a、b 及夹角 C，求第三边 c':
+      'Given sides a, b and included angle C, find side c',
+  '边长 a': 'Side a',
+  '边长 b': 'Side b',
+  '夹角 C': 'Angle C',
+  '余弦定理求角': 'Law of Cosines (Angle)',
+  '已知三边 a、b、c，求边 c 所对内角 C':
+      'Given three sides a, b, c, find angle C opposite side c',
+  '邻边 a': 'Adjacent side a',
+  '邻边 b': 'Adjacent side b',
+  '对边 c': 'Opposite side c',
+  '正弦定理求边': 'Law of Sines (Side)',
+  '已知边 a 及两角 A、B，求对边 b':
+      'Given side a and angles A, B, find opposite side b',
+  '已知边 a': 'Known side a',
+  '对角 A': 'Opposite angle A',
+  '对角 B': 'Opposite angle B',
+  '请填写全部槽位数值': 'Enter values for all slots',
+  '北增量 ΔX': 'Northing ΔX',
+  '东增量 ΔY': 'Easting ΔY',
+  '平距 D 为 0，无法计算坡度':
+      'Horizontal distance D is 0; cannot compute slope',
+  '高差 Δh': 'Height diff. Δh',
+  '坡度 i': 'Slope i',
+  '边长须大于 0': 'Side length must be greater than 0',
+  '三边长须大于 0': 'All three side lengths must be greater than 0',
+  '三边不满足三角形不等式': 'Sides violate the triangle inequality',
+  'sin(A) 不能为 0': 'sin(A) cannot be 0',
+  '未知边 b': 'Unknown side b',
+  '点击槽位填入参数': 'Tap a slot to enter its value',
+  '积木表达式': 'Block Expression',
+  '退格': 'Backspace',
+  '清空': 'Clear',
+  '点击积木块可删除，点击函数括号可聚焦内部继续拼接':
+      'Tap a block to remove it; tap a function parenthesis to focus inside',
+  '从下方点击积木块开始拼装公式': 'Tap blocks below to assemble a formula',
+  '变量赋值': 'Variable Values',
+  '变量与常数': 'Variables & Constants',
+  '函数': 'Functions',
+  '运算符': 'Operators',
 };

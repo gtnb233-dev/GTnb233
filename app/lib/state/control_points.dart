@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// A single survey control point in the local control-point library.
+/// 本地控制点库中的单个测量控制点（X 北向、Y 东向、可选高程 H，单位 m）。
 class ControlPoint {
   const ControlPoint({
     required this.id,
@@ -23,6 +23,7 @@ class ControlPoint {
   final String group;
   final String note;
 
+  /// 复制并局部更新控制点字段（[clearH] 为 true 时清空高程）。
   ControlPoint copyWith({
     String? id,
     String? name,
@@ -75,7 +76,7 @@ class ControlPoint {
   }
 }
 
-/// Persistent store for survey control points, supporting CSV / CASS / DXF import & export.
+/// 控制点持久化仓库，支持 CSV / 南方 CASS / ASCII DXF 批量导入与导出。
 class ControlPointStore extends ChangeNotifier {
   ControlPointStore();
 
