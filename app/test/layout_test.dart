@@ -587,15 +587,17 @@ void main() {
         matching: find.text('坐标反算'),
       );
       if (wide && tool.evaluate().isEmpty) {
+        final sidebarList = find.descendant(
+          of: sidebar,
+          matching: find.byType(ListView),
+        );
         await tester.scrollUntilVisible(
           tool,
           90,
-          scrollable: find
-              .descendant(
-                of: sidebar,
-                matching: find.byType(Scrollable),
-              )
-              .first,
+          scrollable: find.descendant(
+            of: sidebarList,
+            matching: find.byType(Scrollable),
+          ),
         );
       }
       await tester.ensureVisible(tool);
