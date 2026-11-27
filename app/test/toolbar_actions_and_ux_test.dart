@@ -19,7 +19,6 @@ import 'package:survey_pro/ui/pages/tools/coord_tools.dart';
 import 'package:survey_pro/ui/pages/tools/four_order_leveling.dart';
 import 'package:survey_pro/ui/tool_router.dart';
 import 'package:survey_pro/ui/widgets/liquid_glass.dart';
-import 'package:survey_pro/ui/widgets/outline_symbol.dart';
 import 'package:survey_pro/ui/widgets/page_actions.dart';
 import 'package:survey_pro/ui/widgets/results.dart';
 import 'package:survey_pro/ui/workspace_page_route.dart';
@@ -42,12 +41,15 @@ double paintedOpacity(Finder finder) {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  Future<AppSettings> pumpAndroid(WidgetTester tester, Size size) async {
+  Future<AppSettings> pumpAndroid(WidgetTester tester, Size size,
+      {bool bottomNav = false, bool sidebarOpen = false}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final settings = AppSettings();
     await settings.setLanguage(AppLanguage.chinese);
+    if (bottomNav) await settings.setPortraitGlassNav(true);
+    if (sidebarOpen) await settings.setSidebarCollapsed(false);
     await tester.pumpWidget(WorkspaceHost(
       android: true,
       child: SurveyApp(settings: settings, drafts: DraftStore()),
@@ -111,7 +113,9 @@ void main() {
     }
     expect(find.byType(TraversePage, skipOffstage: false), findsNothing);
     expect(find.byType(InversePage, skipOffstage: false), findsOneWidget);
-    await tester.tap(find.byTooltip('返回'));
+    await Navigator.of(tester
+            .element(find.byKey(const ValueKey('workspace-detail-header'))))
+        .maybePop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
     expect(route.animation!.status, AnimationStatus.reverse);
@@ -128,15 +132,13 @@ void main() {
   testWidgets(
       'sidebar navigation paints only one page across root and tool routes',
       (tester) async {
-    await pumpAndroid(tester, const Size(1024, 640));
+    await pumpAndroid(tester, const Size(1024, 640), sidebarOpen: true);
     final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
-    Finder button(String label) =>
-        find.descendant(of: sidebar, matching: find.byTooltip(label));
     final home = find.byType(HomePage);
     final tools = find.byType(ToolsPage);
     final traverse = find.byType(TraversePage);
 
-    await tester.tap(button('工具库'));
+    await tester.tap(find.byKey(const ValueKey('home-tool-library')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 32));
     expect(paintedOpacity(home), inExclusiveRange(0.0, 1.0));
@@ -146,7 +148,9 @@ void main() {
     expect(paintedOpacity(tools), inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
 
-    await tester.tap(button('导线平差'));
+    await tester.tap(find.descendant(
+        of: sidebar,
+        matching: find.byKey(const ValueKey('sidebar-tool-traverse'))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 32));
     expect(paintedOpacity(tools), inExclusiveRange(0.0, 1.0));
@@ -158,7 +162,7 @@ void main() {
     expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
 
-    await tester.tap(button('首页'));
+    await tester.tap(find.byKey(const ValueKey('sidebar-brand-home')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 32));
     expect(route.reverseTransitionDuration, workspaceSidebarDuration);
@@ -257,100 +261,28 @@ void main() {
   });
 
   testWidgets(
-      'sidebar keeps icon anchors and selects the library on the first back frame',
-      (tester) async {
-    await pumpAndroid(tester, const Size(1024, 640));
-    final entries = [
-      for (final id in [
-        'search-btn',
-        'home',
-        'library',
-        'customize-pinned',
-        'tool-traverse',
-        'toggle-btn'
-      ])
-        find.byKey(ValueKey('sidebar-$id')),
-    ];
-    List<Offset> anchors() => [
-          for (final entry in entries)
-            tester.getCenter(find
-                .descendant(of: entry, matching: find.byType(OutlineSymbol))
-                .first),
-        ];
-    final initial = anchors();
-    await tester.tap(entries.last);
-    await tester.pump();
-    for (final elapsed in [30, 50, 80, 80]) {
-      await tester.pump(Duration(milliseconds: elapsed));
-      expect(anchors(), initial);
-    }
-    await tester.pumpAndSettle();
-    expect(anchors(), initial);
-    await tester.tap(entries.last);
-    await tester.pump();
-    for (final elapsed in [40, 60, 80, 60]) {
-      await tester.pump(Duration(milliseconds: elapsed));
-      expect(anchors(), initial);
-    }
-    await tester.pumpAndSettle();
-
-    bool selected(Finder entry) =>
-        tester
-            .widget<Semantics>(
-              find
-                  .descendant(
-                      of: entry,
-                      matching: find.byWidgetPredicate(
-                        (widget) =>
-                            widget is Semantics &&
-                            widget.properties.selected != null,
-                      ))
-                  .first,
-            )
-            .properties
-            .selected ??
-        false;
-    final library = entries[2];
-    final traverse = entries[4];
-    await tester.tap(library);
-    await tester.pumpAndSettle();
-    await tester.tap(traverse);
-    await tester.pumpAndSettle();
-    expect(selected(traverse), isTrue);
-    expect(selected(library), isFalse);
-    await tester.tap(find.byTooltip('返回'));
-    await tester.pump();
-    expect(selected(library), isTrue);
-    expect(selected(traverse), isFalse);
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets(
-      'sidebar labels fade before width changes, and the tools accordion animates',
+      'sidebar width animates from zero and tools accordion still animates',
       (tester) async {
     await pumpAndroid(tester, const Size(915, 412));
     final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+    final space = find.byKey(const ValueKey('workspace-sidebar-space'));
     final toggle = find.byKey(const ValueKey('sidebar-toggle-btn'));
+    final content = find.byKey(const ValueKey('workspace-content'));
+    expect(sidebar, findsNothing);
+    final fullWidth = tester.getSize(content).width;
     await tester.tap(toggle);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 90));
-    expect(tester.getSize(sidebar).width, inExclusiveRange(56.0, 240.0));
+    await tester.pump(const Duration(milliseconds: 75));
+    expect(tester.getSize(space).width, inExclusiveRange(0.0, 272.0));
     await tester.pumpAndSettle();
-    expect(tester.getSize(sidebar).width, 240);
+    expect(tester.getSize(sidebar).width, 272);
+    expect(tester.getSize(content).width, fullWidth - 272);
     await tester.tap(toggle);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 40));
-    expect(tester.getSize(sidebar).width, 240);
-    final title =
-        find.descendant(of: sidebar, matching: find.text('Survey Pro'));
-    expect(paintedOpacity(title), inExclusiveRange(0.0, 1.0));
-    await tester.pump(const Duration(milliseconds: 65));
-    expect(paintedOpacity(title), 0);
-    expect(tester.getSize(sidebar).width, inExclusiveRange(56.0, 240.0));
     await tester.pumpAndSettle();
-    expect(tester.getSize(sidebar).width, 56);
-
-    await tester.tap(find.byTooltip('工具库'));
+    expect(sidebar, findsNothing);
+    expect(space, findsNothing);
+    expect(tester.getSize(content).width, fullWidth);
+    await tester.tap(find.byKey(const ValueKey('home-tool-library')));
     await tester.pumpAndSettle();
     final group = find.byKey(const ValueKey('toolbox-group-coordinates'));
     final collapsed = tester.getSize(group).height;
@@ -396,7 +328,7 @@ void main() {
   testWidgets(
       'portrait uses a 260ms transition and supports animated and interactive Back',
       (tester) async {
-    await pumpAndroid(tester, const Size(390, 844));
+    await pumpAndroid(tester, const Size(390, 844), bottomNav: true);
     selectTool(tester, 'inverse');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
@@ -407,7 +339,7 @@ void main() {
     final route = ModalRoute.of(tester.element(find.byType(InversePage)))!;
     expect(route.transitionDuration, const Duration(milliseconds: 260));
     expect(nav, findsNothing);
-    await tester.tap(find.byTooltip('返回'));
+    await Navigator.of(tester.element(find.byType(InversePage))).maybePop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(route.animation!.value, inExclusiveRange(0.0, 1.0));

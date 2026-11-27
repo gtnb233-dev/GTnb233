@@ -185,14 +185,14 @@ class _ProjectionPageState extends State<ProjectionPage>
   final _lat = _ctrl('39.9');
   final _lon = _ctrl('116.4');
   final _fe = _ctrl('500000');
-  int _zoneWidth = 3;
+  late int _zoneWidth = _workspacePreset.zoneWidth;
 
   // 高斯反算（平面坐标）
   final _invX = _ctrl('4418598.001');
   final _invY = _ctrl('448688.856');
   final _l0 = _ctrl('117');
   final _zone = _ctrl('39');
-  int _inverseZoneWidth = 3;
+  late int _inverseZoneWidth = _workspacePreset.zoneWidth;
   bool _byZone = false;
 
   // 四参数
@@ -205,11 +205,11 @@ class _ProjectionPageState extends State<ProjectionPage>
   final _applyX = _ctrl('1000');
   final _applyY = _ctrl('2000');
 
-  int _mode = 0;
+  late WorkspaceCoordinatePreset _workspacePreset =
+      SettingsScope.read(context).workspaceCoordinatePreset;
+  late int _mode = _workspacePreset == WorkspaceCoordinatePreset.local ? 2 : 0;
   late Ellipsoid _ellipsoid =
-      SettingsScope.read(context).workspaceEllipsoid == 'WGS84'
-          ? kWgs84
-          : kCgcs2000;
+      _workspacePreset == WorkspaceCoordinatePreset.wgs84 ? kWgs84 : kCgcs2000;
 
   GaussPoint? _forward;
   LatLon? _inverse;
@@ -617,6 +617,20 @@ class _ProjectionPageState extends State<ProjectionPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _calcAll());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final preset = SettingsScope.of(context).workspaceCoordinatePreset;
+    if (_workspacePreset == preset) return;
+    _workspacePreset = preset;
+    _zoneWidth = _inverseZoneWidth = preset.zoneWidth;
+    _ellipsoid = preset == WorkspaceCoordinatePreset.wgs84 ? kWgs84 : kCgcs2000;
+    _mode = preset == WorkspaceCoordinatePreset.local ? 2 : 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _calcAll();
+    });
   }
 
   @override

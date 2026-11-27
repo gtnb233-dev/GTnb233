@@ -22,6 +22,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'glass_nav': true});
     final settings = AppSettings();
     await settings.load();
+    await settings.setPortraitGlassNav(true);
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

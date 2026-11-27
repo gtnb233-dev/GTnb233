@@ -92,6 +92,8 @@ void main() {
     final settings = AppSettings();
     await settings.load();
     expect(settings.language, AppLanguage.system);
+    await settings.setPortraitGlassNav(true);
+    await settings.setSidebarCollapsed(false);
     await tester.pumpWidget(
       WorkspaceHost(
         android: true,
@@ -105,6 +107,7 @@ void main() {
       find.byTooltip(const SurveyStrings('sn').translate('设置')).first,
     );
     await tester.pumpAndSettle();
+    await settings.setSidebarCollapsed(true);
     tester.view.physicalSize = const Size(320, 640);
     await tester.pumpAndSettle();
 
@@ -151,7 +154,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Herramientas'));
+    await tester.tap(find.byKey(const ValueKey('home-tool-library')));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
@@ -195,7 +198,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Tools'));
+    await tester.tap(find.byKey(const ValueKey('home-tool-library')));
     await tester.pumpAndSettle();
     final searchField = find.descendant(
       of: find.byType(ToolsPage),

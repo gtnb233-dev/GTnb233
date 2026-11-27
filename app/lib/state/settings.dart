@@ -75,6 +75,18 @@ enum LengthUnit {
 }
 
 /// 全局设置：主题、角度输入格式、长度量级、小数位与触感反馈。
+enum WorkspaceCoordinatePreset {
+  cgcs2000ThreeDegree('CGCS2000 · 3°带', 3),
+  cgcs2000SixDegree('CGCS2000 · 6°带', 6),
+  wgs84('WGS84', 3),
+  local('地方独立坐标系', 3);
+
+  const WorkspaceCoordinatePreset(this.label, this.zoneWidth);
+
+  final String label;
+  final int zoneWidth;
+}
+
 class AppSettings extends ChangeNotifier {
   static const _kTheme = 'theme_mode';
   static const _kLanguage = 'app_language';
@@ -87,6 +99,8 @@ class AppSettings extends ChangeNotifier {
   static const _kLastDraft = 'last_draft';
   static const _kSidebar = 'sidebar_collapsed';
   static const _kWorkspaceEllipsoid = 'workspace_ellipsoid';
+  static const _kWorkspaceCoordinatePreset = 'workspace_coordinate_preset';
+  static const _kPortraitGlassNav = 'android_portrait_glass_nav';
   static const _kUiStyle = 'ui_style';
   static const _kGlassNav = 'glass_nav';
   static const _kMonet = 'monet';
@@ -124,7 +138,9 @@ class AppSettings extends ChangeNotifier {
   bool _haptic = true;
   final _recentTool = ValueNotifier<(String?, String?)>((null, null));
   bool _sidebarCollapsed = true;
-  String _workspaceEllipsoid = 'CGCS2000';
+  WorkspaceCoordinatePreset _workspaceCoordinatePreset =
+      WorkspaceCoordinatePreset.cgcs2000ThreeDegree;
+  bool _portraitGlassNav = false;
 
   UiStyle _uiStyle = UiStyle.classic;
 
@@ -173,7 +189,9 @@ class AppSettings extends ChangeNotifier {
   String? get lastDraftId => _recentTool.value.$2;
   ValueListenable<(String?, String?)> get recentTool => _recentTool;
   bool get sidebarCollapsed => _sidebarCollapsed;
-  String get workspaceEllipsoid => _workspaceEllipsoid;
+  WorkspaceCoordinatePreset get workspaceCoordinatePreset =>
+      _workspaceCoordinatePreset;
+  bool get portraitGlassNav => _portraitGlassNav;
 
   /// 当前界面风格。
   UiStyle get uiStyle => _uiStyle;
@@ -219,7 +237,14 @@ class AppSettings extends ChangeNotifier {
     _haptic = p.getBool(_kHaptic) ?? true;
     _recentTool.value = (p.getString(_kLastTool), p.getString(_kLastDraft));
     _sidebarCollapsed = p.getBool(_kSidebar) ?? true;
-    _workspaceEllipsoid = p.getString(_kWorkspaceEllipsoid) ?? 'CGCS2000';
+    final preset = p.getString(_kWorkspaceCoordinatePreset);
+    _workspaceCoordinatePreset = WorkspaceCoordinatePreset.values
+            .where((value) => value.name == preset)
+            .firstOrNull ??
+        (p.getString(_kWorkspaceEllipsoid) == 'WGS84'
+            ? WorkspaceCoordinatePreset.wgs84
+            : WorkspaceCoordinatePreset.cgcs2000ThreeDegree);
+    _portraitGlassNav = p.getBool(_kPortraitGlassNav) ?? false;
     _uiStyle = UiStyle.parse(p.getString(_kUiStyle));
     _glassNav = p.getBool(_kGlassNav);
     _monet = p.getBool(_kMonet) ?? false;
@@ -351,11 +376,20 @@ class AppSettings extends ChangeNotifier {
     await _persist((p) => p.setBool(_kSidebar, collapsed));
   }
 
-  Future<void> setWorkspaceEllipsoid(String ellipsoid) async {
-    if (_workspaceEllipsoid == ellipsoid) return;
-    _workspaceEllipsoid = ellipsoid;
+  Future<void> setWorkspaceCoordinatePreset(
+      WorkspaceCoordinatePreset preset) async {
+    if (_workspaceCoordinatePreset == preset) return;
+    _workspaceCoordinatePreset = preset;
     notifyListeners();
-    await _persist((p) => p.setString(_kWorkspaceEllipsoid, ellipsoid));
+    await _persist(
+        (p) => p.setString(_kWorkspaceCoordinatePreset, preset.name));
+  }
+
+  Future<void> setPortraitGlassNav(bool enabled) async {
+    if (_portraitGlassNav == enabled) return;
+    _portraitGlassNav = enabled;
+    notifyListeners();
+    await _persist((p) => p.setBool(_kPortraitGlassNav, enabled));
   }
 
   /// 切换首页「常用工具」固定状态（至少保留 1 个工具）。

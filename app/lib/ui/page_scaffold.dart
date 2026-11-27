@@ -14,6 +14,7 @@ import 'widgets/overlays.dart';
 import 'widgets/page_actions.dart';
 import 'widgets/tutorial_panel.dart';
 import 'widgets/workspace_commands.dart';
+import 'widgets/workspace_sidebar_control.dart';
 
 /// 一级页面骨架：可滚动大标题 + 内容区。
 ///
@@ -49,6 +50,7 @@ class PageScaffold extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final compact = workspaceUsesCompactLayout(context);
+    final sidebar = WorkspaceSidebarScope.maybeOf(context);
     return Scaffold(
       // 不能留 transparent：一旦外层没有不透明底色，窗口黑底会透出来。
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -72,6 +74,15 @@ class PageScaffold extends StatelessWidget {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          if (sidebar != null) ...[
+                            if (sidebar.open && sidebar.overlay)
+                              const SizedBox(width: 48)
+                            else
+                              WorkspaceSidebarControl(
+                                  open: sidebar.open,
+                                  onToggle: sidebar.onToggle),
+                            const SizedBox(width: Insets.s),
+                          ],
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,6 +550,8 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final pinned = settings?.pinnedHeaderActions ??
         AppSettings.kDefaultPinnedHeaderActions;
     final unpinned = available.where((id) => !pinned.contains(id));
+    final canReturn = WorkspaceSidebarScope.maybeOf(context) != null &&
+        Navigator.canPop(context);
     final actions = widget.actions
             ?.where((action) => !identical(action, widget.mobilePrimaryAction))
             .toList() ??
@@ -590,8 +603,17 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               ),
               const Divider(height: Insets.m),
             ],
-            if (unpinned.isNotEmpty || actions.isNotEmpty)
+            if (unpinned.isNotEmpty || actions.isNotEmpty || canReturn)
               _groupHeader(sheetContext, '工具与辅助操作'),
+            if (canReturn)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                key: const ValueKey('more-action-back'),
+                leading: const Icon(Icons.arrow_back),
+                title: const LocalText('返回'),
+                onTap: () => choose('back'),
+              ),
             if (actions.isNotEmpty) ...[
               Wrap(spacing: 8, runSpacing: 8, children: actions),
               const SizedBox(height: Insets.s),
@@ -612,6 +634,8 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     );
     if (!mounted) return;
     switch (command) {
+      case 'back':
+        await Navigator.maybePop(context);
       case 'customize_pinned':
         await _showPinnedActionsPicker(context);
       case 'export':
@@ -667,9 +691,17 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final theme = Theme.of(context);
     final primary = widget.mobilePrimaryAction;
     final draftBadge = _buildDraftBadge(context);
+    final sidebar = WorkspaceSidebarScope.maybeOf(context);
     final heading = Row(
       children: [
-        if (canPop) ...[
+        if (sidebar != null) ...[
+          if (sidebar.open && sidebar.overlay)
+            const SizedBox(width: 48)
+          else
+            WorkspaceSidebarControl(
+                open: sidebar.open, onToggle: sidebar.onToggle),
+          const SizedBox(width: 7),
+        ] else if (canPop) ...[
           WorkspaceGlassButton(
             icon: Icons.arrow_back_ios_new_rounded,
             label: context.tr('返回'),
@@ -815,8 +847,9 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         46 +
         36 * pinnedButtons.length +
         (widget.mobilePrimaryAction == null ? 0 : 40);
-    final stackedHeader = !android &&
-        constraints.maxWidth - controlsWidth - (canPop ? 79 : 24) < 110;
+    final hasLeading = canPop || WorkspaceSidebarScope.maybeOf(context) != null;
+    final stackedHeader =
+        constraints.maxWidth - controlsWidth - (hasLeading ? 79 : 24) < 110;
     final headerHeight = stackedHeader ? 108.0 : 62.0;
     final twoPane = !workspaceUsesCompactLayout(context) &&
         (widget.sideVisual != null || widget.reserveSideVisual) &&

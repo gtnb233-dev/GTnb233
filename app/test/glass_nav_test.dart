@@ -95,6 +95,7 @@ void main() {
     addTearDown(() => SharedPreferences.setMockInitialValues({}));
     final settings = AppSettings();
     await settings.load();
+    await settings.setPortraitGlassNav(true);
     tester.view.physicalSize = const Size(320, 640) * 3;
     tester.view.devicePixelRatio = 3.0;
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;

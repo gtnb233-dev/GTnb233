@@ -180,7 +180,7 @@ void main() {
     expect(find.byTooltip('收起侧边栏'), findsOneWidget);
     await tester.tap(find.byTooltip('收起侧边栏'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('工具库'));
+    await tester.tap(find.byKey(const ValueKey('home-tool-library')));
     await tester.pumpAndSettle();
     final librarySearch = find.descendant(
       of: find.byType(ToolsPage),
@@ -191,13 +191,15 @@ void main() {
 
     tester.view.physicalSize = const Size(360, 700);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-sidebar')), findsNothing);
     expect(find.byType(GlassNavBar), findsNothing);
     expect(tester.widget<TextField>(librarySearch).controller!.text, '坐标反算');
 
     tester.view.physicalSize = const Size(1200, 750);
     await tester.pumpAndSettle();
     expect(find.byTooltip('展开侧边栏'), findsOneWidget);
+    await tester.tap(find.byTooltip('展开侧边栏'));
+    await tester.pumpAndSettle();
     await tester.tap(
         find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
@@ -205,9 +207,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
-
-    await tester.tap(find.byTooltip('展开侧边栏'));
-    await tester.pumpAndSettle();
     expect(find.byTooltip('收起侧边栏'), findsOneWidget);
     expect(tester.widget<TextField>(librarySearch).controller!.text, '坐标反算');
     expect(tester.takeException(), isNull);
@@ -234,8 +233,13 @@ void main() {
     final header = find.byKey(const ValueKey('workspace-detail-header'));
     final dock = find.byType(QuickCommandBar);
     void checkShell(double width) {
-      expect(tester.getSize(sidebar).width, width);
-      expect(tester.getRect(sidebar).right, tester.getRect(content).left);
+      if (width == 0) {
+        expect(sidebar, findsNothing);
+        expect(tester.getSize(content).width, tester.view.physicalSize.width);
+      } else {
+        expect(tester.getSize(sidebar).width, width);
+        expect(tester.getRect(sidebar).right, tester.getRect(content).left);
+      }
       expect(find.byKey(const ValueKey('desktop-top-bar')), findsNothing);
       expect(
           find.byKey(const ValueKey('workspace-command-dock')), findsNothing);
@@ -244,7 +248,7 @@ void main() {
       expect(dock, findsNothing);
     }
 
-    checkShell(240);
+    checkShell(272);
     await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -255,11 +259,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
     expect(header, findsOneWidget);
-    checkShell(240);
+    checkShell(272);
 
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
-    checkShell(56);
+    expect(sidebar, findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('sidebar-toggle-btn')));
+    await tester.pumpAndSettle();
+    checkShell(0);
     expect(header, findsOneWidget);
     expect(
         find.descendant(
@@ -274,18 +281,18 @@ void main() {
 
     final route = ModalRoute.of(tester.element(find.byType(InversePage)))!;
     expect(route.transitionDuration, const Duration(milliseconds: 260));
-    await tester.tap(find.byTooltip('返回'));
+    await Navigator.of(tester.element(header)).maybePop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 70));
     expect(route.animation!.value, inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
-    checkShell(56);
+    checkShell(0);
     expect(find.byType(InversePage), findsNothing);
     expect(find.byType(HomePage), findsOneWidget);
 
     tester.view.physicalSize = const Size(1280, 900);
     await tester.pumpAndSettle();
-    checkShell(240);
+    checkShell(0);
     expect(tester.takeException(), isNull);
   });
 
@@ -301,7 +308,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 宽屏显示 workspace-sidebar 与 LivePlot 分栏切换按钮
-    expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-sidebar')), findsNothing);
     expect(
         find.byKey(const ValueKey('workspace-liveplot-split')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('workspace-liveplot-toggle')));
@@ -311,6 +318,8 @@ void main() {
     expect(find.byType(WorkspaceLivePlotPanel), findsOneWidget);
 
     // 打开坐标反算并修改 A 点 X，验证跨 720dp 断点缩放不丢输入状态
+    await tester.tap(find.byTooltip('展开侧边栏'));
+    await tester.pumpAndSettle();
     await tester.tap(
         find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first);
     await tester.pumpAndSettle();
@@ -322,6 +331,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
+    await tester.tap(find.byTooltip('收起侧边栏'));
+    await tester.pumpAndSettle();
 
     final firstField = find
         .descendant(
@@ -344,7 +355,7 @@ void main() {
     // 拉宽回 >=720dp：恢复双栏与分栏 LivePlot，输入仍保留
     tester.view.physicalSize = const Size(720, 800);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-sidebar')), findsNothing);
     expect(
         find.byKey(const ValueKey('workspace-liveplot-split')), findsOneWidget);
     expect(tester.widget<TextField>(firstField).controller!.text, '1234.567');
@@ -390,36 +401,15 @@ void main() {
       expect(desktopBar, findsNothing);
       expect(dock, findsNothing);
       expect(rootHeader, findsNothing);
-      expect(bottomNav, wide ? findsNothing : findsOneWidget);
+      expect(bottomNav, findsNothing);
       expect(find.byType(Drawer, skipOffstage: false), findsNothing);
-      if (wide) {
-        final bounds = tester.getRect(sidebar);
-        expect(bounds.top, 24);
-        expect(
-            bounds.right,
-            tester
-                .getRect(
-                  find.byKey(const ValueKey('workspace-content')),
-                )
-                .left);
-        expect(find.byType(Drawer), findsNothing);
-      } else {
-        expect(sidebar, findsNothing);
-        expect(find.byKey(const ValueKey('android-portrait-home-search')),
-            findsOneWidget);
-        final items =
-            find.descendant(of: bottomNav, matching: find.byType(InkWell));
-        expect(items, findsNWidgets(4));
-        for (var index = 0; index < 4; index++) {
-          expect(tester.getSize(items.at(index)).shortestSide,
-              greaterThanOrEqualTo(48));
-        }
-      }
-      final tool = find.descendant(
-        of: wide ? sidebar : find.byType(HomePage),
-        matching: find.text('坐标反算'),
-      );
-      if (wide && tool.evaluate().isEmpty) {
+      final overlay = !wide || size.width < 720;
+      expect(tester.getRect(sidebar).top, wide ? 24 : 0);
+      final content = find.byKey(const ValueKey('workspace-content'));
+      expect(tester.getRect(content).left,
+          overlay ? 0 : tester.getRect(sidebar).right);
+      final tool = find.descendant(of: sidebar, matching: find.text('坐标反算'));
+      if (tool.evaluate().isEmpty) {
         final sidebarList = find.descendant(
           of: sidebar,
           matching: find.byType(ListView),
@@ -446,8 +436,11 @@ void main() {
       expect(detailHeader, findsOneWidget);
       expect(
           find.byKey(const ValueKey('detail-action-capsule')), findsOneWidget);
-      expect(find.byKey(const ValueKey('workspace-detail-split')),
-          wide && size.width - 240 >= 560 ? findsOneWidget : findsNothing);
+      expect(
+          find.byKey(const ValueKey('workspace-detail-split')),
+          wide && size.width - (overlay ? 0 : 272) >= 560
+              ? findsOneWidget
+              : findsNothing);
       expect(find.byTooltip('导出表格'), findsOneWidget);
       await tester.tap(find.byTooltip('更多操作'));
       await tester.pumpAndSettle();
@@ -466,6 +459,7 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = AppSettings();
     await settings.setLanguage(AppLanguage.chinese);
+    await settings.setPortraitGlassNav(true);
     await tester.pumpWidget(WorkspaceHost(
       android: true,
       child: SurveyApp(settings: settings, drafts: DraftStore()),

@@ -256,38 +256,6 @@ Future<void> showDraftHistory(BuildContext context) async {
   if (context.mounted && id != null) await openWorkspaceDraft(context, id);
 }
 
-Future<void> showCoordinatePresets(BuildContext context) async {
-  final choice = await workspacePanel<String>(
-      context,
-      '坐标系预设',
-      Builder(
-        builder: (context) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final ellipsoid in ['CGCS2000', 'WGS84'])
-              ListTile(
-                selected:
-                    SettingsScope.of(context).workspaceEllipsoid == ellipsoid,
-                leading: const OutlineSymbol(Icons.public),
-                title: Text(ellipsoid),
-                onTap: () => Navigator.pop(context, ellipsoid),
-              ),
-            ListTile(
-              title: const LocalText('坐标转换'),
-              leading: const OutlineSymbol(Icons.swap_horiz),
-              onTap: () => Navigator.pop(context, 'projection'),
-            ),
-          ],
-        ),
-      ));
-  if (!context.mounted || choice == null) return;
-  if (choice == 'projection') {
-    await openTool(context, toolById(choice)!);
-  } else {
-    await SettingsScope.read(context).setWorkspaceEllipsoid(choice);
-  }
-}
-
 Future<void> _importPoints(BuildContext context) async {
   try {
     final path = await NativeFilesBridge.pickOpenFile(

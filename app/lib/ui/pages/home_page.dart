@@ -4,20 +4,21 @@ import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
-import '../../theme/tokens.dart';
-import '../../theme/workspace_layout.dart';
 import '../page_scaffold.dart';
 import '../tool_router.dart';
-import '../widgets/command_palette.dart';
 import '../widgets/outline_symbol.dart';
 import '../widgets/widgets.dart';
 import '../widgets/workspace_commands.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage(
-      {super.key, required this.onNavigate, required this.onOpenSettings});
+      {super.key,
+      required this.onNavigate,
+      required this.onOpenSettings,
+      this.onLivePlot});
   final ValueChanged<int> onNavigate;
   final VoidCallback onOpenSettings;
+  final VoidCallback? onLivePlot;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +42,6 @@ class HomePage extends StatelessWidget {
         draftId == null ? null : drafts?.value(draftId, 'lastStation');
     final tools =
         settings.pinnedTools.map(toolById).whereType<ToolDef>().toList();
-    final compact = workspaceUsesCompactLayout(context);
-    final android = WorkspaceHost.isAndroid(context);
     Widget toolTile(ToolDef tool) => ListTile(
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -56,68 +55,58 @@ class HomePage extends StatelessWidget {
     return PageScaffold(
       title: '工程测量',
       trailing: [
-        if (android && compact)
+        if (onLivePlot != null)
           IconButton(
-            key: const ValueKey('android-portrait-home-search'),
-            tooltip: context.tr('搜索工具与公式'),
-            onPressed: () => showCommandPalette(context),
-            icon: const OutlineSymbol(Icons.search_rounded),
-          )
-        else if (android)
-          IconButton(
+            key: const ValueKey('workspace-liveplot-toggle'),
             tooltip: 'LivePlot',
-            onPressed: () => showWorkspacePlot(context),
+            onPressed: onLivePlot,
             icon: const OutlineSymbol(Icons.polyline_outlined),
           ),
-        if (!android || !compact)
-          IconButton(
-            tooltip: context.tr('更多'),
-            onPressed: onOpenSettings,
-            icon: const OutlineSymbol(Icons.more_horiz),
-          ),
+        IconButton(
+          tooltip: context.tr('更多'),
+          onPressed: onOpenSettings,
+          icon: const OutlineSymbol(Icons.more_horiz),
+        ),
       ],
       children: [
-        SurfaceCard(
-          padding: const EdgeInsets.all(Insets.xl),
-          child: Column(
+        IntrinsicHeight(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              LocalText(draftId == null ? '本地工作区' : '继续上次',
-                  style: theme.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              Text(
-                draftId == null
-                    ? context.tr('开始一份测量草稿')
-                    : draftTitle(context, drafts, draftId),
-                style: theme.textTheme.headlineSmall,
-              ),
-              if (station != null)
-                Text(context.tr('最近测站 {station}', {'station': station}),
-                    style: monoNumber(context, size: 14)),
-              if (saved != null)
-                Text(MaterialLocalizations.of(context).formatCompactDate(saved),
-                    style: theme.textTheme.bodySmall),
-              const SizedBox(height: 8),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: FilledButton.tonalIcon(
-                  onPressed: () => draftId == null
+              Expanded(
+                child: _HomeDestinationCard(
+                  key: const ValueKey('home-resume'),
+                  title: context.tr('继续上次'),
+                  description: draftId == null
+                      ? context.tr('暂无最近草稿')
+                      : draftTitle(context, drafts, draftId),
+                  detail: station != null
+                      ? context.tr('最近测站 {station}', {'station': station})
+                      : saved == null
+                          ? null
+                          : MaterialLocalizations.of(context)
+                              .formatCompactDate(saved),
+                  action: context.tr(draftId == null ? '新建草稿' : '打开草稿'),
+                  onTap: () => draftId == null
                       ? showWorkspaceCreate(context)
                       : openWorkspaceDraft(context, draftId),
-                  icon: OutlineSymbol(
-                      draftId == null ? Icons.add : Icons.arrow_forward),
-                  label: LocalText(draftId == null ? '新建草稿' : '打开草稿'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _HomeDestinationCard(
+                  key: const ValueKey('home-tool-library'),
+                  title: context.tr('工具库'),
+                  description: context
+                      .tr('查看全部 {count} 项测量工具', {'count': kTools.length}),
+                  action: context.tr('查看全部'),
+                  onTap: () => onNavigate(3),
                 ),
               ),
             ],
           ),
         ),
-        SectionHeader(
-            title: '常用工具',
-            trailing: TextButton(
-              onPressed: () => onNavigate(3),
-              child: const LocalText('工具库'),
-            )),
+        if (tools.isNotEmpty) const SectionHeader(title: '常用工具'),
         if (tools.isNotEmpty)
           SurfaceCard(
             padding: EdgeInsets.zero,
@@ -139,6 +128,64 @@ class HomePage extends StatelessWidget {
             ),
           )
       ],
+    );
+  }
+}
+
+class _HomeDestinationCard extends StatelessWidget {
+  const _HomeDestinationCard(
+      {super.key,
+      required this.title,
+      required this.description,
+      required this.action,
+      required this.onTap,
+      this.detail});
+  final String title;
+  final String description;
+  final String? detail;
+  final String action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SurfaceCard(
+      padding: const EdgeInsets.all(16),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          if (detail != null)
+            Text(detail!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall),
+          const Spacer(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Flexible(
+                  child: Text(action,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge
+                          ?.copyWith(color: theme.colorScheme.primary))),
+              const SizedBox(width: 3),
+              Icon(Icons.chevron_right_rounded,
+                  size: 16, color: theme.colorScheme.primary),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

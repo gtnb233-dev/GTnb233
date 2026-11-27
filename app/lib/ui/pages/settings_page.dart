@@ -7,6 +7,7 @@ import '../../app_info.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import '../../theme/workspace_layout.dart';
 import '../../theme/ui_style.dart';
 import '../page_scaffold.dart';
 import '../widgets/widgets.dart';
@@ -100,7 +101,7 @@ class SettingsPage extends StatelessWidget {
         ),
         const SizedBox(height: Insets.l),
         const SectionHeader(
-          title: '外观',
+          title: '外观与导航',
           caption: 'Unslop Graphite 哑光界面与液态玻璃效果',
         ),
         const SizedBox(height: Insets.s),
@@ -113,6 +114,16 @@ class SettingsPage extends StatelessWidget {
           ),
           child: Column(
             children: [
+              if (WorkspaceHost.isAndroid(context)) ...[
+                SurveySwitchTile(
+                  key: const ValueKey('android-portrait-glass-nav-setting'),
+                  contentPadding: EdgeInsets.zero,
+                  value: s.portraitGlassNav,
+                  onChanged: s.setPortraitGlassNav,
+                  title: const LocalText('竖屏启用液态玻璃底部导航栏'),
+                ),
+                const Divider(height: 1),
+              ],
               SurveySwitchTile(
                 contentPadding: EdgeInsets.zero,
                 value: s.floatingGlassNav,

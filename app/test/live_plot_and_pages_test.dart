@@ -484,7 +484,7 @@ void main() {
       );
       expect(find.text('功能总览'), findsNothing);
       expect(find.text('分类总览'), findsNothing);
-      expect(find.text('本地工作区'), findsOneWidget);
+      expect(find.text('暂无最近草稿'), findsOneWidget);
 
       await _pump(tester, const ToolsPage());
       expect(find.text('分类总览'), findsOneWidget);
