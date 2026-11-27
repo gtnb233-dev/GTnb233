@@ -146,7 +146,8 @@ class _ControlPointPickerSheetState extends State<_ControlPointPickerSheet> {
                       for (final g in groups) ...[
                         const SizedBox(width: Insets.xs),
                         ChoiceChip(
-                          label: Text(g),
+                          label: Text(
+                              g == '默认' ? _l(context, '默认', 'Default') : g),
                           selected: _group == g,
                           onSelected: (_) => setState(() => _group = g),
                         ),
@@ -197,7 +198,11 @@ class _ControlPointPickerSheetState extends State<_ControlPointPickerSheet> {
                                                 ),
                                           ),
                                           const SizedBox(width: Insets.s),
-                                          Pill(label: p.group),
+                                          Pill(
+                                            label: p.group == '默认'
+                                                ? _l(context, '默认', 'Default')
+                                                : p.group,
+                                          ),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
@@ -288,7 +293,12 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
     final hCtrl = TextEditingController(
       text: existing?.h != null ? existing!.h.toString() : '',
     );
-    final groupCtrl = TextEditingController(text: existing?.group ?? '默认');
+    final initialGroup = existing?.group ?? '默认';
+    final groupCtrl = TextEditingController(
+      text: initialGroup == '默认'
+          ? _l(context, '默认', 'Default')
+          : initialGroup,
+    );
     final noteCtrl = TextEditingController(text: existing?.note ?? '');
 
     String? errorText;
@@ -382,7 +392,7 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
                             controller: hCtrl,
                             label: 'H(高程)',
                             unit: 'm',
-                            hint: '可选',
+                            hint: context.tr('可选'),
                             onChanged: (_) =>
                                 setDialogState(() => errorText = null),
                           ),
@@ -392,7 +402,7 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
                           child: TextValueField(
                             controller: groupCtrl,
                             label: '分组',
-                            hint: '默认',
+                            hint: _l(context, '默认', 'Default'),
                           ),
                         ),
                       ],
@@ -401,7 +411,7 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
                     TextValueField(
                       controller: noteCtrl,
                       label: '备注',
-                      hint: '点位说明（可选）',
+                      hint: context.tr('点位说明（可选）'),
                     ),
                     if (errorText != null) ...[
                       const SizedBox(height: Insets.s),
@@ -457,8 +467,12 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
       final y = double.parse(yCtrl.text.trim());
       final hText = hCtrl.text.trim();
       final h = hText.isEmpty ? null : double.parse(hText);
-      final group =
-          groupCtrl.text.trim().isEmpty ? '默认' : groupCtrl.text.trim();
+      final rawGroup = groupCtrl.text.trim();
+      final group = (rawGroup.isEmpty ||
+              rawGroup == 'Default' ||
+              rawGroup == _l(context, '默认', 'Default'))
+          ? '默认'
+          : rawGroup;
       final note = noteCtrl.text.trim();
 
       if (existing == null) {

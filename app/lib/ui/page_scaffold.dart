@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../export/export_service.dart';
 import '../l10n/survey_strings.dart';
+import '../state/drafts.dart';
 import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
@@ -11,6 +13,8 @@ import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/command_palette.dart';
 import 'widgets/outline_symbol.dart';
+import 'widgets/overlays.dart';
+import 'widgets/page_actions.dart';
 import 'widgets/tutorial_panel.dart';
 import 'widgets/workspace_commands.dart';
 
@@ -159,6 +163,7 @@ class DetailScaffold extends StatefulWidget {
     this.mobilePrimaryAction,
     this.bottomBar,
     this.toolbar,
+    this.draftBadge,
     this.sideVisual,
     this.bottomSection,
     this.desktopRail,
@@ -178,6 +183,9 @@ class DetailScaffold extends StatefulWidget {
   /// 内容最上方的一条工具插槽（草稿状态 + 导出等 PageActions 条）。
   /// 由调用方传入；为 null 时只留出视觉间距，不占位。
   final Widget? toolbar;
+
+  /// 可选标题右侧内联草稿状态徽标；未传入且 [toolbar] 为 [PageActions] 时自动读取。
+  final Widget? draftBadge;
 
   /// 固定在底部的操作条（如「计算」主按钮）。
   final Widget? bottomBar;
@@ -208,8 +216,317 @@ class _DetailScaffoldState extends State<DetailScaffold> {
   final GlobalKey _leftKey = GlobalKey();
   final GlobalKey _rightKey = GlobalKey();
 
+  PageActions? get _pageActions =>
+      widget.toolbar is PageActions ? widget.toolbar! as PageActions : null;
+
+  PageTutorial? get _tutorial =>
+      widget.children.whereType<PageTutorial>().firstOrNull;
+
+  static String _headerActionLabel(BuildContext context, String id) =>
+      switch (id) {
+        'export' => context.tr('导出'),
+        'point_names' => context.tr('自定义点名'),
+        'sample' => context.tr('载入算例'),
+        'clear' => context.tr('清空'),
+        _ => id,
+      };
+
+  static IconData _headerActionIcon(String id) => switch (id) {
+        'export' => Icons.ios_share,
+        'point_names' => Icons.edit_note_rounded,
+        'sample' => Icons.auto_fix_high_outlined,
+        'clear' => Icons.restart_alt,
+        _ => Icons.bolt_rounded,
+      };
+
+  Widget? _buildDraftBadge(BuildContext context) {
+    if (widget.draftBadge != null) return widget.draftBadge;
+    final pageActions = _pageActions;
+    if (pageActions == null) return null;
+    final drafts = DraftScope.maybeOf(context);
+    if (drafts == null) return null;
+    final scheme = Theme.of(context).colorScheme;
+    final savedAt = drafts.savedAt(pageActions.pageId);
+    String two(int v) => v.toString().padLeft(2, '0');
+    final label = savedAt == null
+        ? context.tr('草稿未保存')
+        : context.tr('已保存 {time}', {
+            'time': '${two(savedAt.hour)}:${two(savedAt.minute)}',
+          });
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: savedAt == null
+                ? scheme.onSurfaceVariant.withValues(alpha: 0.45)
+                : const Color(0xFF2E7D32),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: scheme.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildPinnedHeaderButtons(
+    BuildContext context, {
+    required bool compact,
+  }) {
+    final settings = SettingsScope.maybeOf(context);
+    final pinnedIds = settings?.pinnedHeaderActions ??
+        AppSettings.kDefaultPinnedHeaderActions;
+    final pageActions = _pageActions;
+    final sampleCb = pageActions?.onLoadSample ?? _tutorial?.onLoadSample;
+    final buttons = <Widget>[];
+    for (final id in pinnedIds.take(3)) {
+      switch (id) {
+        case 'export':
+          final buildTable = pageActions?.buildTable;
+          if (buildTable == null) continue;
+          buttons.add(
+            PopupMenuButton<ExportFormat>(
+              tooltip: context.tr('导出表格'),
+              padding: EdgeInsets.zero,
+              icon: compact
+                  ? const Icon(Icons.ios_share, size: 18)
+                  : const OutlineSymbol(Icons.ios_share, size: 19),
+              onSelected: (f) => PageActions.runExport(
+                context,
+                buildTable: buildTable,
+                format: f,
+              ),
+              itemBuilder: (ctx) => [
+                for (final f in ExportFormat.values)
+                  PopupMenuItem(
+                    value: f,
+                    child: Row(
+                      children: [
+                        Icon(
+                          switch (f) {
+                            ExportFormat.xlsx => Icons.grid_on_outlined,
+                            ExportFormat.png => Icons.image_outlined,
+                            ExportFormat.csv => Icons.table_chart_outlined,
+                            ExportFormat.txt => Icons.description_outlined,
+                          },
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            ctx.tr(f.label),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        case 'point_names':
+          final onPointNames = pageActions?.onPointNames;
+          if (onPointNames == null) continue;
+          buttons.add(
+            IconButton(
+              tooltip: context.tr('自定义点名'),
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              onPressed: onPointNames,
+              icon: compact
+                  ? const Icon(Icons.edit_note_rounded, size: 19)
+                  : const OutlineSymbol(Icons.edit_note_rounded, size: 19),
+            ),
+          );
+        case 'sample':
+          if (sampleCb == null) continue;
+          buttons.add(
+            IconButton(
+              tooltip: context.tr('载入算例'),
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              onPressed: sampleCb,
+              icon: compact
+                  ? const Icon(Icons.auto_fix_high_outlined, size: 18)
+                  : const OutlineSymbol(Icons.auto_fix_high_outlined, size: 19),
+            ),
+          );
+        case 'clear':
+          final onClear = pageActions?.onClear;
+          if (onClear == null) continue;
+          buttons.add(
+            IconButton(
+              tooltip: context.tr('清空'),
+              visualDensity: VisualDensity.compact,
+              iconSize: 18,
+              onPressed: () => PageActions.runClear(
+                context,
+                pageId: pageActions!.pageId,
+                onClear: onClear,
+                confirmClear: pageActions.confirmClear,
+              ),
+              icon: compact
+                  ? const Icon(Icons.restart_alt, size: 19)
+                  : const OutlineSymbol(Icons.restart_alt, size: 19),
+            ),
+          );
+      }
+    }
+    return buttons;
+  }
+
+  Future<void> _showPinnedActionsPicker(BuildContext context) async {
+    final settings = SettingsScope.maybeOf(context);
+    if (settings == null) return;
+    final initial = List<String>.of(settings.pinnedHeaderActions);
+    final ordered = <String>[
+      ...initial,
+      for (final id in AppSettings.kValidHeaderActions)
+        if (!initial.contains(id)) id,
+    ];
+    final selected = initial.toSet();
+
+    await SurveyModal.show<void>(
+      context,
+      title: '自定义顶栏快捷动作',
+      child: StatefulBuilder(
+        builder: (ctx, setModalState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              ctx.tr('勾选并拖动排序 1–3 个常用动作固定到顶栏'),
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+            const SizedBox(height: Insets.s),
+            SizedBox(
+              height: 224,
+              child: ReorderableListView.builder(
+                buildDefaultDragHandles: false,
+                itemCount: ordered.length,
+                onReorder: (oldIndex, newIndex) {
+                  setModalState(() {
+                    if (newIndex > oldIndex) newIndex -= 1;
+                    final item = ordered.removeAt(oldIndex);
+                    ordered.insert(newIndex, item);
+                  });
+                },
+                itemBuilder: (ctx, index) {
+                  final id = ordered[index];
+                  final checked = selected.contains(id);
+                  return ListTile(
+                    key: ValueKey('pin-action-$id'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Checkbox(
+                      value: checked,
+                      onChanged: (v) {
+                        if (v == null) return;
+                        if (!v && selected.length <= 1) {
+                          SurveyToast.info(ctx, '至少保留 1 个快捷动作');
+                          return;
+                        }
+                        if (v && selected.length >= 3) {
+                          SurveyToast.info(ctx, '最多固定 3 个快捷动作');
+                          return;
+                        }
+                        setModalState(() {
+                          if (v) {
+                            selected.add(id);
+                          } else {
+                            selected.remove(id);
+                          }
+                        });
+                      },
+                    ),
+                    title: Row(
+                      children: [
+                        Icon(_headerActionIcon(id), size: 17),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _headerActionLabel(ctx, id),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: ReorderableDragStartListener(
+                      index: index,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.drag_handle_rounded, size: 18),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: Insets.s),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () async {
+                    await settings.resetPinnedHeaderActions();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: Text(ctx.tr('恢复默认')),
+                ),
+                const SizedBox(width: Insets.s),
+                FilledButton(
+                  onPressed: () async {
+                    final next = [
+                      for (final id in ordered)
+                        if (selected.contains(id)) id,
+                    ];
+                    await settings.setPinnedHeaderActions(next);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: Text(ctx.tr('保存')),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _groupHeader(BuildContext context, String title) => Padding(
+        padding: const EdgeInsets.only(top: Insets.xs, bottom: Insets.xs),
+        child: Text(
+          context.tr(title),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      );
+
   Future<void> _showCompactActions() async {
     final android = WorkspaceHost.isAndroid(context);
+    final settings = SettingsScope.maybeOf(context);
+    final pageActions = _pageActions;
+    final tutorial = _tutorial;
+    final sampleCb = pageActions?.onLoadSample ?? tutorial?.onLoadSample;
     final actions = widget.actions
             ?.where((action) => !identical(action, widget.mobilePrimaryAction))
             .toList() ??
@@ -218,67 +535,163 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       context,
       '更多操作',
       Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (actions.isNotEmpty)
+          if (settings != null) ...[
+            _groupHeader(context, '顶栏快捷动作'),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.tune_rounded),
+              title: Text(context.tr('自定义顶栏快捷动作')),
+              subtitle: Text(
+                settings.pinnedHeaderActions
+                    .map((id) => _headerActionLabel(context, id))
+                    .join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.pop(context, 'customize_pinned'),
+            ),
+            const Divider(height: Insets.m),
+            _groupHeader(context, '外业显示'),
+            AnimatedBuilder(
+              animation: settings,
+              builder: (ctx, _) => SwitchListTile.adaptive(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.light_mode_outlined),
+                title: Text(ctx.tr('外业保持屏幕常亮')),
+                subtitle: Text(ctx.tr('保持屏幕常亮，方便外业连续录数')),
+                value: settings.keepScreenOn,
+                onChanged: (v) => settings.setKeepScreenOn(v),
+              ),
+            ),
+            const Divider(height: Insets.m),
+          ],
+          _groupHeader(context, '工具与辅助操作'),
+          if (actions.isNotEmpty) ...[
             Wrap(spacing: 8, runSpacing: 8, children: actions),
+            const SizedBox(height: Insets.s),
+          ],
+          if (pageActions?.onPointNames != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.edit_note_rounded),
+              title: Text(context.tr('自定义点名')),
+              onTap: () => Navigator.pop(context, 'point_names'),
+            ),
+          if (sampleCb != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.auto_fix_high_outlined),
+              title: Text(context.tr('载入算例')),
+              onTap: () => Navigator.pop(context, 'sample'),
+            ),
+          if (pageActions?.onClear != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.restart_alt),
+              title: Text(context.tr('清空')),
+              onTap: () => Navigator.pop(context, 'clear'),
+            ),
+          if (tutorial != null)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.menu_book_outlined),
+              title: Text(context.tr('打开离线教程')),
+              onTap: () => Navigator.pop(context, 'tutorial'),
+            ),
           if (android && widget.toolbar != null) ...[
-            if (actions.isNotEmpty) const SizedBox(height: Insets.m),
+            const SizedBox(height: Insets.s),
             widget.toolbar!,
           ],
           if (!android && widget.toolbar != null)
             Builder(
-                builder: (context) => ListTile(
-                      leading: const Icon(Icons.tune_rounded),
-                      title: const LocalText('页面工具栏'),
-                      onTap: () => Navigator.pop(context, 'toolbar'),
-                    )),
+              builder: (ctx) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.tune_rounded),
+                title: const LocalText('页面工具栏'),
+                onTap: () => Navigator.pop(ctx, 'toolbar'),
+              ),
+            ),
           if (!android)
             Builder(
-                builder: (context) => ListTile(
-                      leading: const Icon(Icons.search_rounded),
-                      title: const LocalText('快速跳转'),
-                      onTap: () => Navigator.pop(context, 'search'),
-                    )),
+              builder: (ctx) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.search_rounded),
+                title: const LocalText('快速跳转'),
+                onTap: () => Navigator.pop(ctx, 'search'),
+              ),
+            ),
         ],
       ),
       useBottomSheet: android,
     );
     if (!mounted) return;
-    if (command == 'search') await showCommandPalette(context);
-    if (command == 'toolbar' && _scrollCtrl.hasClients) {
-      await _scrollCtrl.animateTo(0, duration: Motion.base, curve: Motion.ease);
+    switch (command) {
+      case 'customize_pinned':
+        await _showPinnedActionsPicker(context);
+      case 'point_names':
+        pageActions?.onPointNames?.call();
+      case 'sample':
+        sampleCb?.call();
+      case 'clear':
+        if (pageActions?.onClear != null) {
+          await PageActions.runClear(
+            context,
+            pageId: pageActions!.pageId,
+            onClear: pageActions.onClear!,
+            confirmClear: pageActions.confirmClear,
+          );
+        }
+      case 'tutorial':
+        await tutorial?.openGuide(context);
+      case 'search':
+        await showCommandPalette(context);
+      case 'toolbar':
+        if (_scrollCtrl.hasClients) {
+          await _scrollCtrl.animateTo(
+            0,
+            duration: Motion.base,
+            curve: Motion.ease,
+          );
+        }
     }
   }
 
   Widget _compactHeader(BuildContext context, bool canPop) {
     final theme = Theme.of(context);
-    final tutorial = widget.children.whereType<PageTutorial>().firstOrNull;
-    final primary = widget.mobilePrimaryAction ??
-        (tutorial == null
-            ? null
-            : IconButton(
-                tooltip: context.tr('打开离线教程'),
-                iconSize: 19,
-                onPressed: () => tutorial.openGuide(context),
-                icon: const Icon(Icons.help_outline_rounded),
-              ));
+    final primary = widget.mobilePrimaryAction;
+    final draftBadge = _buildDraftBadge(context);
+    final pinnedButtons = _buildPinnedHeaderButtons(context, compact: true);
     return SizedBox(
       height: _compactHeaderHeight,
       child: Stack(
         children: [
           Positioned.fill(
             child: IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _scrollCtrl,
-                builder: (context, _) {
-                  final fade = (_scrollOffset / 36).clamp(0.0, 1.0);
-                  return ScrollEdgeFade(
-                    color: theme.scaffoldBackgroundColor,
-                    progress: fade,
-                    atTop: true,
-                  );
-                },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      theme.scaffoldBackgroundColor,
+                      theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
+                      theme.scaffoldBackgroundColor.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.62, 1.0],
+                  ),
+                ),
               ),
             ),
           ),
@@ -301,22 +714,38 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(context.tr(widget.title),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                            )),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              flex: 3,
+                              child: Text(
+                                context.tr(widget.title),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (draftBadge != null) ...[
+                              const SizedBox(width: 6),
+                              Flexible(flex: 2, child: draftBadge),
+                            ],
+                          ],
+                        ),
                         if ((widget.mobileSubtitle ?? widget.subtitle)
                             case final subtitle?)
-                          Text(context.tr(subtitle),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              )),
+                          Text(
+                            context.tr(subtitle),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -330,16 +759,19 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (primary != null)
-                          SizedBox(width: 48, height: 48, child: primary),
+                          SizedBox(width: 40, height: 42, child: primary),
+                        for (final btn in pinnedButtons)
+                          SizedBox(width: 36, height: 42, child: btn),
                         SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: IconButton(
-                              tooltip: context.tr('更多操作'),
-                              iconSize: 20,
-                              onPressed: _showCompactActions,
-                              icon: const Icon(Icons.more_horiz_rounded),
-                            )),
+                          width: 40,
+                          height: 42,
+                          child: IconButton(
+                            tooltip: context.tr('更多操作'),
+                            iconSize: 20,
+                            onPressed: _showCompactActions,
+                            icon: const Icon(Icons.more_horiz_rounded),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -380,8 +812,12 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         constraints.maxWidth >= (android ? 560 : 880);
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
     final resultsInRightPane = twoPane && widget.resultsBesideInputs;
-    final tutorial = widget.children.whereType<PageTutorial>().firstOrNull;
     final livePlot = LivePlotScope.maybeOf(context);
+    final desktopDraftBadge = _buildDraftBadge(context);
+    final desktopPinnedButtons = _buildPinnedHeaderButtons(
+      context,
+      compact: false,
+    );
     final desktopHeader = Padding(
       padding: const EdgeInsets.fromLTRB(Insets.l, 8, Insets.l, 8),
       child: Center(
@@ -394,16 +830,28 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    context.tr(widget.title),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0,
-                      color: scheme.onSurface,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        flex: 3,
+                        child: Text(
+                          context.tr(widget.title),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (desktopDraftBadge != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(flex: 2, child: desktopDraftBadge),
+                      ],
+                    ],
                   ),
                   if (widget.subtitle != null)
                     Text(
@@ -441,16 +889,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                       children: widget.actions!,
                     ),
                   ],
-                  if (tutorial != null)
-                    IconButton(
-                      tooltip: context.tr('打开离线教程'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => tutorial.openGuide(context),
-                      icon: const OutlineSymbol(
-                        Icons.help_outline_rounded,
-                        size: 19,
-                      ),
-                    ),
+                  ...desktopPinnedButtons,
                   if (livePlot != null)
                     IconButton(
                       tooltip: context.tr('实时坐标图分栏'),
@@ -497,11 +936,13 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 children: [
                   Expanded(
                     flex: 5,
-                    child: KeyedSubtree(
-                      key: _leftKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: _stack(widget.children),
+                    child: RepaintBoundary(
+                      child: KeyedSubtree(
+                        key: _leftKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: _stack(widget.children),
+                        ),
                       ),
                     ),
                   ),
@@ -536,29 +977,34 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                           ),
                         );
                       },
-                      child: resultsInRightPane
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _stack([
-                                widget.sideVisual!,
-                                if (widget.bottomSection != null)
-                                  widget.bottomSection!,
-                              ]),
-                            )
-                          : widget.sideVisual!,
+                      child: RepaintBoundary(
+                        child: resultsInRightPane
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: _stack([
+                                  widget.sideVisual!,
+                                  if (widget.bottomSection != null)
+                                    widget.bottomSection!,
+                                ]),
+                              )
+                            : widget.sideVisual!,
+                      ),
                     ),
                   ),
                 ],
               ),
               if (!resultsInRightPane && widget.bottomSection != null) ...[
                 const SizedBox(height: Insets.l),
-                widget.bottomSection!,
+                RepaintBoundary(child: widget.bottomSection!),
               ],
             ] else ...[
               ..._stack([
-                ...widget.children,
-                if (widget.sideVisual != null) widget.sideVisual!,
-                if (widget.bottomSection != null) widget.bottomSection!,
+                for (final child in widget.children)
+                  RepaintBoundary(child: child),
+                if (widget.sideVisual != null)
+                  RepaintBoundary(child: widget.sideVisual!),
+                if (widget.bottomSection != null)
+                  RepaintBoundary(child: widget.bottomSection!),
               ]),
             ],
           ],

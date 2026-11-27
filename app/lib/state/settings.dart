@@ -1,8 +1,11 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../l10n/survey_strings.dart';
+import '../platform/native_bridge_contract.dart';
 import '../theme/ui_style.dart';
 
 /// 长度 / 坐标输入输出量级：米、厘米、毫米。
@@ -88,12 +91,27 @@ class AppSettings extends ChangeNotifier {
   static const _kMonet = 'monet';
   static const _kMonetSeed = 'monet_seed';
   static const _kPinnedTools = 'pinned_tools';
+  static const _kKeepScreenOn = 'keep_screen_on';
+  static const _kPinnedHeaderActions = 'pinned_header_actions';
 
   static const List<String> kDefaultPinnedTools = [
     'leveling4',
     'traverse',
     'projection',
     'earthwork',
+  ];
+
+  static const List<String> kValidHeaderActions = [
+    'export',
+    'point_names',
+    'sample',
+    'clear',
+  ];
+
+  static const List<String> kDefaultPinnedHeaderActions = [
+    'export',
+    'point_names',
+    'clear',
   ];
 
   ThemeMode _themeMode = ThemeMode.system;
@@ -116,6 +134,9 @@ class AppSettings extends ChangeNotifier {
   bool _monet = false;
   MonetSeed _monetSeed = MonetSeed.auto;
   List<String> _pinnedTools = List<String>.of(kDefaultPinnedTools);
+  bool _keepScreenOn = false;
+  List<String> _pinnedHeaderActions =
+      List<String>.of(kDefaultPinnedHeaderActions);
 
   ThemeMode get themeMode => _themeMode;
   AppLanguage get language => _language;
@@ -169,6 +190,13 @@ class AppSettings extends ChangeNotifier {
   List<String> get pinnedToolIds => pinnedTools;
   bool isPinned(String toolId) => _pinnedTools.contains(toolId);
 
+  /// 外业保持屏幕常亮。
+  bool get keepScreenOn => _keepScreenOn;
+
+  /// 顶栏快捷动作（1–3 个）。
+  List<String> get pinnedHeaderActions =>
+      List.unmodifiable(_pinnedHeaderActions);
+
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
     final t = p.getString(_kTheme);
@@ -198,7 +226,13 @@ class AppSettings extends ChangeNotifier {
     _monetSeed = MonetSeed.parse(p.getString(_kMonetSeed));
     final pinned = p.getStringList(_kPinnedTools);
     _pinnedTools = List<String>.of(pinned ?? kDefaultPinnedTools);
+    _keepScreenOn = p.getBool(_kKeepScreenOn) ?? false;
+    _pinnedHeaderActions =
+        _sanitizePinnedHeaderActions(p.getStringList(_kPinnedHeaderActions));
     notifyListeners();
+    if (_keepScreenOn) {
+      unawaited(NativeWindowBridge.setKeepScreenOn(true));
+    }
   }
 
   Future<void> _persist(Future<void> Function(SharedPreferences) fn) async {
@@ -336,6 +370,49 @@ class AppSettings extends ChangeNotifier {
   /// 恢复默认「常用工具」列表。
   Future<void> resetPinnedTools() => setPinnedToolIds(kDefaultPinnedTools);
 
+  static List<String> _sanitizePinnedHeaderActions(List<String>? raw) {
+    if (raw == null || raw.isEmpty) {
+      return List<String>.of(kDefaultPinnedHeaderActions);
+    }
+    final valid = <String>[];
+    for (final id in raw) {
+      if (kValidHeaderActions.contains(id) && !valid.contains(id)) {
+        valid.add(id);
+        if (valid.length == 3) break;
+      }
+    }
+    if (valid.isEmpty) {
+      return List<String>.of(kDefaultPinnedHeaderActions);
+    }
+    return valid;
+  }
+
+  /// 设置外业保持屏幕常亮并通知原生窗口。
+  Future<void> setKeepScreenOn(bool value) async {
+    if (_keepScreenOn == value) return;
+    _keepScreenOn = value;
+    notifyListeners();
+    await NativeWindowBridge.setKeepScreenOn(value);
+    await _persist((p) => p.setBool(_kKeepScreenOn, value));
+  }
+
+  /// 设置顶栏快捷动作（1–3 个去重有效 ID）。
+  Future<void> setPinnedHeaderActions(List<String> ids) async {
+    final next = _sanitizePinnedHeaderActions(ids);
+    if (_pinnedHeaderActions.length == next.length &&
+        List.generate(next.length, (i) => _pinnedHeaderActions[i] == next[i])
+            .every((e) => e)) {
+      return;
+    }
+    _pinnedHeaderActions = next;
+    notifyListeners();
+    await _persist((p) => p.setStringList(_kPinnedHeaderActions, next));
+  }
+
+  /// 恢复默认顶栏快捷动作。
+  Future<void> resetPinnedHeaderActions() =>
+      setPinnedHeaderActions(kDefaultPinnedHeaderActions);
+
   /// 恢复默认录入与显示参数（米制 · 度分秒 · 坐标 3 位 · 秒 1 位）。
   Future<void> resetInputDefaults() async {
     _angleMode = AngleInputMode.dmsCompact;
@@ -365,6 +442,10 @@ class SettingsScope extends InheritedNotifier<AppSettings> {
     assert(scope != null, 'SettingsScope 未挂载');
     return scope!.notifier!;
   }
+
+  /// 可选订阅：未挂载 [SettingsScope] 时返回 null。
+  static AppSettings? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier;
 
   /// 不订阅变更（放在 initState / 回调里用）。
   static AppSettings read(BuildContext context) {

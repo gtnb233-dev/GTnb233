@@ -514,7 +514,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('手簿图片'), findsOneWidget);
+      expect(find.text('导出'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });

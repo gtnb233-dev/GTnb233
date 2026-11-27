@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 import 'overlays.dart';
 import 'measurement_columns.dart';
 
@@ -192,8 +193,11 @@ class _WideTableState extends State<WideTable> {
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final fixedRowHeight = (44.0 * textScale.clamp(1.0, 1.35)).ceilToDouble();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    return RepaintBoundary(
+      child: DeferredTransitionChild(
+        placeholderHeight: (44.0 * (1 + widget.rows.length)).clamp(88.0, 220.0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
         final maxW = constraints.maxWidth;
         final expand = maxW.isFinite && baseTotal > 0 && maxW > baseTotal;
         final scale = expand ? maxW / baseTotal : 1.0;
@@ -448,7 +452,9 @@ class _WideTableState extends State<WideTable> {
           interactive: true,
           child: scroller,
         );
-      },
+          },
+        ),
+      ),
     );
   }
 }

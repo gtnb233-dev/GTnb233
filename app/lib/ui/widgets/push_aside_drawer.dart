@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'liquid_glass.dart';
@@ -97,7 +99,9 @@ class PushAsideDrawerState extends State<PushAsideDrawer>
           builder: (context, child) {
             final progress = widget.enabled ? _progress.value : 0.0;
             return GlassBlurSuspensionScope(
-              suspended: (progress > 0 && progress < 1) ||
+              suspended: _progress.isAnimating ||
+                  (progress > 0 && progress < 1) ||
+                  (!kIsWeb && Platform.isAndroid) ||
                   GlassBlurSuspensionScope.isSuspended(context),
               child: Stack(
                 fit: StackFit.expand,

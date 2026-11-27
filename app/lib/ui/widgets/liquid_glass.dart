@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
@@ -72,8 +74,12 @@ class LiquidGlassSurface extends StatelessWidget {
       content = Padding(padding: padding!, child: content);
     }
 
-    final translucent =
-        blurSigma > 0 && !GlassBlurSuspensionScope.isSuspended(context);
+    final suspendBlur = (!kIsWeb && Platform.isAndroid) ||
+        GlassBlurSuspensionScope.isSuspended(context);
+    final translucent = blurSigma > 0 && !suspendBlur;
+    final resolvedFill = (!translucent && blurSigma > 0)
+        ? fill.withValues(alpha: isDark ? 0.94 : 0.96)
+        : fill;
     if (translucent) {
       content = ClipRRect(
         borderRadius: borderRadius,
@@ -99,7 +105,7 @@ class LiquidGlassSurface extends StatelessWidget {
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: translucent ? Colors.transparent : fill,
+        color: translucent ? Colors.transparent : resolvedFill,
         borderRadius: borderRadius,
         border: Border.all(
           color: IosColors.separator(brightness),
@@ -316,4 +322,76 @@ class ScrollEdgeFade extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Defers building a heavy [child] (such as a chart or wide table) until the
+/// enclosing [ModalRoute] entrance transition has completed.
+class DeferredTransitionChild extends StatefulWidget {
+  const DeferredTransitionChild({
+    super.key,
+    required this.child,
+    this.placeholderHeight = 180,
+  });
+
+  final Widget child;
+  final double placeholderHeight;
+
+  @override
+  State<DeferredTransitionChild> createState() =>
+      _DeferredTransitionChildState();
+}
+
+class _DeferredTransitionChildState extends State<DeferredTransitionChild> {
+  Animation<double>? _animation;
+  bool _ready = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_ready) return;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final animation = ModalRoute.of(context)?.animation;
+    if (disableAnimations ||
+        animation == null ||
+        animation.isCompleted ||
+        animation.value >= 1.0) {
+      _detach();
+      _ready = true;
+      return;
+    }
+    if (!identical(_animation, animation)) {
+      _detach();
+      _animation = animation;
+      animation.addStatusListener(_onStatusChanged);
+    }
+  }
+
+  void _onStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed ||
+        (_animation?.value ?? 0) >= 1.0) {
+      _detach();
+      if (mounted && !_ready) {
+        setState(() => _ready = true);
+      }
+    }
+  }
+
+  void _detach() {
+    _animation?.removeStatusListener(_onStatusChanged);
+    _animation = null;
+  }
+
+  @override
+  void dispose() {
+    _detach();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_ready) {
+      return widget.child;
+    }
+    return SizedBox(height: widget.placeholderHeight);
+  }
 }

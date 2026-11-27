@@ -800,61 +800,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     );
   }
 
-  Future<void> _showLiveTutorial() async {
-    final activeIndex = _rows.indexOf(_activeStation ?? _rows.first);
-    final index = _resultOf(activeIndex) != null
-        ? activeIndex
-        : _completeRows.firstOrNull;
-    final result = index == null ? null : _resultOf(index);
-    final observation = index == null ? null : _observation(index);
-    final route = _route;
-    String f(double value) => fmt(value, 1);
-    final load = await workspacePanel<bool>(
-      context,
-      '四等水准教程',
-      Builder(builder: (context) {
-        final style = Theme.of(context).textTheme.bodyMedium;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const PageTutorial(id: 'leveling4', initiallyExpanded: true),
-            const SizedBox(height: 12),
-            LocalText('代入当前读数', style: Theme.of(context).textTheme.titleSmall),
-            if (result == null || observation == null)
-              const LocalText('录完一站后可查看代入过程')
-            else
-              SelectableText(
-                '${_rows[index!].name.text}\n'
-                'd = ${f(result.backDistanceM)} − ${f(result.frontDistanceM)} = ${f(result.distanceDiffM)} m\n'
-                'ΔH = [(${f(observation.backBlack)} − ${f(observation.frontBlack)}) + '
-                '(${f(observation.backRed)} − ${f(observation.frontRed)}) − '
-                '(${f(observation.kBack)} − ${f(observation.kFront)})] ÷ 2 = ${f(result.meanDiffMm)} mm'
-                '${route == null ? '' : '\nfₕ = ${f(route.sumDiffMm)} − ${f(route.expectedDiffMm)} = ${f(route.misclosureMm)} mm  (±${f(route.limitMm)} mm)'}',
-                style: style?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()]),
-              ),
-            const SizedBox(height: 12),
-            SurveyPopconfirm(
-              title: '载入规范算例？',
-              description: '当前手簿读数将被替换为 4 站教材算例',
-              confirmLabel: '载入',
-              onConfirm: () => Navigator.of(context).pop(true),
-              builder: (_, open) => FilledButton(
-                onPressed: open,
-                child: const LocalText('载入规范算例'),
-              ),
-            ),
-          ],
-        );
-      }),
-      useBottomSheet: true,
-    );
-    if (mounted && load == true) {
-      _loadExample();
-      SurveyToast.info(context, '已载入四等水准规范算例');
-    }
-  }
-
   DoubleStaffStationResult? _resultOf(int rowIndex) {
     final pos = _completeRows.indexOf(rowIndex);
     if (pos < 0 || pos >= _stationResults.length) return null;
@@ -2191,11 +2136,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   @override
   Widget build(BuildContext context) {
     final route = _route;
-    final tutorialButton = IconButton(
-      tooltip: context.tr('四等水准教程'),
-      onPressed: _showLiveTutorial,
-      icon: const Icon(Icons.help_outline),
-    );
     return DetailScaffold(
       commandBar: true,
       resultsBesideInputs: true,
@@ -2219,23 +2159,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       title: '四等水准测量',
       subtitle: '手簿 → 闭合差 → 限差 → 配平 → 各点高程',
       mobileSubtitle: drafts.value(draftPageId, '_title') ?? '双面尺 · 逐站检核',
-      mobilePrimaryAction: tutorialButton,
       actions: [
-        tutorialButton,
-        PopupMenuButton<bool>(
-          tooltip: context.tr('草稿编辑记录'),
-          onSelected: _replayEdit,
-          itemBuilder: (_) => [
-            PopupMenuItem(
-                value: true,
-                enabled: _undo.isNotEmpty,
-                child: const LocalText('撤销')),
-            PopupMenuItem(
-                value: false,
-                enabled: _redo.isNotEmpty,
-                child: const LocalText('重做')),
-          ],
-        ),
         SurveyPopconfirm(
           title: '载入规范算例？',
           description: '当前手簿读数将被替换为 4 站教材算例',
@@ -2258,6 +2182,11 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         canRedo: _redo.isNotEmpty,
         onUndo: () => _replayEdit(true),
         onRedo: () => _replayEdit(false),
+        onPointNames: _openPointNamesDialog,
+        onLoadSample: () {
+          _loadExample();
+          SurveyToast.info(context, '已载入四等水准规范算例');
+        },
         extra: [
           ActionChip(
             avatar: const Icon(Icons.edit_note_rounded, size: 15),
@@ -2265,20 +2194,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
                 style: const TextStyle(fontSize: 12)),
             visualDensity: VisualDensity.compact,
             onPressed: _openPointNamesDialog,
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.table_view_rounded, size: 15),
-            label: Text(_l(context, '手簿 Excel', 'Excel'),
-                style: const TextStyle(fontSize: 12)),
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _exportHandbook(ExportFormat.xlsx),
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.image_outlined, size: 15),
-            label: Text(_l(context, '手簿图片', 'Image'),
-                style: const TextStyle(fontSize: 12)),
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _exportHandbook(ExportFormat.png),
           ),
           Pill(
             label: _l(context, '手簿 mm · 高程 m', 'mm · m'),

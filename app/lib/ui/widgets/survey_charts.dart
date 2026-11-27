@@ -5,6 +5,7 @@ import 'package:survey_core/survey_core.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
+import 'liquid_glass.dart';
 
 bool _chartListEq<T>(List<T> a, List<T> b) {
   if (identical(a, b)) return true;
@@ -146,22 +147,25 @@ class _EarthworkGridChartState extends State<EarthworkGridChart> {
                     }
                   },
                   child: RepaintBoundary(
-                    child: CustomPaint(
-                      size: size,
-                      painter: _EarthworkGridPainter(
-                        cells: cells,
-                        rows: rows,
-                        cols: cols,
-                        maxAbsH: maxAbsH,
-                        selectedIndex: _selectedIndex,
-                        scheme: scheme,
-                        cutColor: cutColor,
-                        fillColor: fillColor,
-                        fontFamily:
-                            DefaultTextStyle.of(context).style.fontFamily,
-                        fontFamilyFallback: DefaultTextStyle.of(context)
-                            .style
-                            .fontFamilyFallback,
+                    child: DeferredTransitionChild(
+                      placeholderHeight: widget.height,
+                      child: CustomPaint(
+                        size: size,
+                        painter: _EarthworkGridPainter(
+                          cells: cells,
+                          rows: rows,
+                          cols: cols,
+                          maxAbsH: maxAbsH,
+                          selectedIndex: _selectedIndex,
+                          scheme: scheme,
+                          cutColor: cutColor,
+                          fillColor: fillColor,
+                          fontFamily:
+                              DefaultTextStyle.of(context).style.fontFamily,
+                          fontFamilyFallback: DefaultTextStyle.of(context)
+                              .style
+                              .fontFamilyFallback,
+                        ),
                       ),
                     ),
                   ),
@@ -410,15 +414,16 @@ class _EarthworkGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _EarthworkGridPainter old) =>
-      old.rows != rows ||
-      old.cols != cols ||
-      old.maxAbsH != maxAbsH ||
-      old.selectedIndex != selectedIndex ||
-      old.cutColor != cutColor ||
-      old.fillColor != fillColor ||
-      old.scheme != scheme ||
-      old.fontFamily != fontFamily ||
-      !_chartListEq(old.cells, cells);
+      !identical(old, this) &&
+      (old.rows != rows ||
+          old.cols != cols ||
+          old.maxAbsH != maxAbsH ||
+          old.selectedIndex != selectedIndex ||
+          old.cutColor != cutColor ||
+          old.fillColor != fillColor ||
+          old.scheme != scheme ||
+          old.fontFamily != fontFamily ||
+          !_chartListEq(old.cells, cells));
 }
 
 /// 平均断面法：沿桩号断面面积变化包络图。
@@ -467,15 +472,18 @@ class SectionProfileChart extends StatelessWidget {
           SizedBox(
             height: height,
             child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _SectionProfilePainter(
-                areas: areas,
-                spacings: spacings,
-                volumes: result.volumes,
-                scheme: scheme,
-                fontFamily: DefaultTextStyle.of(context).style.fontFamily,
-                fontFamilyFallback:
-                    DefaultTextStyle.of(context).style.fontFamilyFallback,
+              child: DeferredTransitionChild(
+                placeholderHeight: height,
+                child: CustomPaint(
+                  painter: _SectionProfilePainter(
+                    areas: areas,
+                    spacings: spacings,
+                    volumes: result.volumes,
+                    scheme: scheme,
+                    fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                    fontFamilyFallback:
+                        DefaultTextStyle.of(context).style.fontFamilyFallback,
+                  ),
                 ),
               ),
             ),
@@ -613,11 +621,12 @@ class _SectionProfilePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SectionProfilePainter old) =>
-      !_chartListEq(old.areas, areas) ||
-      !_chartListEq(old.spacings, spacings) ||
-      !_chartListEq(old.volumes, volumes) ||
-      old.scheme != scheme ||
-      old.fontFamily != fontFamily;
+      !identical(old, this) &&
+      (!_chartListEq(old.areas, areas) ||
+          !_chartListEq(old.spacings, spacings) ||
+          !_chartListEq(old.volumes, volumes) ||
+          old.scheme != scheme ||
+          old.fontFamily != fontFamily);
 }
 
 /// 竖曲线纵断面动态几何图：绘制前后坡度切线、变坡点、二次抛物线及查询桩号。
@@ -681,18 +690,21 @@ class VerticalCurveChart extends StatelessWidget {
           SizedBox(
             height: height,
             child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _VerticalCurvePainter(
-                curve: curve,
-                queryStation: queryStation,
-                queryElevation: queryElevation,
-                scheme: scheme,
-                startLabel: context.tr('起点'),
-                vpiLabel: context.tr('变坡点'),
-                endLabel: context.tr('终点'),
-                fontFamily: DefaultTextStyle.of(context).style.fontFamily,
-                fontFamilyFallback:
-                    DefaultTextStyle.of(context).style.fontFamilyFallback,
+              child: DeferredTransitionChild(
+                placeholderHeight: height,
+                child: CustomPaint(
+                  painter: _VerticalCurvePainter(
+                    curve: curve,
+                    queryStation: queryStation,
+                    queryElevation: queryElevation,
+                    scheme: scheme,
+                    startLabel: context.tr('起点'),
+                    vpiLabel: context.tr('变坡点'),
+                    endLabel: context.tr('终点'),
+                    fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                    fontFamilyFallback:
+                        DefaultTextStyle.of(context).style.fontFamilyFallback,
+                  ),
                 ),
               ),
             ),
@@ -869,14 +881,15 @@ class _VerticalCurvePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _VerticalCurvePainter old) =>
-      old.curve != curve ||
-      old.queryStation != queryStation ||
-      old.queryElevation != queryElevation ||
-      old.startLabel != startLabel ||
-      old.vpiLabel != vpiLabel ||
-      old.endLabel != endLabel ||
-      old.scheme != scheme ||
-      old.fontFamily != fontFamily;
+      !identical(old, this) &&
+      (old.curve != curve ||
+          old.queryStation != queryStation ||
+          old.queryElevation != queryElevation ||
+          old.startLabel != startLabel ||
+          old.vpiLabel != vpiLabel ||
+          old.endLabel != endLabel ||
+          old.scheme != scheme ||
+          old.fontFamily != fontFamily);
 }
 
 /// 水准路线高程纵断面图 + 各站改正数分配柱图。
@@ -976,8 +989,11 @@ class LevelingProfileChart extends StatelessWidget {
                         onStationSelected!(station);
                       },
                 child: RepaintBoundary(
-                  child: CustomPaint(
-                      painter: painter, child: const SizedBox.expand()),
+                  child: DeferredTransitionChild(
+                    placeholderHeight: height,
+                    child: CustomPaint(
+                        painter: painter, child: const SizedBox.expand()),
+                  ),
                 ),
               );
             }),
@@ -1202,14 +1218,16 @@ class _LevelingProfilePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LevelingProfilePainter old) =>
-      !_chartListEq(old.heightsM, heightsM) ||
-      !_chartListEq(old.correctionsMm, correctionsMm) ||
-      old.selectedStation != selectedStation ||
-      !_chartListEq(old.chainages, chainages) ||
-      old.correctionLabel != correctionLabel ||
-      !_chartSetEq(old.errorStations, errorStations) ||
-      old.scheme != scheme ||
-      old.fontFamily != fontFamily;
+      !identical(old, this) &&
+      (!_chartListEq(old.pointNames, pointNames) ||
+          !_chartListEq(old.heightsM, heightsM) ||
+          !_chartListEq(old.correctionsMm, correctionsMm) ||
+          old.selectedStation != selectedStation ||
+          !_chartListEq(old.chainages, chainages) ||
+          old.correctionLabel != correctionLabel ||
+          !_chartSetEq(old.errorStations, errorStations) ||
+          old.scheme != scheme ||
+          old.fontFamily != fontFamily);
 }
 
 class _LegendDot extends StatelessWidget {

@@ -45,10 +45,17 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
       return super
           .buildTransitions(context, animation, secondaryAnimation, content);
     }
+    final routeAnimation = popGestureInProgress
+        ? animation
+        : CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
     return Theme.of(context).pageTransitionsTheme.buildTransitions(
           this,
           context,
-          animation.drive(CurveTween(curve: Curves.easeOutCubic)),
+          routeAnimation,
           secondaryAnimation,
           content,
         );

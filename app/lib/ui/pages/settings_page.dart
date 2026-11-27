@@ -357,18 +357,40 @@ class SettingsPage extends StatelessWidget {
             horizontal: Insets.l,
             vertical: Insets.s,
           ),
-          child: SurveySwitchTile(
-            contentPadding: EdgeInsets.zero,
-            value: s.haptic,
-            onChanged: s.setHaptic,
-            title: const LocalText(
-              '触感反馈',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-            subtitle: const LocalText(
-              '按钮与复制结果时给出轻微振动',
-              style: TextStyle(fontSize: 11.5),
-            ),
+          child: Column(
+            children: [
+              SurveySwitchTile(
+                contentPadding: EdgeInsets.zero,
+                value: s.haptic,
+                onChanged: s.setHaptic,
+                title: const LocalText(
+                  '触感反馈',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const LocalText(
+                  '按钮与复制结果时给出轻微振动',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+              ),
+              Divider(
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+                height: 0.5,
+                thickness: 0.5,
+              ),
+              SurveySwitchTile(
+                contentPadding: EdgeInsets.zero,
+                value: s.keepScreenOn,
+                onChanged: s.setKeepScreenOn,
+                title: const LocalText(
+                  '外业保持屏幕常亮',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const LocalText(
+                  '保持屏幕常亮，方便外业连续录数',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: Insets.l),

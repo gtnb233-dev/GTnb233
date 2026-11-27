@@ -137,6 +137,31 @@ void main() {
       expect(_cjk.hasMatch(t), isFalse, reason: 'CJK in Leveling4 PNG: $t');
     }
 
+    // 2b. Leveling route exceeding limit renders English "Exceeds limit, re-measure" without 请复测
+    final exceededSheet = SurveyForms.buildLevelingResultSheet(
+      pointNames: const ['BM0', 'A', 'BM0'],
+      segmentLengthsM: const [100, 100],
+      observedDiffsM: const [0.020, 0.020],
+      correctionsMm: const [-20, -20],
+      adjustedDiffsM: const [0.0, 0.0],
+      elevationsM: const [10.0, 10.020, 10.0],
+      sumObservedM: 0.040,
+      theoreticalDiffM: 0.0,
+      misclosureMm: 40.0,
+      limitMm: 8.9,
+      ok: false,
+      closed: true,
+      date: DateTime(2026, 11, 27),
+    );
+    final exceededTexts = SurveyFormImageRenderer.extractRenderTexts(
+      [exceededSheet],
+      translate: en,
+    );
+    expect(exceededTexts.join('\n'), contains('Exceeds limit, re-measure'));
+    for (final t in exceededTexts) {
+      expect(_cjk.hasMatch(t), isFalse, reason: 'CJK in Exceeded Leveling PNG: $t');
+    }
+
     // 3. Generic SheetTable
     final genericTable = const SheetTable(
       title: '坐标反算',

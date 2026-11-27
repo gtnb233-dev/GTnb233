@@ -613,11 +613,11 @@ void main() {
           find.byKey(const ValueKey('detail-action-capsule')), findsOneWidget);
       expect(find.byKey(const ValueKey('workspace-detail-split')),
           wide ? findsOneWidget : findsNothing);
-      expect(find.byTooltip('导出表格'), findsNothing);
+      expect(find.byTooltip('导出表格'), findsOneWidget);
       await tester.tap(find.byTooltip('更多操作'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.byTooltip('导出表格'), findsOneWidget);
+      expect(find.text('自定义顶栏快捷动作'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

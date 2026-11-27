@@ -345,6 +345,7 @@ class MetricTile extends StatefulWidget {
     this.accent,
     this.graphic,
     this.hasDraft = false,
+    this.copyable = true,
     this.onTap,
   });
 
@@ -355,6 +356,7 @@ class MetricTile extends StatefulWidget {
   final Color? accent;
   final Widget? graphic;
   final bool hasDraft;
+  final bool copyable;
   final VoidCallback? onTap;
 
   @override
@@ -368,13 +370,26 @@ class _MetricTileState extends State<MetricTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final copyText =
+        widget.unit == null ? widget.value : '${widget.value} ${widget.unit}';
+    final effectiveOnTap = widget.onTap ??
+        (widget.copyable
+            ? () {
+                unawaited(Clipboard.setData(ClipboardData(text: copyText)));
+                unawaited(HapticFeedback.selectionClick());
+                SurveyToast.success(
+                  context,
+                  '${context.tr('已复制')} ${context.tr(widget.label)}',
+                );
+              }
+            : null);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: SurfaceCard(
-        onTap: widget.onTap,
-        tone: _hovered && widget.onTap != null
+        onTap: effectiveOnTap,
+        tone: _hovered && effectiveOnTap != null
             ? CardTone.raised
             : CardTone.normal,
         padding: const EdgeInsets.all(Insets.m),

@@ -26,6 +26,8 @@ class PageActions extends StatefulWidget {
     this.onUnitChanged,
     this.showAngleSelector = false,
     this.onAngleModeChanged,
+    this.onPointNames,
+    this.onLoadSample,
     this.onUndo,
     this.onRedo,
     this.canUndo = false,
@@ -50,47 +52,40 @@ class PageActions extends StatefulWidget {
   final bool showAngleSelector;
   final VoidCallback? onAngleModeChanged;
 
-  /// 可选撤销/重做回调（配合 DraftMixin.undoDraft / redoDraft）。
+  /// 可选自定义点名与载入算例回调（供顶栏快捷动作与更多操作菜单复用）。
+  final VoidCallback? onPointNames;
+  final VoidCallback? onLoadSample;
+
+  /// 可选撤销/重做回调（保留参数以兼容既有调用方，界面不再渲染撤销/重做按钮）。
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
   final bool canUndo;
   final bool canRedo;
 
-  @override
-  State<PageActions> createState() => _PageActionsState();
-}
-
-class _PageActionsState extends State<PageActions> {
-  bool _busy = false;
-
-  String _savedLabel(DateTime? t) {
-    if (t == null) return '草稿未保存';
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '已保存 ${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
-  }
-
-  Future<void> _export(ExportFormat format) async {
-    final build = widget.buildTable;
-    if (build == null || _busy) return;
-    setState(() => _busy = true);
+  /// 统一导出逻辑，供工具栏与顶栏快捷动作共享。
+  static Future<void> runExport(
+    BuildContext context, {
+    required SheetTable Function() buildTable,
+    required ExportFormat format,
+  }) async {
     try {
-      final drafts = DraftScope.read(context);
-      await drafts.flushAll();
-      if (!mounted) return;
+      final drafts = DraftScope.maybeOf(context);
+      await drafts?.flushAll();
+      if (!context.mounted) return;
       final strings = SurveyStrings.of(context);
-      final table = build().localizeLabels(strings.translate);
+      final table = buildTable().localizeLabels(strings.translate);
       final onlyHeaderRow = table.rows.length <= 1 &&
           table.xlsxBuilder == null &&
           table.formSheetsBuilder == null;
       if (table.isEmpty || onlyHeaderRow) {
-        if (mounted) {
+        if (context.mounted) {
           SurveyToast.info(context, '当前暂无可导出的计算成果，请先完善输入');
         }
         return;
       }
       final result =
           await ExportService.export(table, format: format, strings: strings);
-      if (!mounted) return;
+      if (!context.mounted) return;
       if (!result.ok) {
         SurveyToast.error(
           context,
@@ -112,12 +107,61 @@ class _PageActionsState extends State<PageActions> {
         onAction: () => ExportService.openFolder(result.path!),
       );
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         SurveyToast.error(
           context,
           context.tr('导出失败：{error}', {'error': e.toString()}),
         );
       }
+    }
+  }
+
+  /// 统一清空草稿逻辑，供工具栏与顶栏快捷动作共享。
+  static Future<void> runClear(
+    BuildContext context, {
+    required String pageId,
+    required VoidCallback onClear,
+    bool confirmClear = false,
+  }) async {
+    final confirm = confirmClear || usesWorkspaceControls(context);
+    if (confirm) {
+      final ok = await SurveyModal.confirm(
+        context,
+        title: '清空本页草稿？',
+        message: '将恢复默认值并清除本页已保存输入',
+        confirmLabel: '清空',
+        destructive: true,
+      );
+      if (!ok || !context.mounted) return;
+    }
+    final drafts = DraftScope.maybeOf(context);
+    await drafts?.clear(pageId);
+    if (!context.mounted) return;
+    onClear();
+    if (confirm && context.mounted) {
+      SurveyToast.info(context, '已清空本页草稿');
+    }
+  }
+
+  @override
+  State<PageActions> createState() => _PageActionsState();
+}
+
+class _PageActionsState extends State<PageActions> {
+  bool _busy = false;
+
+  String _savedLabel(DateTime? t) {
+    if (t == null) return '草稿未保存';
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '已保存 ${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
+  }
+
+  Future<void> _export(ExportFormat format) async {
+    final build = widget.buildTable;
+    if (build == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await PageActions.runExport(context, buildTable: build, format: format);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -171,28 +215,6 @@ class _PageActionsState extends State<PageActions> {
     }
 
     final actionChips = <Widget>[
-      if (widget.onUndo != null)
-        SurveyTooltip(
-          message: '撤销',
-          child: IconButton(
-            onPressed: widget.canUndo ? widget.onUndo : null,
-            icon: const Icon(Icons.undo_rounded, size: 16),
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          ),
-        ),
-      if (widget.onRedo != null)
-        SurveyTooltip(
-          message: '重做',
-          child: IconButton(
-            onPressed: widget.canRedo ? widget.onRedo : null,
-            icon: const Icon(Icons.redo_rounded, size: 16),
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          ),
-        ),
       if (widget.showUnitSelector)
         PopupMenuButton<LengthUnit>(
           tooltip: context.tr(
@@ -390,26 +412,12 @@ class _PageActionsState extends State<PageActions> {
         SurveyTooltip(
           message: '恢复默认值并清空本页草稿',
           child: TextButton.icon(
-            onPressed: () async {
-              final confirm =
-                  widget.confirmClear || usesWorkspaceControls(context);
-              if (confirm) {
-                final ok = await SurveyModal.confirm(
-                  context,
-                  title: '清空本页草稿？',
-                  message: '将恢复默认值并清除本页已保存输入',
-                  confirmLabel: '清空',
-                  destructive: true,
-                );
-                if (!ok || !context.mounted) return;
-              }
-              await drafts.clear(widget.pageId);
-              if (!context.mounted) return;
-              widget.onClear!.call();
-              if (confirm && context.mounted) {
-                SurveyToast.info(context, '已清空本页草稿');
-              }
-            },
+            onPressed: () => PageActions.runClear(
+              context,
+              pageId: widget.pageId,
+              onClear: widget.onClear!,
+              confirmClear: widget.confirmClear,
+            ),
             icon: const Icon(Icons.restart_alt, size: 15),
             label: Text(context.tr('清空')),
             style: TextButton.styleFrom(

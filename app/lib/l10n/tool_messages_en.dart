@@ -1386,4 +1386,19 @@ const toolEnglishMessages = <String, String>{
   '视线高 > 0.2 m（读数 > 200 mm）。': 'Sight height > 0.2 m (reading > 200 mm).',
   '视线高 > {minSight} m（读数 > {minSightMm} mm）。':
       'Sight height > {minSight} m (reading > {minSightMm} mm).',
+
+  // Zero-CJK cleanup, header quick actions, keep-screen-on & export checks
+  '自定义顶栏快捷动作': 'Customize header quick actions',
+  '顶栏快捷动作': 'Header quick actions',
+  '外业保持屏幕常亮': 'Keep screen on (field mode)',
+  '保持屏幕常亮，方便外业连续录数': 'Keep display awake during continuous field entry',
+  '导出': 'Export',
+  '超限，请复测': 'Exceeds limit, re-measure',
+  '超过限差，请复测': 'Exceeds tolerance, re-measure',
+  '合格，按闭合差反号配赋': 'Pass, distribute closure with opposite sign',
+  '点位说明（可选）': 'Point note (optional)',
+  '工程控制点管理、搜索、导入与单点坐标选用':
+      'Manage project control points, search, import, and pick coordinates',
+  '请先在控制点库中添加或导入控制点':
+      'Add or import control points in the library first',
 };

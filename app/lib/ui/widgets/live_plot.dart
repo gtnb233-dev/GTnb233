@@ -976,55 +976,57 @@ class _LivePlotState extends State<LivePlot>
                             },
                             child: RepaintBoundary(
                               key: _boundaryKey,
-                              child: AnimatedBuilder(
-                                animation: _controller,
-                                builder: (context, _) => CustomPaint(
-                                  size: size,
-                                  painter: _PlotPainter(
-                                    range: _currentRange(),
-                                    points: widget.points,
-                                    lines: [
-                                      for (final l in widget.lines)
-                                        if (l.label != null)
-                                          PlotLine(
-                                            from: l.from,
-                                            to: l.to,
-                                            color: l.color,
-                                            dashed: l.dashed,
-                                            label: context.tr(l.label!),
-                                          )
-                                        else
-                                          l,
-                                    ],
-                                    polygons: widget.polygons,
-                                    arcs: widget.arcs,
-                                    arrows: widget.arrows,
-                                    paths: widget.paths,
-                                    labels: widget.labels,
-                                    scheme: scheme,
-                                    showGrid: widget.showGrid,
-                                    showNorth: widget.showNorth,
-                                    showScaleBar: widget.showScaleBar,
-                                    showCanvasOverlays: _exportingPng,
-                                    surveyNorthUp: widget.surveyNorthUp,
-                                    unit: widget.unit,
-                                    translate:
-                                        SurveyStrings.of(context).translate,
-                                    languageCode:
-                                        SurveyStrings.of(context).languageCode,
-                                    fontFamily: DefaultTextStyle.of(context)
-                                        .style
-                                        .fontFamily,
-                                    fontFamilyFallback: DefaultTextStyle.of(
-                                      context,
-                                    ).style.fontFamilyFallback,
-                                    selectedIndex: widget.selectedIndex,
-                                    hoverLocal: _hoverLocal,
-                                    draggingIndex: _dragIndex,
-                                    dragX: _dragX,
-                                    dragY: _dragY,
-                                    dragOriginX: _dragOriginX,
-                                    dragOriginY: _dragOriginY,
+                              child: DeferredTransitionChild(
+                                child: AnimatedBuilder(
+                                  animation: _controller,
+                                  builder: (context, _) => CustomPaint(
+                                    size: size,
+                                    painter: _PlotPainter(
+                                      range: _currentRange(),
+                                      points: widget.points,
+                                      lines: [
+                                        for (final l in widget.lines)
+                                          if (l.label != null)
+                                            PlotLine(
+                                              from: l.from,
+                                              to: l.to,
+                                              color: l.color,
+                                              dashed: l.dashed,
+                                              label: context.tr(l.label!),
+                                            )
+                                          else
+                                            l,
+                                      ],
+                                      polygons: widget.polygons,
+                                      arcs: widget.arcs,
+                                      arrows: widget.arrows,
+                                      paths: widget.paths,
+                                      labels: widget.labels,
+                                      scheme: scheme,
+                                      showGrid: widget.showGrid,
+                                      showNorth: widget.showNorth,
+                                      showScaleBar: widget.showScaleBar,
+                                      showCanvasOverlays: _exportingPng,
+                                      surveyNorthUp: widget.surveyNorthUp,
+                                      unit: widget.unit,
+                                      translate:
+                                          SurveyStrings.of(context).translate,
+                                      languageCode: SurveyStrings.of(context)
+                                          .languageCode,
+                                      fontFamily: DefaultTextStyle.of(context)
+                                          .style
+                                          .fontFamily,
+                                      fontFamilyFallback: DefaultTextStyle.of(
+                                        context,
+                                      ).style.fontFamilyFallback,
+                                      selectedIndex: widget.selectedIndex,
+                                      hoverLocal: _hoverLocal,
+                                      draggingIndex: _dragIndex,
+                                      dragX: _dragX,
+                                      dragY: _dragY,
+                                      dragOriginX: _dragOriginX,
+                                      dragOriginY: _dragOriginY,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2005,32 +2007,33 @@ class _PlotPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PlotPainter old) =>
-      old.range != range ||
-      !_listEq(old.points, points) ||
-      !_listEq(old.lines, lines) ||
-      !_listEq(old.polygons, polygons) ||
-      !_listEq(old.arcs, arcs) ||
-      !_listEq(old.arrows, arrows) ||
-      !_listEq(old.paths, paths) ||
-      !_listEq(old.labels, labels) ||
-      old.scheme != scheme ||
-      old.showGrid != showGrid ||
-      old.showNorth != showNorth ||
-      old.showScaleBar != showScaleBar ||
-      old.showCanvasOverlays != showCanvasOverlays ||
-      old.surveyNorthUp != surveyNorthUp ||
-      old.unit != unit ||
-      old.languageCode != languageCode ||
-      old.fontFamily != fontFamily ||
-      !_listEq(
-          old.fontFamilyFallback ?? const [], fontFamilyFallback ?? const []) ||
-      old.selectedIndex != selectedIndex ||
-      old.hoverLocal != hoverLocal ||
-      old.draggingIndex != draggingIndex ||
-      old.dragX != dragX ||
-      old.dragY != dragY ||
-      old.dragOriginX != dragOriginX ||
-      old.dragOriginY != dragOriginY;
+      !identical(old, this) &&
+      (old.range != range ||
+          !_listEq(old.points, points) ||
+          !_listEq(old.lines, lines) ||
+          !_listEq(old.polygons, polygons) ||
+          !_listEq(old.arcs, arcs) ||
+          !_listEq(old.arrows, arrows) ||
+          !_listEq(old.paths, paths) ||
+          !_listEq(old.labels, labels) ||
+          old.scheme != scheme ||
+          old.showGrid != showGrid ||
+          old.showNorth != showNorth ||
+          old.showScaleBar != showScaleBar ||
+          old.showCanvasOverlays != showCanvasOverlays ||
+          old.surveyNorthUp != surveyNorthUp ||
+          old.unit != unit ||
+          old.languageCode != languageCode ||
+          old.fontFamily != fontFamily ||
+          !_listEq(old.fontFamilyFallback ?? const [],
+              fontFamilyFallback ?? const []) ||
+          old.selectedIndex != selectedIndex ||
+          old.hoverLocal != hoverLocal ||
+          old.draggingIndex != draggingIndex ||
+          old.dragX != dragX ||
+          old.dragY != dragY ||
+          old.dragOriginX != dragOriginX ||
+          old.dragOriginY != dragOriginY);
 }
 
 enum _TextAnchor { leftCenter, center, rightCenter }

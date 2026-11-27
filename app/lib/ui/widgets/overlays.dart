@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'compact_controls.dart';
@@ -341,9 +343,12 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
       ToastTone.error => (Icons.error_rounded, IosColors.red(b)),
     };
 
-    final suspendBlur = GlassBlurSuspensionScope.isSuspended(context);
+    final suspendBlur = (!kIsWeb && Platform.isAndroid) ||
+        GlassBlurSuspensionScope.isSuspended(context);
     final bg = suspendBlur
-        ? (isDark ? IosColors.darkCard : Colors.white)
+        ? (isDark
+            ? IosColors.darkCard.withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.96))
         : (isDark ? const Color(0xE02C2C2E) : const Color(0xF2FFFFFF));
     final toastBody = Stack(
       children: [
@@ -356,10 +361,12 @@ class _ToastOverlayHostState extends State<_ToastOverlayHost>
             color: bg,
             borderRadius: BorderRadius.circular(Radii.pill),
             border: Border.all(
-              color: accent.withValues(
-                alpha: isDark ? 0.45 : 0.3,
-              ),
-              width: 0.5,
+              color: suspendBlur
+                  ? IosColors.separator(b)
+                  : accent.withValues(
+                      alpha: isDark ? 0.45 : 0.3,
+                    ),
+              width: suspendBlur ? 1.0 : 0.5,
             ),
           ),
           child: Row(

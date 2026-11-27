@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../l10n/survey_strings.dart';
@@ -59,12 +61,11 @@ class GlassNavBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final shape = BorderRadius.circular(radius);
-    final suspendBlur = GlassBlurSuspensionScope.isSuspended(context);
-    final tint = suspendBlur
-        ? (isDark ? IosColors.darkCard : Colors.white)
-        : (isDark
-            ? IosColors.darkCard.withValues(alpha: 0.94)
-            : Colors.white.withValues(alpha: 0.94));
+    final suspendBlur = (!kIsWeb && Platform.isAndroid) ||
+        GlassBlurSuspensionScope.isSuspended(context);
+    final tint = isDark
+        ? IosColors.darkCard.withValues(alpha: 0.94)
+        : Colors.white.withValues(alpha: 0.94);
     final barContent = Container(
       height: height,
       decoration: BoxDecoration(

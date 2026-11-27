@@ -92,6 +92,17 @@ abstract final class NativeWindowBridge {
       // No-op on unsupported hosts.
     }
   }
+
+  /// Enables or disables `FLAG_KEEP_SCREEN_ON` on supported hosts.
+  static Future<void> setKeepScreenOn(bool enabled) async {
+    try {
+      await _channel.invokeMethod<void>('setKeepScreenOn', enabled);
+    } on MissingPluginException {
+      // No-op on non-native / test hosts.
+    } on PlatformException {
+      // No-op on unsupported hosts.
+    }
+  }
 }
 
 /// Typed static helpers for [kSurveyFilesChannel].

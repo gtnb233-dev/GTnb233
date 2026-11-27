@@ -40,6 +40,15 @@ List<String> _collectCjkViolations(WidgetTester tester) {
     } else if (w is EditableText) {
       final s = w.controller.text;
       if (_cjkPattern.hasMatch(s)) hits.add('EditableText: $s');
+    } else if (w is TextField) {
+      final hint = w.decoration?.hintText;
+      if (hint != null && _cjkPattern.hasMatch(hint)) {
+        hits.add('HintText: $hint');
+      }
+      final label = w.decoration?.labelText;
+      if (label != null && _cjkPattern.hasMatch(label)) {
+        hits.add('LabelText: $label');
+      }
     } else if (w is Tooltip && w.message != null) {
       if (_cjkPattern.hasMatch(w.message!)) hits.add('Tooltip: ${w.message}');
     }
@@ -227,7 +236,12 @@ void main() {
 
       final allLeaks = <String, List<String>>{};
       final allExceptions = <String, Object>{};
+      const enStrings = SurveyStrings('en');
       for (final tool in kTools) {
+        final subEn = enStrings.translate(tool.subtitle);
+        if (_cjkPattern.hasMatch(subEn)) {
+          allLeaks['subtitle:${tool.id}'] = [subEn];
+        }
         await tester.pumpWidget(
           ControlPointScope(
             store: ControlPointStore(),
@@ -314,6 +328,47 @@ void main() {
           .toList(),
       isEmpty,
     );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ControlPointsPage Add Point dialog has zero CJK in English',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final settings = AppSettings();
+      await settings.load();
+      await settings.setLanguage(AppLanguage.english);
+
+      await tester.pumpWidget(
+        ControlPointScope(
+          store: ControlPointStore(),
+          child: AppScope(
+            settings: settings,
+            child: MaterialApp(
+              locale: const Locale('en'),
+              supportedLocales: AppLanguage.supportedLocales,
+              localizationsDelegates: SurveyStrings.delegates,
+              theme: buildAppTheme(Brightness.light),
+              home: toolPage(toolById('control_points')!),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final addBtn = find.byIcon(Icons.add).first;
+      await tester.ensureVisible(addBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(addBtn);
+      await tester.pumpAndSettle();
+      expect(
+        _collectCjkViolations(tester)
+            .where((s) => s != 'Text: 中文（简体）')
+            .toList(),
+        isEmpty,
+      );
       expect(tester.takeException(), isNull);
     });
 
