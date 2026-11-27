@@ -534,6 +534,13 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                       child: IconButton.filledTonal(
                         key: const ValueKey('sidebar-search-btn'),
                         padding: EdgeInsets.zero,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size.square(kTopBarButtonSize),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: EdgeInsets.zero,
+                          shape: const CircleBorder(),
+                          foregroundColor: colors.onSurface,
+                        ),
                         constraints: const BoxConstraints.tightFor(
                           width: kTopBarButtonSize,
                           height: kTopBarButtonSize,
@@ -543,8 +550,11 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                           widget.beforeOpeningDraft();
                           showCommandPalette(scope());
                         },
-                        icon:
-                            const OutlineSymbol(Icons.search_rounded, size: 20),
+                        icon: OutlineSymbol(
+                          Icons.search_rounded,
+                          size: 19,
+                          color: colors.onSurface,
+                        ),
                       ),
                     ),
                   ],

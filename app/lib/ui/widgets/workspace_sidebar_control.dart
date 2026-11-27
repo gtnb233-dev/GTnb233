@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
+import 'outline_symbol.dart';
 
 class WorkspaceSidebarScope extends InheritedWidget {
   const WorkspaceSidebarScope(
@@ -55,9 +56,10 @@ class WorkspaceSidebarControl extends StatelessWidget {
             elevated: true,
             blurSigma: 12,
             child: Center(
-              child: Icon(
+              child: OutlineSymbol(
                 open ? Icons.menu_open_rounded : Icons.menu_rounded,
                 size: 18,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),

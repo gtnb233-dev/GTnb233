@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 
 /// 原生窗口与主题集成的冻结 MethodChannel 契约名称（Wave 1 M1）。
@@ -105,12 +108,76 @@ abstract final class NativeWindowBridge {
   }
 }
 
+/// Result returned by [NativeFilesBridge.pickDocument].
+class PickedDocument {
+  const PickedDocument({required this.name, required this.bytes, this.path});
+
+  final String name;
+  final Uint8List bytes;
+  final String? path;
+
+  String get text => utf8.decode(bytes, allowMalformed: true);
+}
+
 /// [kSurveyFilesChannel] 的类型化静态调用封装。
 ///
 /// 所有方法均捕获 [MissingPluginException] 与 [PlatformException]，
 /// 确保在测试或不支持的平台上安全回退。
 abstract final class NativeFilesBridge {
   static const MethodChannel _channel = MethodChannel(kSurveyFilesChannel);
+  static const int maxDocumentBytes = 16 * 1024 * 1024;
+
+  static Future<PickedDocument?> pickDocument({
+    String filterLabel = 'DXF / CSV / DAT / TXT',
+    List<String> extensions = const ['dxf', 'csv', 'dat', 'txt'],
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'pickDocument',
+        {
+          'filterLabel': filterLabel,
+          'extensions': extensions,
+        },
+      );
+      if (result == null) return null;
+      final name = result['name'] as String?;
+      final rawBytes = result['bytes'];
+      final bytes = rawBytes is Uint8List
+          ? rawBytes
+          : (rawBytes is List<int> ? Uint8List.fromList(rawBytes) : null);
+      if (name == null || bytes == null) return null;
+      if (bytes.length > maxDocumentBytes) {
+        throw const FormatException('Document exceeds 16 MB limit');
+      }
+      return PickedDocument(
+        name: name,
+        bytes: bytes,
+        path: result['path'] as String?,
+      );
+    } on MissingPluginException {
+      final path = await pickOpenFile(
+        filterLabel: filterLabel,
+        extensions: extensions,
+      );
+      if (path == null || path.isEmpty) return null;
+      final file = File(path);
+      if (!await file.exists() || await file.length() > maxDocumentBytes) {
+        throw const FormatException('Document not found or exceeds 16 MB limit');
+      }
+      final bytes = await file.readAsBytes();
+      if (bytes.length > maxDocumentBytes) {
+        throw const FormatException('Document exceeds 16 MB limit');
+      }
+      final name = path.split(RegExp(r'[/\\]')).last;
+      return PickedDocument(
+        name: name.isEmpty ? 'document' : name,
+        bytes: bytes,
+        path: path,
+      );
+    } on PlatformException {
+      return null;
+    }
+  }
 
   static Future<String?> pickSaveFile({
     required String suggestedName,

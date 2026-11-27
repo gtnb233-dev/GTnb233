@@ -540,16 +540,11 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
 
   Future<void> _importFromFile(ControlPointStore store) async {
     try {
-      final path = await NativeFilesBridge.pickOpenFile(
-        filterLabel: 'CSV / DXF',
-        extensions: const ['csv', 'txt', 'dat', 'dxf'],
+      final doc = await NativeFilesBridge.pickDocument(
+        extensions: const ['dxf', 'csv', 'dat', 'txt'],
       );
-      if (path == null || path.isEmpty || !mounted) return;
-      final file = File(path);
-      if (!await file.exists()) return;
-      final content = await file.readAsString();
-      if (!mounted) return;
-      await _applyImportedContent(store, content);
+      if (doc == null || !mounted) return;
+      await _applyImportedContent(store, doc.text, fileName: doc.name);
     } catch (e) {
       if (mounted) {
         SurveyToast.error(context, '导入失败：$e');
@@ -605,8 +600,10 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
 
   Future<void> _applyImportedContent(
     ControlPointStore store,
-    String content,
-  ) async {
+    String content, {
+    String? fileName,
+  }) async {
+    final isDxf = (fileName?.toLowerCase().endsWith('.dxf') ?? false);
     final parsed = store.parseCsvOrDxf(
       content,
       defaultGroup: _selectedGroup ?? '默认',
@@ -617,9 +614,37 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
     }
     await store.addAll(parsed);
     if (!mounted) return;
+    final sourceLabel = isDxf
+        ? 'DXF'
+        : ((fileName?.toLowerCase().endsWith('.dat') ?? false)
+            ? 'DAT'
+            : ((fileName?.toLowerCase().endsWith('.txt') ?? false)
+                ? 'TXT'
+                : (_selectedGroup ?? context.tr('控制点库'))));
+    LivePlotScope.maybeRead(context)?.updateSnapshot(
+      LivePlotSnapshot(
+        title: context.tr('控制点库'),
+        sourceToolId: 'control_points',
+        sourceLabel: sourceLabel,
+        sourceKind: LivePlotSourceKind.controlPoints,
+        points: [
+          for (final p in parsed)
+            LivePlotPointData(
+              x: p.x,
+              y: p.y,
+              label: p.name,
+              emphasis: true,
+              draggable: false,
+            ),
+        ],
+        surveyNorthUp: true,
+        unit: 'm',
+      ),
+      sourceKind: LivePlotSourceKind.controlPoints,
+    );
     SurveyToast.success(
       context,
-      context.tr('已导入 {count} 个控制点', {'count': parsed.length}),
+      context.tr('已导入 {count} 个点', {'count': parsed.length}),
     );
   }
 

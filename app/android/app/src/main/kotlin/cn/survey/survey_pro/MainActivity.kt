@@ -1,5 +1,6 @@
 package cn.survey.survey_pro
 
+import android.app.Activity
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Rect
@@ -8,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.view.View
 import android.view.WindowManager
 import androidx.annotation.ColorInt
@@ -15,18 +17,23 @@ import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import kotlin.math.roundToInt
 
 /// Platform bridges for Survey Pro:
 /// - `survey/theme`: Android 12+ Material You wallpaper accent color (`accentColor`)
-/// - `survey/files`: MediaStore gallery save (`savePngToGallery`) & system share (`shareImageUri`)
+/// - `survey/files`: SAF document picker (`pickDocument`), MediaStore gallery save (`savePngToGallery`) & system share (`shareImageUri`)
 class MainActivity : FlutterActivity() {
 
     companion object {
         private const val kSurveyThemeChannel = "survey/theme"
         private const val kSurveyFilesChannel = "survey/files"
+        private const val REQUEST_PICK_DOCUMENT = 4102
+        private const val MAX_DOCUMENT_BYTES = 16 * 1024 * 1024
     }
+
+    private var pendingPickDocumentResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,9 +122,117 @@ class MainActivity : FlutterActivity() {
                         result.success(ok)
                     }
 
+                    "pickDocument" -> {
+                        if (pendingPickDocumentResult != null) {
+                            result.error(
+                                "PICKER_BUSY",
+                                "A document picker request is already active",
+                                null,
+                            )
+                            return@setMethodCallHandler
+                        }
+                        pendingPickDocumentResult = result
+                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                            putExtra(
+                                Intent.EXTRA_MIME_TYPES,
+                                arrayOf(
+                                    "text/plain",
+                                    "text/csv",
+                                    "text/comma-separated-values",
+                                    "application/csv",
+                                    "application/dxf",
+                                    "image/vnd.dxf",
+                                    "application/octet-stream",
+                                    "*/*",
+                                ),
+                            )
+                        }
+                        try {
+                            @Suppress("DEPRECATION")
+                            startActivityForResult(intent, REQUEST_PICK_DOCUMENT)
+                        } catch (e: Exception) {
+                            pendingPickDocumentResult = null
+                            result.error("PICKER_FAILED", e.message, null)
+                        }
+                    }
+
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_PICK_DOCUMENT) {
+            val pending = pendingPickDocumentResult
+            pendingPickDocumentResult = null
+            if (pending == null) return
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                pending.success(null)
+                return
+            }
+            try {
+                val fileName = queryDisplayName(uri)
+                val bytes = readUriBytes(uri, MAX_DOCUMENT_BYTES)
+                pending.success(
+                    mapOf(
+                        "name" to fileName,
+                        "bytes" to bytes,
+                    ),
+                )
+            } catch (e: Exception) {
+                pending.error("READ_FAILED", e.message, null)
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun queryDisplayName(uri: Uri): String {
+        val queried = runCatching {
+            contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) cursor.getString(idx) else null
+                } else {
+                    null
+                }
+            }
+        }.getOrNull()
+        if (!queried.isNullOrBlank()) return queried
+        return uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?.takeIf { it.isNotBlank() }
+            ?: "document"
+    }
+
+    private fun readUriBytes(uri: Uri, maxBytes: Int): ByteArray {
+        val stream = contentResolver.openInputStream(uri)
+            ?: throw IOException("Failed to open document input stream")
+        return stream.use { input ->
+            val buffer = ByteArrayOutputStream()
+            val chunk = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val read = input.read(chunk)
+                if (read < 0) break
+                total += read
+                if (total > maxBytes) {
+                    throw IOException("Selected document exceeds 16 MB limit")
+                }
+                buffer.write(chunk, 0, read)
+            }
+            buffer.toByteArray()
+        }
     }
 
     private fun savePngToMediaStore(

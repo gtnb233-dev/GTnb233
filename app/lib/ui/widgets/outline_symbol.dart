@@ -19,10 +19,14 @@ class OutlineSymbol extends StatelessWidget {
       Icons.calculate_outlined || Icons.calculate => _Symbol.calculator,
       Icons.widgets_outlined || Icons.widgets => _Symbol.library,
       Icons.settings_outlined || Icons.settings => _Symbol.settings,
-      Icons.search => _Symbol.search,
+      Icons.search || Icons.search_rounded => _Symbol.search,
       Icons.functions => _Symbol.formula,
       Icons.architecture => _Symbol.compass,
-      Icons.menu_open || Icons.first_page => _Symbol.panel,
+      Icons.menu_open ||
+      Icons.menu_open_rounded ||
+      Icons.first_page =>
+        _Symbol.panel,
+      Icons.menu || Icons.menu_rounded => _Symbol.menu,
       _ => null,
     };
     if (shape == null) return Icon(icon, size: size, color: color);
@@ -49,7 +53,8 @@ enum _Symbol {
   search,
   formula,
   compass,
-  panel
+  panel,
+  menu
 }
 
 class _OutlinePainter extends CustomPainter {
@@ -145,6 +150,10 @@ class _OutlinePainter extends CustomPainter {
             ..lineTo(16, 15),
           ink,
         );
+      case _Symbol.menu:
+        line(4, 7, 20, 7);
+        line(4, 12, 20, 12);
+        line(4, 17, 20, 17);
     }
   }
 

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
@@ -359,18 +358,18 @@ class _WorkspaceLivePlotPanelState extends State<WorkspaceLivePlotPanel> {
 
   Future<void> _importDxfOrCsv(LivePlotController controller) async {
     try {
-      final path = await NativeFilesBridge.pickOpenFile(
-        filterLabel: 'DXF / CSV',
-        extensions: const ['dxf', 'csv'],
+      final doc = await NativeFilesBridge.pickDocument(
+        extensions: const ['dxf', 'csv', 'dat', 'txt'],
       );
-      if (path == null || path.isEmpty || !mounted) return;
-      final file = File(path);
-      if (!await file.exists() || await file.length() > 16 * 1024 * 1024) {
-        throw const FormatException();
-      }
-      final source = await file.readAsString();
-      final isDxf = path.toLowerCase().endsWith('.dxf');
-      final decoded = decodeWorkspacePoints(source, isDxf);
+      if (doc == null || !mounted) return;
+      final lowerName = doc.name.toLowerCase();
+      final isDxf = lowerName.endsWith('.dxf');
+      final sourceLabel = isDxf
+          ? 'DXF'
+          : (lowerName.endsWith('.dat')
+              ? 'DAT'
+              : (lowerName.endsWith('.txt') ? 'TXT' : 'CSV'));
+      final decoded = decodeWorkspacePoints(doc.text, isDxf);
       if (!mounted) return;
       final store = DraftScope.maybeRead(context);
       if (store != null) {
@@ -386,17 +385,21 @@ class _WorkspaceLivePlotPanelState extends State<WorkspaceLivePlotPanel> {
           decoded.values.toList(),
           sourceKind: LivePlotSourceKind.importedFile,
           sourceToolId: 'import',
-          sourceLabel: isDxf ? 'DXF' : 'CSV',
+          sourceLabel: sourceLabel,
           title: context.tr('导入点位'),
         ),
         sourceKind: LivePlotSourceKind.importedFile,
       );
       setState(() => _selectedIndex = null);
+      SurveyToast.success(
+        context,
+        context.tr('已导入 {count} 个点', {'count': decoded.length}),
+      );
     } on Exception {
       if (mounted) {
         SurveyToast.show(
           context,
-          '无法导入，请检查 DXF / CSV 文件格式',
+          '无法导入，请检查 DXF / CSV / DAT / TXT 文件格式',
           tone: ToastTone.warning,
         );
       }

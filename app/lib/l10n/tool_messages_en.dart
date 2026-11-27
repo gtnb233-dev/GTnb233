@@ -1465,4 +1465,9 @@ const toolEnglishMessages = <String, String>{
   '变量与常数': 'Variables & Constants',
   '函数': 'Functions',
   '运算符': 'Operators',
+
+  // Android SAF document import & unified DXF/CSV/DAT/TXT import
+  '已导入 {count} 个点': 'Imported {count} points',
+  '无法导入，请检查 DXF / CSV / DAT / TXT 文件格式':
+      'Unable to import; please check the DXF / CSV / DAT / TXT file format',
 };

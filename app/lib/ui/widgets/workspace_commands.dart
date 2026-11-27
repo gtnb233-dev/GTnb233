@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
@@ -258,18 +256,18 @@ Future<void> showDraftHistory(BuildContext context) async {
 
 Future<void> _importPoints(BuildContext context) async {
   try {
-    final path = await NativeFilesBridge.pickOpenFile(
-      filterLabel: 'DXF / CSV',
-      extensions: const ['dxf', 'csv'],
+    final doc = await NativeFilesBridge.pickDocument(
+      extensions: const ['dxf', 'csv', 'dat', 'txt'],
     );
-    if (path == null || path.isEmpty || !context.mounted) return;
-    final file = File(path);
-    if (!await file.exists() || await file.length() > 16 * 1024 * 1024) {
-      throw const FormatException();
-    }
-    final source = await file.readAsString();
-    final isDxf = path.toLowerCase().endsWith('.dxf');
-    final points = decodeWorkspacePoints(source, isDxf);
+    if (doc == null || !context.mounted) return;
+    final lowerName = doc.name.toLowerCase();
+    final isDxf = lowerName.endsWith('.dxf');
+    final sourceLabel = isDxf
+        ? 'DXF'
+        : (lowerName.endsWith('.dat')
+            ? 'DAT'
+            : (lowerName.endsWith('.txt') ? 'TXT' : 'CSV'));
+    final points = decodeWorkspacePoints(doc.text, isDxf);
     if (!context.mounted) return;
     final store = DraftScope.read(context);
     final existing = readWorkspacePoints(store);
@@ -319,7 +317,7 @@ Future<void> _importPoints(BuildContext context) async {
         LivePlotSnapshot(
           title: context.tr('导入点位'),
           sourceToolId: 'import',
-          sourceLabel: isDxf ? 'DXF' : 'CSV',
+          sourceLabel: sourceLabel,
           sourceKind: LivePlotSourceKind.importedFile,
           points: [
             for (final p in points.values)
@@ -335,12 +333,19 @@ Future<void> _importPoints(BuildContext context) async {
         ),
         sourceKind: LivePlotSourceKind.importedFile,
       );
+      SurveyToast.success(
+        context,
+        context.tr('已导入 {count} 个点', {'count': points.length}),
+      );
       await showWorkspacePlot(context);
     }
   } on Exception {
     if (context.mounted) {
-      SurveyToast.show(context, '无法导入，请检查 DXF / CSV 文件格式',
-          tone: ToastTone.warning);
+      SurveyToast.show(
+        context,
+        '无法导入，请检查 DXF / CSV / DAT / TXT 文件格式',
+        tone: ToastTone.warning,
+      );
     }
   }
 }
