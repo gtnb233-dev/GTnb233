@@ -331,10 +331,14 @@ class DeferredTransitionChild extends StatefulWidget {
     super.key,
     required this.child,
     this.placeholderHeight = 180,
+    this.placeholder,
+    this.afterFrame = false,
   });
 
   final Widget child;
   final double placeholderHeight;
+  final Widget? placeholder;
+  final bool afterFrame;
 
   @override
   State<DeferredTransitionChild> createState() =>
@@ -371,7 +375,13 @@ class _DeferredTransitionChildState extends State<DeferredTransitionChild> {
         (_animation?.value ?? 0) >= 1.0) {
       _detach();
       if (mounted && !_ready) {
-        setState(() => _ready = true);
+        if (widget.afterFrame) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _ready = true);
+          });
+        } else {
+          setState(() => _ready = true);
+        }
       }
     }
   }
@@ -392,6 +402,6 @@ class _DeferredTransitionChildState extends State<DeferredTransitionChild> {
     if (_ready) {
       return widget.child;
     }
-    return SizedBox(height: widget.placeholderHeight);
+    return widget.placeholder ?? SizedBox(height: widget.placeholderHeight);
   }
 }

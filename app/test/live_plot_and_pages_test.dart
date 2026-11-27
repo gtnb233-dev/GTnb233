@@ -296,10 +296,9 @@ void main() {
       await _pump(tester, const TraversePage());
       await tester.tap(find.byTooltip('更多操作'));
       await tester.pumpAndSettle();
-      final button = find.text('教材算例');
+      final button = find.text('载入教材算例');
       expect(button, findsOneWidget);
       await tester.tap(button);
-      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -320,8 +319,7 @@ void main() {
       await _pump(tester, const TraversePage());
       await tester.tap(find.byTooltip('更多操作'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('教材算例'));
-      await tester.binding.handlePopRoute();
+      await tester.tap(find.text('载入教材算例'));
       await tester.pumpAndSettle();
       final toText = find.text('文本');
       await tester.ensureVisible(toText);

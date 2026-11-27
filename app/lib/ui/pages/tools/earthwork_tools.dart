@@ -1087,16 +1087,14 @@ class _EarthworkPageState extends State<EarthworkPage>
               )
             : null;
 
+    final openTin = IconButton(
+      tooltip: context.tr('TIN 三角网土方'),
+      onPressed: () => openWorkspacePage(context,
+          name: 'tool/earthwork/tin', builder: (_) => const TinWorkspacePage()),
+      icon: const Icon(Icons.terrain_outlined, size: 19),
+    );
     return DetailScaffold(
       title: _el(context, '土方计算', 'Earthwork Volume'),
-      actions: [
-        TextButton(
-          onPressed: () => openWorkspacePage(context,
-              name: 'tool/earthwork/tin',
-              builder: (_) => const TinWorkspacePage()),
-          child: const Text('TIN'),
-        )
-      ],
       subtitle: _el(
         context,
         '平均断面法（道路）、方格网法（场地）与 TIN 三角网',
@@ -1162,9 +1160,10 @@ class _EarthworkPageState extends State<EarthworkPage>
           ],
         ),
         const SizedBox(height: Insets.m),
-        if (_mode == 2)
-          const TinWorkspaceView(embedded: true)
-        else if (_mode == 0)
+        if (_mode == 2) ...[
+          Align(alignment: Alignment.centerRight, child: openTin),
+          const TinWorkspaceView(embedded: true),
+        ] else if (_mode == 0)
           InputCard(
             step: 1,
             icon: Icons.layers_outlined,

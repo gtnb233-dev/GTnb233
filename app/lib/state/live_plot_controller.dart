@@ -198,7 +198,8 @@ class LivePlotController extends ChangeNotifier {
     _current = snapshot;
     _sourceKind = sourceKind ?? snapshot.sourceKind;
     _recentSnapshots.removeWhere(
-      (s) => s.sourceToolId == snapshot.sourceToolId && s.title == snapshot.title,
+      (s) =>
+          s.sourceToolId == snapshot.sourceToolId && s.title == snapshot.title,
     );
     _recentSnapshots.insert(0, snapshot);
     if (_recentSnapshots.length > _maxRecent) {
@@ -225,6 +226,16 @@ class LivePlotController extends ChangeNotifier {
     _sourceKind = match.sourceKind;
     notifyListeners();
     return true;
+  }
+
+  void activateRecentForTool(String toolId) {
+    final match = _recentSnapshots
+        .where((snapshot) => snapshot.sourceToolId == toolId)
+        .firstOrNull;
+    if (match == null || identical(match, _current)) return;
+    _current = match;
+    _sourceKind = match.sourceKind;
+    notifyListeners();
   }
 
   void toggleSplit() {

@@ -207,9 +207,11 @@ void main() {
     expect(find.text('Starting data'), findsOneWidget);
     expect(find.text('Observed data'), findsOneWidget);
     expect(find.text('Accuracy assessment'), findsOneWidget);
-    expect(find.text('Textbook example'), findsOneWidget);
     expect(find.text('Export'), findsOneWidget);
     expect(find.text('Clear'), findsWidgets);
+    await tester.tap(find.byTooltip('More actions'));
+    await tester.pumpAndSettle();
+    expect(find.text('Load textbook example'), findsOneWidget);
 
     expect(
       _collectCjkViolations(tester)

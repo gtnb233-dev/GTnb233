@@ -108,7 +108,6 @@ class _AppShellState extends State<AppShell> {
 
   void _openSidebarTool(ToolDef tool) {
     _drawer.currentState?.close();
-    if (_navObserver.topRoute?.settings.name == 'tool/${tool.id}') return;
     openTool(_workspaceContext, tool, replaceExistingTool: true);
   }
 
@@ -196,7 +195,7 @@ class _AppShellState extends State<AppShell> {
       _ProjectsPanel(
         drawer: drawer,
         index: _index,
-        activeRouteName: _navObserver.topRoute?.settings.name,
+        activeRouteName: _navObserver.activeName,
         onPage: _go,
         onOpenTool: _openSidebarTool,
         onToggleSidebar: onToggleSidebar ??
@@ -388,9 +387,9 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final livePlot = LivePlotScope.maybeOf(context);
     final wide = !workspaceUsesCompactLayout(context);
     final android = WorkspaceHost.isAndroid(context);
+    final livePlot = android || !wide ? null : LivePlotScope.maybeOf(context);
     final theme = Theme.of(context);
     final hasNativeCaption =
         !kIsWeb && theme.platform == TargetPlatform.windows;
@@ -456,8 +455,7 @@ class _AppShellState extends State<AppShell> {
                               child: sidebarCollapsed
                                   ? _IconRail(
                                       index: _index,
-                                      activeRouteName:
-                                          _navObserver.topRoute?.settings.name,
+                                      activeRouteName: _navObserver.activeName,
                                       onSearch: () =>
                                           showCommandPalette(_workspaceContext),
                                       onHome: () => _go(0),
@@ -859,10 +857,17 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = SettingsScope.of(context);
+    return ListenableBuilder(
+      listenable: settings.recentTool,
+      builder: (context, _) => _buildPanel(context, settings),
+    );
+  }
+
+  Widget _buildPanel(BuildContext context, AppSettings settings) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final drafts = DraftScope.maybeOf(context);
-    final settings = SettingsScope.of(context);
     final active = settings.lastDraftId ?? settings.lastTool;
     final allIds = drafts?.recentIds ?? const <String>[];
     final q = _query.trim().toLowerCase();

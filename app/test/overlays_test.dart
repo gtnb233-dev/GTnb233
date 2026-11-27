@@ -345,11 +345,10 @@ void main() {
           find.byKey(const ValueKey<String>('leveling4-row-3')), findsNothing);
 
       // 点顶部清空 -> 弹出 Popconfirm，确认后恢复 4 站规范算例
-      await tester.tap(find.byTooltip('更多操作'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('页面工具栏'));
-      await tester.pumpAndSettle();
-      final clearBtn = find.text('清空');
+      final clearBtn = find.descendant(
+        of: find.byKey(const ValueKey('detail-action-capsule')),
+        matching: find.byTooltip('清空'),
+      );
       await tester.tap(clearBtn);
       await tester.pumpAndSettle();
       expect(find.text('清空本页草稿？'), findsOneWidget);

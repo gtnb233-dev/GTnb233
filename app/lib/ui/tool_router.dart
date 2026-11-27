@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'workspace_page_route.dart';
 
 import '../nav/tools.dart';
+import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
+import '../l10n/survey_strings.dart';
+import '../theme/workspace_layout.dart';
+import 'widgets/liquid_glass.dart';
 import 'pages/tools/batch_tools.dart';
 import 'pages/tools/control_points_page.dart';
 import 'pages/tools/control_tools.dart';
@@ -27,28 +31,69 @@ Future<void> openTool(
 }) async {
   final navigator = Navigator.of(context);
   final settings = SettingsScope.read(context);
-  final resume = draftId ??
+  final requested = draftId ??
       (tool.id == 'leveling4' &&
               settings.lastDraftId?.startsWith('leveling4/') == true
           ? settings.lastDraftId
           : null);
+  final resume = requested == tool.id ? null : requested;
   final name = 'tool/${tool.id}';
   final observer = navigator.widget.observers
       .whereType<WorkspaceNavigatorObserver>()
       .firstOrNull;
   final current = observer?.topRoute ?? ModalRoute.of(context);
   if ((observer != null || replaceExistingTool) &&
-      current?.settings.name == name &&
-      current?.settings.arguments == resume) {
+      (observer?.activeName ?? current?.settings.name) == name &&
+      (observer == null
+              ? current?.settings.arguments
+              : observer.activeArgument) ==
+          resume) {
     return;
   }
 
   unawaited(settings.setLastTool(tool.id, draftId: resume));
+  final wide = observer != null && !workspaceUsesCompactLayout(context);
+  Widget buildTool(BuildContext _) => toolPage(tool, draftId: resume);
+  if (wide) {
+    if (current is WorkspaceToolRoute) {
+      if (current.select((name, resume), buildTool)) {
+        LivePlotScope.maybeRead(context)?.activateRecentForTool(tool.id);
+      }
+      observer.onChanged();
+      return;
+    }
+    final route = WorkspaceToolRoute((name, resume), buildTool);
+    if (navigator.canPop()) {
+      await navigator.pushAndRemoveUntil(route, (route) => route.isFirst);
+    } else {
+      await navigator.push(route);
+    }
+    return;
+  }
+  final defer = observer != null && WorkspaceHost.isAndroid(context);
   await openWorkspacePage(
     context,
     name: name,
     argument: resume,
-    builder: (_) => toolPage(tool, draftId: resume),
+    builder: (context) => defer
+        ? DeferredTransitionChild(
+            afterFrame: true,
+            placeholder: ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Text(context.tr(tool.title),
+                        style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                ),
+              ),
+            ),
+            child: buildTool(context),
+          )
+        : buildTool(context),
     replaceExistingTool: replaceExistingTool,
   );
 }
@@ -67,8 +112,11 @@ Future<void> openWorkspacePage(
   final shallow = replaceExistingTool || observer != null;
   final current = observer?.topRoute ?? ModalRoute.of(context);
   if (shallow &&
-      current?.settings.name == name &&
-      current?.settings.arguments == argument) {
+      (observer?.activeName ?? current?.settings.name) == name &&
+      (observer == null
+              ? current?.settings.arguments
+              : observer.activeArgument) ==
+          argument) {
     return;
   }
   final route = WorkspacePageRoute<void>(

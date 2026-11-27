@@ -1,5 +1,6 @@
 import 'dart:async' show unawaited;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:survey_core/survey_core.dart';
@@ -121,8 +122,7 @@ class AppSettings extends ChangeNotifier {
   int _coordDigits = 3;
   int _angleSecDigits = 1;
   bool _haptic = true;
-  String? _lastTool;
-  String? _lastDraftId;
+  final _recentTool = ValueNotifier<(String?, String?)>((null, null));
   bool _sidebarCollapsed = true;
   String _workspaceEllipsoid = 'CGCS2000';
 
@@ -169,8 +169,9 @@ class AppSettings extends ChangeNotifier {
   int get angleSecDigits => _angleSecDigits;
 
   bool get haptic => _haptic;
-  String? get lastTool => _lastTool;
-  String? get lastDraftId => _lastDraftId;
+  String? get lastTool => _recentTool.value.$1;
+  String? get lastDraftId => _recentTool.value.$2;
+  ValueListenable<(String?, String?)> get recentTool => _recentTool;
   bool get sidebarCollapsed => _sidebarCollapsed;
   String get workspaceEllipsoid => _workspaceEllipsoid;
 
@@ -216,8 +217,7 @@ class AppSettings extends ChangeNotifier {
     _coordDigits = p.getInt(_kCoordDigits) ?? 3;
     _angleSecDigits = p.getInt(_kAngleDigits) ?? 1;
     _haptic = p.getBool(_kHaptic) ?? true;
-    _lastTool = p.getString(_kLastTool);
-    _lastDraftId = p.getString(_kLastDraft);
+    _recentTool.value = (p.getString(_kLastTool), p.getString(_kLastDraft));
     _sidebarCollapsed = p.getBool(_kSidebar) ?? true;
     _workspaceEllipsoid = p.getString(_kWorkspaceEllipsoid) ?? 'CGCS2000';
     _uiStyle = UiStyle.parse(p.getString(_kUiStyle));
@@ -327,9 +327,8 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> setLastTool(String key, {String? draftId}) async {
-    _lastTool = key;
-    _lastDraftId = draftId;
-    notifyListeners();
+    if (_recentTool.value == (key, draftId)) return;
+    _recentTool.value = (key, draftId);
     await _persist((p) async {
       await p.setString(_kLastTool, key);
       if (draftId == null) {
@@ -338,6 +337,12 @@ class AppSettings extends ChangeNotifier {
         await p.setString(_kLastDraft, draftId);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _recentTool.dispose();
+    super.dispose();
   }
 
   Future<void> setSidebarCollapsed(bool collapsed) async {

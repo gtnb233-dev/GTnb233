@@ -179,9 +179,6 @@ class _ResectionPageState extends State<ResectionPage>
     return DetailScaffold(
       title: '三点后方交会',
       subtitle: '在未知测站 P 顺时针观测 A→B 和 B→C 的水平角',
-      actions: [
-        TextButton(onPressed: _loadExample, child: const LocalText('教材算例')),
-      ],
       toolbar: PageActions(
           pageId: draftPageId,
           buildTable: _table,

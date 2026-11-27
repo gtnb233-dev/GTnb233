@@ -25,6 +25,13 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
+    return ListenableBuilder(
+      listenable: settings.recentTool,
+      builder: (context, _) => _buildContent(context, settings),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, AppSettings settings) {
     final drafts = DraftScope.maybeOf(context);
     final theme = Theme.of(context);
     final draftId = settings.lastDraftId ??

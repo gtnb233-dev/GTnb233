@@ -82,6 +82,18 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
   Color? _systemAccent;
   bool? _lastWindowDark;
   String? _lastWindowTitle;
+  late (ThemeMode, UiStyle, bool, MonetSeed, AppLanguage) _appearance;
+  (ThemeMode, UiStyle, bool, MonetSeed, AppLanguage) get _currentAppearance {
+    final settings = widget.settings;
+    return (
+      settings.themeMode,
+      settings.uiStyle,
+      settings.monet,
+      settings.monetSeed,
+      settings.language
+    );
+  }
+
   late final AppLifecycleListener _lifecycle;
   late final ControlPointStore _controlPoints =
       widget.controlPoints ?? ControlPointStore();
@@ -105,10 +117,20 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
         return AppExitResponse.exit;
       },
     );
+    _appearance = _currentAppearance;
     widget.settings.addListener(_onSettingsChanged);
     _syncAccent();
     _syncWindowBrightness();
     _syncWindowTitle();
+  }
+
+  @override
+  void didUpdateWidget(covariant SurveyApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings == widget.settings) return;
+    oldWidget.settings.removeListener(_onSettingsChanged);
+    widget.settings.addListener(_onSettingsChanged);
+    _onSettingsChanged();
   }
 
   @override
@@ -132,7 +154,12 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
   }
 
   void _onSettingsChanged() {
-    _syncAccent();
+    final next = _currentAppearance;
+    if (_appearance == next) return;
+    final accentChanged =
+        _appearance.$3 != next.$3 || _appearance.$4 != next.$4;
+    setState(() => _appearance = next);
+    if (accentChanged) _syncAccent();
     _syncWindowBrightness();
     _syncWindowTitle();
   }
@@ -182,6 +209,10 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final settings = widget.settings;
+    final style = settings.uiStyle;
+    final seed = settings.monet
+        ? Monet.resolveSeed(settings.monetSeed, _systemAccent)
+        : kSeed;
     return DraftScope(
       store: widget.drafts,
       child: ControlPointScope(
@@ -190,42 +221,33 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
           controller: _livePlot,
           child: SettingsScope(
             settings: settings,
-            child: AnimatedBuilder(
-              animation: settings,
-              builder: (context, _) {
-                final style = settings.uiStyle;
-                final seed = settings.monet
-                    ? Monet.resolveSeed(settings.monetSeed, _systemAccent)
-                    : kSeed;
-                return MaterialApp(
-                  onGenerateTitle: (context) => context.tr('工程测量'),
-                  debugShowCheckedModeBanner: false,
-                  scrollBehavior: const _AppScrollBehavior(),
-                  theme: workspaceTheme(buildAppTheme(Brightness.light,
-                      seed: seed, style: style)),
-                  darkTheme: workspaceTheme(
-                      buildAppTheme(Brightness.dark, seed: seed, style: style)),
-                  themeMode: settings.themeMode,
-                  locale: settings.language.locale,
-                  localeListResolutionCallback: (locales, _) =>
-                      AppLanguage.resolve(locales),
-                  supportedLocales: AppLanguage.supportedLocales,
-                  localizationsDelegates: SurveyStrings.delegates,
-                  home: const AppShell(),
-                  builder: (context, child) {
-                    // 统一限制系统字体缩放上限，避免超大字号把测量结果挤坏版式。
-                    final mq = MediaQuery.of(context);
-                    return MediaQuery(
-                      data: mq.copyWith(
-                        textScaler: mq.textScaler.clamp(
-                          minScaleFactor: 0.9,
-                          maxScaleFactor: 1.3,
-                        ),
-                      ),
-                      child: WorkspaceCommandsEnabled(
-                          child: child ?? const SizedBox.shrink()),
-                    );
-                  },
+            child: MaterialApp(
+              onGenerateTitle: (context) => context.tr('工程测量'),
+              debugShowCheckedModeBanner: false,
+              scrollBehavior: const _AppScrollBehavior(),
+              theme: workspaceTheme(
+                  buildAppTheme(Brightness.light, seed: seed, style: style)),
+              darkTheme: workspaceTheme(
+                  buildAppTheme(Brightness.dark, seed: seed, style: style)),
+              themeMode: settings.themeMode,
+              locale: settings.language.locale,
+              localeListResolutionCallback: (locales, _) =>
+                  AppLanguage.resolve(locales),
+              supportedLocales: AppLanguage.supportedLocales,
+              localizationsDelegates: SurveyStrings.delegates,
+              home: const AppShell(),
+              builder: (context, child) {
+                // 统一限制系统字体缩放上限，避免超大字号把测量结果挤坏版式。
+                final mq = MediaQuery.of(context);
+                return MediaQuery(
+                  data: mq.copyWith(
+                    textScaler: mq.textScaler.clamp(
+                      minScaleFactor: 0.9,
+                      maxScaleFactor: 1.3,
+                    ),
+                  ),
+                  child: WorkspaceCommandsEnabled(
+                      child: child ?? const SizedBox.shrink()),
                 );
               },
             ),

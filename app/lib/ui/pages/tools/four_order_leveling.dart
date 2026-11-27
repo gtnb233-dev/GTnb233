@@ -2159,21 +2159,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       title: '四等水准测量',
       subtitle: '手簿 → 闭合差 → 限差 → 配平 → 各点高程',
       mobileSubtitle: drafts.value(draftPageId, '_title') ?? '双面尺 · 逐站检核',
-      actions: [
-        SurveyPopconfirm(
-          title: '载入规范算例？',
-          description: '当前手簿读数将被替换为 4 站教材算例',
-          confirmLabel: '载入',
-          onConfirm: () {
-            _loadExample();
-            SurveyToast.info(context, '已载入四等水准规范算例');
-          },
-          builder: (ctx, open) => TextButton(
-            onPressed: open,
-            child: const LocalText('规范算例'),
-          ),
-        ),
-      ],
       toolbar: PageActions(
         pageId: draftPageId,
         buildTable: _exportTable,
@@ -2183,18 +2168,18 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         onUndo: () => _replayEdit(true),
         onRedo: () => _replayEdit(false),
         onPointNames: _openPointNamesDialog,
-        onLoadSample: () {
+        onLoadSample: () async {
+          final confirmed = await SurveyModal.confirm(
+            context,
+            title: '载入规范算例？',
+            message: '当前手簿读数将被替换为 4 站教材算例',
+            confirmLabel: '载入',
+          );
+          if (!confirmed || !context.mounted) return;
           _loadExample();
           SurveyToast.info(context, '已载入四等水准规范算例');
         },
         extra: [
-          ActionChip(
-            avatar: const Icon(Icons.edit_note_rounded, size: 15),
-            label: Text(_l(context, '自定义点名', 'Point IDs'),
-                style: const TextStyle(fontSize: 12)),
-            visualDensity: VisualDensity.compact,
-            onPressed: _openPointNamesDialog,
-          ),
           Pill(
             label: _l(context, '手簿 mm · 高程 m', 'mm · m'),
             tone: PillTone.neutral,

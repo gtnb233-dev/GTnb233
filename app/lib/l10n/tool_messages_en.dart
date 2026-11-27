@@ -3,6 +3,13 @@
 const toolEnglishMessages = <String, String>{
   // Toolbars, drafts, exports, actions
   '教材算例': 'Textbook example',
+  '载入教材算例': 'Load textbook example',
+  '单位与精度': 'Units and precision',
+  '外业显示': 'Field display',
+  '工具与辅助操作': 'Tool actions',
+  'TIN 三角网土方': 'TIN earthwork',
+  '减少 {label}': 'Decrease {label}',
+  '增加 {label}': 'Increase {label}',
   '自定义点名': 'Custom point names',
   '草稿未保存': 'Draft not saved',
   '度分秒分格': 'DMS cells',

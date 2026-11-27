@@ -680,12 +680,6 @@ class _TraversePageState extends State<TraversePage>
     return DetailScaffold(
       commandBar: true,
       title: '导线平差',
-      actions: [
-        TextButton(
-          onPressed: _loadTextbook,
-          child: const LocalText('教材算例'),
-        ),
-      ],
       toolbar: PageActions(
         pageId: draftPageId,
         confirmClear: true,
@@ -704,16 +698,9 @@ class _TraversePageState extends State<TraversePage>
         },
         onUnitChanged: _calc,
         onAngleModeChanged: _calc,
-        extra: [
-          ActionChip(
-            avatar: const Icon(Icons.edit_note_rounded, size: 15),
-            label: const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _openPointNamesDialog(
-              pts.isNotEmpty ? pts.length : math.max(2, angles.length + 1),
-            ),
-          ),
-        ],
+        onPointNames: () => _openPointNamesDialog(
+          pts.isNotEmpty ? pts.length : math.max(2, angles.length + 1),
+        ),
         onClear: () {
           clearDraft();
           setState(() {
@@ -1882,17 +1869,9 @@ class _LevelingPageState extends State<LevelingPage>
           _calc();
         },
         onUnitChanged: _calc,
-        extra: [
-          ActionChip(
-            avatar: const Icon(Icons.edit_note_rounded, size: 15),
-            label: const LocalText('自定义点名', style: TextStyle(fontSize: 12)),
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _openPointNamesDialog(
-              r?.adjustedDifferences.length ??
-                  parseNumberList(_diffs.text).length,
-            ),
-          ),
-        ],
+        onPointNames: () => _openPointNamesDialog(
+          r?.adjustedDifferences.length ?? parseNumberList(_diffs.text).length,
+        ),
         onClear: () {
           clearDraft();
           _calc();

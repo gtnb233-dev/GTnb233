@@ -131,7 +131,11 @@ Future<T?> workspacePanel<T>(BuildContext context, String title, Widget content,
                   IconButton(
                     tooltip: context.tr('关闭'),
                     icon: const OutlineSymbol(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      if (ModalRoute.of(context)?.isCurrent ?? false) {
+                        Navigator.of(context).pop();
+                      }
+                    },
                   ),
                 ],
               ),
