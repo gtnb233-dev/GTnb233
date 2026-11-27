@@ -384,7 +384,6 @@ class _TinWorkspaceViewState extends State<TinWorkspaceView>
         '水平设计面 · 三角网棱柱体法',
         'Horizontal design plane · Triangulated prism method',
       ),
-      commandBar: true,
       toolbar: DraftScope.maybeRead(context) != null
           ? PageActions(
               pageId: draftPageId,

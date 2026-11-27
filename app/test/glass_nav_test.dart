@@ -6,7 +6,7 @@ import 'package:survey_pro/main.dart';
 import 'package:survey_pro/state/drafts.dart';
 import 'package:survey_pro/state/settings.dart';
 import 'package:survey_pro/theme/app_theme.dart';
-import 'package:survey_pro/theme/tokens.dart';
+import 'package:survey_pro/theme/workspace_layout.dart';
 import 'package:survey_pro/ui/pages/settings_page.dart';
 import 'package:survey_pro/ui/widgets/glass_nav.dart';
 
@@ -90,68 +90,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('窄屏玻璃导航时页面底部补 96，宽屏不补', (tester) async {
-    SharedPreferences.setMockInitialValues({'glass_nav': true});
-    addTearDown(() => SharedPreferences.setMockInitialValues({}));
-    final settings = AppSettings();
-    await settings.load();
-    addTearDown(tester.view.reset);
-
-    Future<double> padAt(Size size) async {
-      tester.view.physicalSize = size * 3;
-      tester.view.devicePixelRatio = 3.0;
-      await tester.pumpWidget(
-        SettingsScope(
-          settings: settings,
-          child: MaterialApp(
-            theme: buildAppTheme(Brightness.light),
-            home: const SettingsPage(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final view = tester.widget<SingleChildScrollView>(
-        find
-            .descendant(
-              of: find.byType(SettingsPage),
-              matching: find.byType(SingleChildScrollView),
-            )
-            .first,
-      );
-      return (view.padding as EdgeInsets).bottom;
-    }
-
-    expect(
-      await padAt(const Size(320, 640)),
-      Insets.xxxl + GlassNavBar.bottomReserve,
-      reason: '窄屏要补玻璃条的 96，否则最后一张卡点不到',
-    );
-    expect(
-      await padAt(const Size(1200, 800)),
-      Insets.xxxl,
-      reason: '宽屏是侧栏玻璃，不该给底部让位',
-    );
-  });
-
   testWidgets('320×640/1.3：滚到底后最后一张卡在玻璃条上方，开关可点', (tester) async {
     SharedPreferences.setMockInitialValues({'glass_nav': true});
     addTearDown(() => SharedPreferences.setMockInitialValues({}));
     final settings = AppSettings();
     await settings.load();
-    tester.view.physicalSize = const Size(1280, 800) * 3;
+    tester.view.physicalSize = const Size(320, 640) * 3;
     tester.view.devicePixelRatio = 3.0;
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(() {
       tester.view.reset();
       tester.platformDispatcher.clearTextScaleFactorTestValue();
     });
-    await tester
-        .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
+    await tester.pumpWidget(WorkspaceHost(
+        android: true,
+        child: SurveyApp(settings: settings, drafts: DraftStore())));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('设置'));
-    await tester.pumpAndSettle();
-    tester.view.physicalSize = const Size(320, 640) * 3;
+    await tester.tap(find.descendant(
+        of: find.byType(GlassNavBar), matching: find.text('设置')));
     await tester.pumpAndSettle();
 
     final scrollable = tester.state<ScrollableState>(

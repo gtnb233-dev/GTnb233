@@ -1,13 +1,9 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../engine/rust_bridge.dart';
 import '../l10n/survey_strings.dart';
 import '../nav/tools.dart';
-import '../platform/native_bridge_contract.dart';
 import '../state/drafts.dart';
 import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
@@ -22,26 +18,8 @@ import 'widgets/command_palette.dart';
 import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/outline_symbol.dart';
-import 'widgets/push_aside_drawer.dart';
-import 'widgets/sliding_bottom_nav.dart';
 import 'widgets/workspace_commands.dart';
 import 'workspace_page_route.dart';
-
-class NavItem {
-  const NavItem(this.label, this.icon, this.activeIcon);
-
-  final String label;
-  final IconData icon;
-  final IconData activeIcon;
-}
-
-const List<NavItem> kNavItems = [
-  NavItem('首页', Icons.dashboard_outlined, Icons.dashboard),
-  NavItem('坐标', Icons.place_outlined, Icons.place),
-  NavItem('计算', Icons.calculate_outlined, Icons.calculate),
-  NavItem('工具库', Icons.widgets_outlined, Icons.widgets),
-  NavItem('设置', Icons.settings_outlined, Icons.settings),
-];
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -51,13 +29,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  final _drawer = GlobalKey<PushAsideDrawerState>();
   final _workspaceNavigator = GlobalKey<NavigatorState>();
   final _destination = ValueNotifier(0);
-  final _homeScroll = ValueNotifier(0.0);
-  final List<int> _tabHistory = <int>[0];
-  int _tabCursor = 0;
-  bool _isMaximized = false;
   late final _navObserver = WorkspaceNavigatorObserver(() {
     if (mounted) setState(() {});
   });
@@ -66,91 +39,38 @@ class _AppShellState extends State<AppShell> {
   BuildContext get _workspaceContext =>
       _workspaceNavigator.currentContext ?? context;
 
-  static final _glassItems = [
-    for (final item in kNavItems)
-      GlassNavItem(
-        label: item.label,
-        icon: item.icon,
-        selectedIcon: item.activeIcon,
-      ),
-  ];
   static const _androidTabs = [0, 3, 5, 4];
-  static final _androidGlassItems = [
-    _glassItems[0],
-    _glassItems[3],
-    const GlassNavItem(
-      label: 'LivePlot',
-      icon: Icons.polyline_outlined,
-      selectedIcon: Icons.polyline,
-    ),
-    _glassItems[4],
+  static const _androidGlassItems = [
+    GlassNavItem(
+        label: '首页',
+        icon: Icons.dashboard_outlined,
+        selectedIcon: Icons.dashboard),
+    GlassNavItem(
+        label: '工具库',
+        icon: Icons.widgets_outlined,
+        selectedIcon: Icons.widgets),
+    GlassNavItem(
+        label: 'LivePlot',
+        icon: Icons.polyline_outlined,
+        selectedIcon: Icons.polyline),
+    GlassNavItem(
+        label: '设置',
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _syncMaximized();
-  }
-
-  Future<void> _syncMaximized() async {
-    if (kIsWeb || !Platform.isWindows) return;
-    final maximized = await NativeWindowBridge.windowIsMaximized();
-    if (mounted && maximized != _isMaximized) {
-      setState(() => _isMaximized = maximized);
-    }
-  }
-
-  Future<void> _toggleMaximize() async {
-    final maximized = await NativeWindowBridge.windowMaximizeToggle();
-    if (mounted) setState(() => _isMaximized = maximized);
-  }
 
   void _go(int index) {
-    _drawer.currentState?.close();
     _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
-    if (_index != index) {
-      if (_tabCursor < _tabHistory.length - 1) {
-        _tabHistory.removeRange(_tabCursor + 1, _tabHistory.length);
-      }
-      _tabHistory.add(index);
-      _tabCursor = _tabHistory.length - 1;
-      setState(() => _destination.value = index);
-    }
+    if (_index != index) setState(() => _destination.value = index);
   }
 
   void _openSidebarTool(ToolDef tool) {
-    _drawer.currentState?.close();
     openTool(_workspaceContext, tool, replaceExistingTool: true);
-  }
-
-  bool get _canGoBack =>
-      (_workspaceNavigator.currentState?.canPop() ?? false) || _tabCursor > 0;
-
-  bool get _canGoForward => _tabCursor < _tabHistory.length - 1;
-
-  void _goBack() {
-    final nav = _workspaceNavigator.currentState;
-    if (nav != null && nav.canPop()) {
-      nav.maybePop();
-      return;
-    }
-    if (_tabCursor > 0) {
-      _tabCursor--;
-      setState(() => _destination.value = _tabHistory[_tabCursor]);
-    }
-  }
-
-  void _goForward() {
-    if (_tabCursor >= _tabHistory.length - 1) return;
-    _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
-    _tabCursor++;
-    setState(() => _destination.value = _tabHistory[_tabCursor]);
   }
 
   @override
   void dispose() {
     _destination.dispose();
-    _homeScroll.dispose();
     super.dispose();
   }
 
@@ -181,7 +101,6 @@ class _AppShellState extends State<AppShell> {
       HomePage(
         onNavigate: _go,
         onOpenSettings: () => _go(4),
-        underFloatingHeader: !android,
       ),
       const CoordPage(),
       const FormulaPage(),
@@ -193,262 +112,54 @@ class _AppShellState extends State<AppShell> {
           children: [WorkspaceLivePlotPanel()],
         ),
     ];
-    if (android) {
-      return WorkspacePageDeck(
-        pages: {for (final (index, page) in pages.indexed) index: page},
-        active: index,
-        duration: workspaceUsesCompactLayout(context)
-            ? const Duration(milliseconds: 180)
-            : Duration.zero,
-      );
-    }
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        IndexedStack(index: index, children: pages),
-        if (index == 0)
-          const Positioned(
-              left: 0, right: 0, bottom: 0, child: QuickCommandBar()),
-      ],
+    return WorkspacePageDeck(
+      pages: {for (final (index, page) in pages.indexed) index: page},
+      active: index,
+      duration: workspaceUsesCompactLayout(context)
+          ? const Duration(milliseconds: 180)
+          : Duration.zero,
     );
   }
-
-  Widget _projectsPanel(
-    AppSettings settings, {
-    required bool drawer,
-    VoidCallback? onToggleSidebar,
-  }) =>
-      _ProjectsPanel(
-        drawer: drawer,
-        index: _index,
-        activeRouteName: _navObserver.activeName,
-        onPage: _go,
-        onOpenTool: _openSidebarTool,
-        onToggleSidebar: onToggleSidebar ??
-            () => settings.setSidebarCollapsed(!settings.sidebarCollapsed),
-        onClose: () => _drawer.currentState?.close(),
-        beforeAction: () => _drawer.currentState?.close(),
-        actionContext: () => _workspaceContext,
-      );
 
   Widget _rootFrame(BuildContext context, Widget pages) {
-    final compact = workspaceUsesCompactLayout(context);
-    if (WorkspaceHost.isAndroid(context)) {
-      return Scaffold(
-        body: pages,
-        bottomNavigationBar: compact
-            ? SafeArea(
-                top: false,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  heightFactor: 1,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: RepaintBoundary(
-                      child: GlassNavBar(
-                        key: const ValueKey('android-portrait-bottom-nav'),
-                        index: _androidTabs.indexOf(_index).clamp(0, 3),
-                        items: _androidGlassItems,
-                        onSelect: (tab) => _go(_androidTabs[tab]),
-                        blurSigma: 0,
-                      ),
+    return Scaffold(
+      body: pages,
+      bottomNavigationBar: workspaceUsesCompactLayout(context)
+          ? SafeArea(
+              top: false,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                heightFactor: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: RepaintBoundary(
+                    child: GlassNavBar(
+                      key: const ValueKey('android-portrait-bottom-nav'),
+                      index: _androidTabs.indexOf(_index).clamp(0, 3),
+                      items: _androidGlassItems,
+                      onSelect: (tab) => _go(_androidTabs[tab]),
+                      blurSigma: 0,
                     ),
                   ),
                 ),
-              )
-            : null,
-      );
-    }
-    final settings = SettingsScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final floatingNav = settings.floatingGlassNav;
-    // Remove redundant 5-tab bottom bar on narrow Home (where QuickCommandBar lives).
-    final bottom = (compact && _index != 0)
-        ? floatingNav
-            ? SafeArea(
-                top: false,
-                child: GlassNavBar(
-                    index: _index,
-                    items: _glassItems,
-                    onSelect: _go,
-                    blurSigma: 0),
-              )
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  border: Border(
-                    top: BorderSide(
-                      color: scheme.outlineVariant.withValues(alpha: 0.55),
-                      width: 0.5,
-                    ),
-                  ),
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: SlidingBottomNav(
-                    selectedIndex: _index,
-                    itemCount: kNavItems.length,
-                    onSelect: _go,
-                    indicatorColor: scheme.secondaryContainer,
-                    child: NavigationBar(
-                      height: 62,
-                      backgroundColor: Colors.transparent,
-                      surfaceTintColor: Colors.transparent,
-                      elevation: 0,
-                      indicatorColor: Colors.transparent,
-                      selectedIndex: _index,
-                      onDestinationSelected: _go,
-                      destinations: [
-                        for (final item in kNavItems)
-                          NavigationDestination(
-                            icon: OutlineSymbol(item.icon, size: 20),
-                            selectedIcon:
-                                OutlineSymbol(item.activeIcon, size: 20),
-                            label: context.tr(item.label),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-        : null;
-    return PushAsideDrawer(
-      key: _drawer,
-      enabled: compact,
-      drawer: Drawer(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        shape: const RoundedRectangleBorder(),
-        child: _projectsPanel(settings, drawer: true),
-      ),
-      child: Scaffold(
-        bottomNavigationBar: bottom,
-        body: compact && _index == 0
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification.depth == 0 &&
-                          notification.metrics.axis == Axis.vertical) {
-                        _homeScroll.value = notification.metrics.pixels;
-                      }
-                      return false;
-                    },
-                    child: pages,
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: _homeScroll,
-                      builder: (context, offset, _) => _mobileHeader(
-                          context, ((offset - 12) / 44).clamp(0.0, 1.0)),
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                children: [
-                  if (compact) _mobileHeader(context, 0),
-                  Expanded(child: pages),
-                ],
               ),
-      ),
-    );
-  }
-
-  Widget _mobileHeader(BuildContext context, double progress) {
-    final theme = Theme.of(context);
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: ScrollEdgeFade(
-              color: theme.scaffoldBackgroundColor,
-              progress: progress,
-              atTop: true),
-        ),
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            key: const ValueKey('workspace-root-header'),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-            child: Row(
-              children: [
-                WorkspaceGlassButton(
-                  icon: Icons.drag_handle_rounded,
-                  label: context.tr('打开工作区菜单'),
-                  onPressed: () => _drawer.currentState?.open(),
-                ),
-                Expanded(
-                  child: Center(
-                    child: TextButton(
-                      onPressed: () => _drawer.currentState?.open(),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                for (final (label, opacity, offset) in [
-                                  ('Survey Pro', 1 - progress, -4 * progress),
-                                  (
-                                    context.tr('工程测量'),
-                                    progress,
-                                    4 * (1 - progress)
-                                  ),
-                                ])
-                                  if (opacity > 0)
-                                    ExcludeSemantics(
-                                      excluding: opacity < .5,
-                                      child: Opacity(
-                                        opacity: opacity,
-                                        child: Transform.translate(
-                                          offset: Offset(0, offset),
-                                          child: Text(label,
-                                              style: theme.textTheme.titleMedium
-                                                  ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w700)),
-                                        ),
-                                      ),
-                                    ),
-                              ],
-                            ),
-                            const SizedBox(width: 3),
-                            const Icon(Icons.keyboard_arrow_down_rounded,
-                                size: 16),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
-          ),
-        ),
-      ],
+            )
+          : null,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    final wide = !workspaceUsesCompactLayout(context);
     final android = WorkspaceHost.isAndroid(context);
-    final livePlot = android || !wide ? null : LivePlotScope.maybeOf(context);
-    final theme = Theme.of(context);
-    final hasNativeCaption =
-        !kIsWeb && theme.platform == TargetPlatform.windows;
+    final compact = workspaceUsesCompactLayout(context);
     final width = MediaQuery.sizeOf(context).width;
-    final splitOpen = wide && !android && (livePlot?.splitOpen ?? false);
+    final narrowWindow = !android && width < kSidebarNavigationMinWidth;
+    final livePlot = android ? null : LivePlotScope.maybeOf(context);
+    final splitOpen = !narrowWindow && (livePlot?.splitOpen ?? false);
     final compactSplit = splitOpen && width < 880;
-    final sidebarCollapsed = settings.sidebarCollapsed || compactSplit;
+    final sidebarCollapsed =
+        narrowWindow || settings.sidebarCollapsed || compactSplit;
     final plotWidth = (width * .29).clamp(184.0, 348.0);
 
     void toggleSidebar() {
@@ -459,6 +170,16 @@ class _AppShellState extends State<AppShell> {
         settings.setSidebarCollapsed(!settings.sidebarCollapsed);
       }
     }
+
+    final VoidCallback? onLivePlot = android
+        ? null
+        : () {
+            if (!narrowWindow && livePlot != null) {
+              livePlot.toggleSplit();
+            } else {
+              showWorkspacePlot(_workspaceContext);
+            }
+          };
 
     return WorkspacePanelBackground(
       child: CallbackShortcuts(
@@ -472,231 +193,71 @@ class _AppShellState extends State<AppShell> {
           autofocus: true,
           child: Scaffold(
             body: SafeArea(
-              top: android && wide,
+              top: android && !compact,
               bottom: false,
-              left: android && wide,
-              right: android && wide,
-              child: Column(
+              left: android && !compact,
+              right: android && !compact,
+              child: Row(
                 children: [
-                  if (!android && (wide || hasNativeCaption))
-                    SafeArea(
-                      bottom: false,
-                      child: _DesktopTopBar(
-                        splitOpen: splitOpen,
-                        onToggleLivePlot: !wide
-                            ? null
-                            : livePlot == null
-                                ? () => showWorkspacePlot(_workspaceContext)
-                                : livePlot.toggleSplit,
-                        canGoBack: _canGoBack,
-                        canGoForward: _canGoForward,
-                        onBack: _goBack,
-                        onForward: _goForward,
-                        isMaximized: _isMaximized,
-                        onToggleMaximize: _toggleMaximize,
+                  if (!compact)
+                    SizedBox(
+                      key: const ValueKey('workspace-sidebar'),
+                      width: sidebarCollapsed ? 56 : 240,
+                      child: RepaintBoundary(
+                        child: sidebarCollapsed
+                            ? _IconRail(
+                                index: _index,
+                                activeRouteName: _navObserver.activeName,
+                                pinnedTools: settings.pinnedTools,
+                                onOpenTool: _openSidebarTool,
+                                onSearch: () =>
+                                    showCommandPalette(_workspaceContext),
+                                onHome: () => _go(0),
+                                onTools: () => _go(3),
+                                onCustomizePinned: () =>
+                                    _showCustomizePinned(_workspaceContext),
+                                onHistory: () =>
+                                    showDraftHistory(_workspaceContext),
+                                onSettings: () => _go(4),
+                                onLivePlot: onLivePlot,
+                                onToggleSidebar:
+                                    narrowWindow ? null : toggleSidebar,
+                              )
+                            : _ProjectsPanel(
+                                index: _index,
+                                activeRouteName: _navObserver.activeName,
+                                onPage: _go,
+                                onOpenTool: _openSidebarTool,
+                                onLivePlot: onLivePlot,
+                                onToggleSidebar: toggleSidebar,
+                                actionContext: () => _workspaceContext,
+                              ),
                       ),
                     ),
                   Expanded(
-                    child: Row(
-                      children: [
-                        if (wide)
-                          SizedBox(
-                            key: const ValueKey('workspace-sidebar'),
-                            width: sidebarCollapsed ? 56 : 240,
-                            child: RepaintBoundary(
-                              child: sidebarCollapsed
-                                  ? _IconRail(
-                                      index: _index,
-                                      activeRouteName: _navObserver.activeName,
-                                      onSearch: () =>
-                                          showCommandPalette(_workspaceContext),
-                                      onHome: () => _go(0),
-                                      onTools: () => _go(3),
-                                      onLeveling4: () => _openSidebarTool(
-                                          toolById('leveling4')!),
-                                      onTraverse: () => _openSidebarTool(
-                                          toolById('traverse')!),
-                                      onHistory: () =>
-                                          showDraftHistory(_workspaceContext),
-                                      onSettings: () => _go(4),
-                                      onToggleSidebar: toggleSidebar,
-                                    )
-                                  : _projectsPanel(settings,
-                                      drawer: false,
-                                      onToggleSidebar: toggleSidebar),
-                            ),
-                          ),
-                        Expanded(
-                          key: const ValueKey('workspace-content'),
-                          child: _workspacePages(),
-                        ),
-                        if (splitOpen)
-                          SizedBox(
-                            key: const ValueKey('workspace-liveplot-split'),
-                            width: plotWidth,
-                            child: RepaintBoundary(
-                              child: ColoredBox(
-                                color: theme.colorScheme.surface,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(Insets.m),
-                                  child: WorkspaceLivePlotPanel(
-                                    expandCanvas: true,
-                                    onClose: () =>
-                                        livePlot!.setSplitOpen(false),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    key: const ValueKey('workspace-content'),
+                    child: _workspacePages(),
                   ),
+                  if (splitOpen)
+                    SizedBox(
+                      key: const ValueKey('workspace-liveplot-split'),
+                      width: plotWidth,
+                      child: RepaintBoundary(
+                        child: ColoredBox(
+                          color: Theme.of(context).colorScheme.surface,
+                          child: Padding(
+                            padding: const EdgeInsets.all(Insets.m),
+                            child: WorkspaceLivePlotPanel(
+                              expandCanvas: true,
+                              onClose: () => livePlot!.setSplitOpen(false),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DesktopTopBar extends StatelessWidget {
-  const _DesktopTopBar({
-    required this.canGoBack,
-    required this.canGoForward,
-    required this.onBack,
-    required this.onForward,
-    required this.isMaximized,
-    required this.onToggleMaximize,
-    required this.splitOpen,
-    required this.onToggleLivePlot,
-  });
-
-  final bool canGoBack;
-  final bool canGoForward;
-  final VoidCallback onBack;
-  final VoidCallback onForward;
-  final bool isMaximized;
-  final VoidCallback onToggleMaximize;
-  final bool splitOpen;
-  final VoidCallback? onToggleLivePlot;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final showCaptionButtons =
-        !kIsWeb && theme.platform == TargetPlatform.windows;
-    return Container(
-      key: const ValueKey('desktop-top-bar'),
-      height: 40,
-      color: theme.scaffoldBackgroundColor,
-      child: Row(
-        children: [
-          const SizedBox(width: 6),
-          IconButton(
-            tooltip: context.tr('返回'),
-            visualDensity: VisualDensity.compact,
-            onPressed: canGoBack ? onBack : null,
-            icon: const OutlineSymbol(Icons.chevron_left_rounded, size: 20),
-          ),
-          IconButton(
-            tooltip: context.tr('前进'),
-            visualDensity: VisualDensity.compact,
-            onPressed: canGoForward ? onForward : null,
-            icon: const OutlineSymbol(Icons.chevron_right_rounded, size: 20),
-          ),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) => NativeWindowBridge.windowStartDrag(),
-              onDoubleTap: onToggleMaximize,
-              child: const SizedBox.expand(),
-            ),
-          ),
-          if (onToggleLivePlot != null)
-            IconButton(
-              key: const ValueKey('workspace-liveplot-toggle'),
-              tooltip: 'LivePlot',
-              onPressed: onToggleLivePlot,
-              isSelected: splitOpen,
-              icon:
-                  const OutlineSymbol(Icons.vertical_split_outlined, size: 19),
-              selectedIcon: const OutlineSymbol(Icons.vertical_split, size: 19),
-            ),
-          if (showCaptionButtons) ...[
-            _WindowCaptionButton(
-              icon: Icons.remove_rounded,
-              tooltip: context.tr('最小化'),
-              onPressed: NativeWindowBridge.windowMinimize,
-            ),
-            _WindowCaptionButton(
-              icon: isMaximized
-                  ? Icons.filter_none_rounded
-                  : Icons.crop_square_rounded,
-              iconSize: isMaximized ? 13 : 15,
-              tooltip: context.tr(isMaximized ? '还原' : '最大化'),
-              onPressed: onToggleMaximize,
-            ),
-            _WindowCaptionButton(
-              icon: Icons.close_rounded,
-              tooltip: context.tr('关闭'),
-              isClose: true,
-              onPressed: NativeWindowBridge.windowClose,
-            ),
-          ] else
-            const SizedBox(width: 6),
-        ],
-      ),
-    );
-  }
-}
-
-class _WindowCaptionButton extends StatefulWidget {
-  const _WindowCaptionButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.iconSize = 16,
-    this.isClose = false,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final double iconSize;
-  final bool isClose;
-
-  @override
-  State<_WindowCaptionButton> createState() => _WindowCaptionButtonState();
-}
-
-class _WindowCaptionButtonState extends State<_WindowCaptionButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final bg = _hovered
-        ? (widget.isClose
-            ? const Color(0xFFC42B1C)
-            : scheme.onSurface.withValues(alpha: 0.08))
-        : Colors.transparent;
-    final fg = (_hovered && widget.isClose) ? Colors.white : scheme.onSurface;
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed,
-          child: Container(
-            width: 42,
-            height: 40,
-            color: bg,
-            alignment: Alignment.center,
-            child: Icon(widget.icon, size: widget.iconSize, color: fg),
           ),
         ),
       ),
@@ -711,8 +272,10 @@ class _IconRail extends StatelessWidget {
     required this.onSearch,
     required this.onHome,
     required this.onTools,
-    required this.onLeveling4,
-    required this.onTraverse,
+    required this.pinnedTools,
+    required this.onOpenTool,
+    required this.onCustomizePinned,
+    required this.onLivePlot,
     required this.onHistory,
     required this.onSettings,
     required this.onToggleSidebar,
@@ -723,11 +286,13 @@ class _IconRail extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onHome;
   final VoidCallback onTools;
-  final VoidCallback onLeveling4;
-  final VoidCallback onTraverse;
+  final List<String> pinnedTools;
+  final ValueChanged<ToolDef> onOpenTool;
+  final VoidCallback onCustomizePinned;
+  final VoidCallback? onLivePlot;
   final VoidCallback onHistory;
   final VoidCallback onSettings;
-  final VoidCallback onToggleSidebar;
+  final VoidCallback? onToggleSidebar;
 
   @override
   Widget build(BuildContext context) {
@@ -765,20 +330,27 @@ class _IconRail extends StatelessWidget {
                   selected: onRoot && index == 3,
                   onTap: onTools,
                 ),
-                const SizedBox(height: 4),
+                for (final id in pinnedTools)
+                  if (toolById(id) case final tool?)
+                    _RailButton(
+                      tooltip: context.tr(tool.title),
+                      icon: tool.icon,
+                      selected: activeRouteName == 'tool/$id',
+                      onTap: () => onOpenTool(tool),
+                    ),
                 _RailButton(
-                  tooltip: context.tr('四等水准测量'),
-                  icon: Icons.water_damage_outlined,
-                  selected: activeRouteName == 'tool/leveling4',
-                  onTap: onLeveling4,
+                  buttonKey: const ValueKey('sidebar-customize-pinned'),
+                  tooltip: context.tr('自定义常用工具'),
+                  icon: Icons.tune_rounded,
+                  onTap: onCustomizePinned,
                 ),
-                const SizedBox(height: 4),
-                _RailButton(
-                  tooltip: context.tr('导线平差'),
-                  icon: Icons.polyline_outlined,
-                  selected: activeRouteName == 'tool/traverse',
-                  onTap: onTraverse,
-                ),
+                if (onLivePlot != null)
+                  _RailButton(
+                    buttonKey: const ValueKey('workspace-liveplot-toggle'),
+                    tooltip: context.tr('实时坐标图分栏'),
+                    icon: Icons.vertical_split_outlined,
+                    onTap: onLivePlot,
+                  ),
                 const SizedBox(height: 4),
                 _RailButton(
                   tooltip: context.tr('最近历史'),
@@ -820,7 +392,7 @@ class _RailButton extends StatelessWidget {
   final Key? buttonKey;
   final String tooltip;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool selected;
 
   @override
@@ -847,25 +419,21 @@ class _RailButton extends StatelessWidget {
 
 class _ProjectsPanel extends StatefulWidget {
   const _ProjectsPanel({
-    required this.drawer,
     required this.index,
     required this.activeRouteName,
     required this.onPage,
     required this.onOpenTool,
     required this.onToggleSidebar,
-    required this.onClose,
-    required this.beforeAction,
+    required this.onLivePlot,
     required this.actionContext,
   });
 
-  final bool drawer;
   final int index;
   final String? activeRouteName;
   final ValueChanged<int> onPage;
   final ValueChanged<ToolDef> onOpenTool;
   final VoidCallback onToggleSidebar;
-  final VoidCallback onClose;
-  final VoidCallback beforeAction;
+  final VoidCallback? onLivePlot;
   final BuildContext Function() actionContext;
 
   @override
@@ -882,29 +450,6 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
   void dispose() {
     _filterCtrl.dispose();
     super.dispose();
-  }
-
-  void _action(VoidCallback go) {
-    widget.beforeAction();
-    go();
-  }
-
-  Future<void> _showCustomizePinned(BuildContext context) async {
-    final compact = workspaceUsesCompactLayout(context);
-    if (compact) {
-      await showWorkspaceBottomSheet<void>(
-        context,
-        (_) => const _CustomizePinnedSheet(isSheet: true),
-      );
-    } else {
-      await showDialog<void>(
-        context: context,
-        builder: (_) => const Dialog(
-          backgroundColor: Colors.transparent,
-          child: _CustomizePinnedSheet(isSheet: false),
-        ),
-      );
-    }
   }
 
   @override
@@ -951,8 +496,8 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(Radii.field),
-                      onTap: () => _action(
-                          () => showCoordinatePresets(widget.actionContext())),
+                      onTap: () =>
+                          showCoordinatePresets(widget.actionContext()),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 6),
@@ -977,13 +522,10 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                     ),
                   ),
                   IconButton(
-                    key: widget.drawer
-                        ? const ValueKey('drawer-search-btn')
-                        : const ValueKey('sidebar-search-btn'),
+                    key: const ValueKey('sidebar-search-btn'),
                     tooltip: context.tr('搜索工具与公式'),
                     visualDensity: VisualDensity.compact,
-                    onPressed: () => _action(
-                        () => showCommandPalette(widget.actionContext())),
+                    onPressed: () => showCommandPalette(widget.actionContext()),
                     icon: const OutlineSymbol(Icons.search, size: 17),
                   ),
                 ],
@@ -1014,46 +556,29 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
               _SidebarEntry(
                 title: context.tr('新建测量'),
                 icon: Icons.add,
-                onTap: () =>
-                    _action(() => showWorkspaceCreate(widget.actionContext())),
+                onTap: () => showWorkspaceCreate(widget.actionContext()),
                 selected: false,
               ),
-              if (widget.drawer) ...[
-                _SidebarEntry(
-                  title: context.tr('首页'),
-                  icon: Icons.dashboard_outlined,
-                  onTap: () => widget.onPage(0),
-                  selected: widget.activeRouteName == null && widget.index == 0,
-                ),
-                _SidebarEntry(
-                  title: context.tr('工具库'),
-                  icon: Icons.widgets_outlined,
-                  onTap: () => widget.onPage(3),
-                  selected: widget.activeRouteName == null && widget.index == 3,
-                ),
-              ],
               const Divider(height: 16),
               Expanded(
                 child: ListView(
                   primary: false,
                   padding: EdgeInsets.zero,
                   children: [
-                    if (WorkspaceHost.isAndroid(context) && !widget.drawer) ...[
-                      _SidebarEntry(
-                        title: context.tr('首页'),
-                        icon: Icons.dashboard_outlined,
-                        onTap: () => widget.onPage(0),
-                        selected:
-                            widget.activeRouteName == null && widget.index == 0,
-                      ),
-                      _SidebarEntry(
-                        title: context.tr('工具库'),
-                        icon: Icons.widgets_outlined,
-                        onTap: () => widget.onPage(3),
-                        selected:
-                            widget.activeRouteName == null && widget.index == 3,
-                      ),
-                    ],
+                    _SidebarEntry(
+                      title: context.tr('首页'),
+                      icon: Icons.dashboard_outlined,
+                      onTap: () => widget.onPage(0),
+                      selected:
+                          widget.activeRouteName == null && widget.index == 0,
+                    ),
+                    _SidebarEntry(
+                      title: context.tr('工具库'),
+                      icon: Icons.widgets_outlined,
+                      onTap: () => widget.onPage(3),
+                      selected:
+                          widget.activeRouteName == null && widget.index == 3,
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(8, 0, 2, 2),
                       child: Row(
@@ -1120,8 +645,8 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                               .toList(growable: false),
                           activeId: active,
                           drafts: drafts,
-                          onOpenDraft: (id) => _action(() =>
-                              openWorkspaceDraft(widget.actionContext(), id)),
+                          onOpenDraft: (id) =>
+                              openWorkspaceDraft(widget.actionContext(), id),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -1165,8 +690,8 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                         _SidebarEntry(
                           title: draftTitle(context, drafts, id),
                           icon: Icons.description_outlined,
-                          onTap: () => _action(() =>
-                              openWorkspaceDraft(widget.actionContext(), id)),
+                          onTap: () =>
+                              openWorkspaceDraft(widget.actionContext(), id),
                           selected: id == active,
                         ),
                     ],
@@ -1199,28 +724,28 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                       ),
                     ),
                   ),
+                  if (widget.onLivePlot != null)
+                    IconButton(
+                      key: const ValueKey('workspace-liveplot-toggle'),
+                      tooltip: context.tr('实时坐标图分栏'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: widget.onLivePlot,
+                      icon: const OutlineSymbol(Icons.vertical_split_outlined,
+                          size: 18),
+                    ),
                   IconButton(
                     tooltip: context.tr('设置'),
                     onPressed: () => widget.onPage(4),
                     icon: const OutlineSymbol(Icons.settings_outlined),
                   ),
-                  if (widget.drawer)
-                    IconButton(
-                      tooltip: context.tr('关闭菜单'),
-                      onPressed: widget.onClose,
-                      icon: const OutlineSymbol(Icons.close, size: 18),
-                    )
-                  else
-                    IconButton(
-                      key: const ValueKey('sidebar-toggle-btn'),
-                      tooltip: context.tr('收起侧边栏'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: widget.onToggleSidebar,
-                      icon: const OutlineSymbol(
-                        Icons.view_sidebar_outlined,
-                        size: 18,
-                      ),
-                    ),
+                  IconButton(
+                    key: const ValueKey('sidebar-toggle-btn'),
+                    tooltip: context.tr('收起侧边栏'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: widget.onToggleSidebar,
+                    icon: const OutlineSymbol(Icons.view_sidebar_outlined,
+                        size: 18),
+                  ),
                 ],
               ),
             ],
@@ -1231,9 +756,16 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
   }
 }
 
+Future<void> _showCustomizePinned(BuildContext context) => showDialog<void>(
+      context: context,
+      builder: (_) => const Dialog(
+        backgroundColor: Colors.transparent,
+        child: _CustomizePinnedSheet(),
+      ),
+    );
+
 class _CustomizePinnedSheet extends StatelessWidget {
-  const _CustomizePinnedSheet({required this.isSheet});
-  final bool isSheet;
+  const _CustomizePinnedSheet();
 
   @override
   Widget build(BuildContext context) {
@@ -1254,8 +786,7 @@ class _CustomizePinnedSheet extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 460,
-          maxHeight:
-              MediaQuery.sizeOf(context).height * (isSheet ? 0.78 : 0.72),
+          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),

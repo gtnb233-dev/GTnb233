@@ -15,6 +15,7 @@ import 'package:survey_pro/theme/app_theme.dart';
 import 'package:survey_pro/ui/pages/tools/coord_tools.dart';
 import 'package:survey_pro/ui/pages/tools/four_order_leveling.dart';
 import 'package:survey_pro/ui/pages/tools/projection_tools.dart';
+import 'package:survey_pro/ui/page_scaffold.dart';
 import 'package:survey_pro/ui/widgets/page_actions.dart';
 
 import 'support/app_scope.dart';
@@ -514,7 +515,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('导出'), findsWidgets);
+      expect(find.byTooltip('导出表格'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });
@@ -579,7 +580,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final actions = tester.widget<PageActions>(find.byType(PageActions));
+      final detail = tester.widget<DetailScaffold>(find.byType(DetailScaffold));
+      final actions = detail.toolbar! as PageActions;
       final table = actions.buildTable!();
       final distRow = table.rows.firstWhere((r) => r.first == '平距 D');
       expect(distRow[2], 'cm');
@@ -603,7 +605,8 @@ void main() {
       await tester.tap(find.text('四参数'));
       await tester.pumpAndSettle();
 
-      final actions = tester.widget<PageActions>(find.byType(PageActions));
+      final detail = tester.widget<DetailScaffold>(find.byType(DetailScaffold));
+      final actions = detail.toolbar! as PageActions;
       final table = actions.buildTable!();
       expect(table.rows.every((r) => r.length == table.rows.first.length), isTrue);
       final sheets = table.formSheetsBuilder!();

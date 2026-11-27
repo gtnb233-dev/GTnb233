@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:survey_pro/l10n/survey_strings.dart';
@@ -91,59 +90,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact command bar deduplicates and replaces tools',
+  testWidgets(
+      'Windows icon rail keeps the current tool and replaces other tools',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final settings = AppSettings();
-    await settings.load();
     await settings.setLanguage(AppLanguage.chinese);
+    await settings.setPinnedToolIds(['leveling4', 'projection']);
     await tester
         .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('打开工作区菜单'));
+    final rail = find.byKey(const ValueKey('desktop-icon-rail'));
+    Finder pinned(String label) =>
+        find.descendant(of: rail, matching: find.byTooltip(label));
+    await tester.tap(pinned('四等水准测量'));
     await tester.pumpAndSettle();
-    final drawer = find.byType(Drawer);
-    expect(
-        find.descendant(
-            of: drawer,
-            matching: find.byKey(
-              const ValueKey('drawer-search-btn'),
-            )),
-        findsOneWidget);
-    final leveling = find.descendant(
-      of: drawer,
-      matching: find.text('四等水准测量'),
-    );
-    await tester.ensureVisible(leveling);
-    await tester.tap(leveling);
-    await tester.pumpAndSettle();
-    expect(find.byType(FourOrderLevelingPage), findsOneWidget);
     expect(find.byType(CupertinoSlidingSegmentedControl<int>), findsWidgets);
-    expect(find.byType(Drawer), findsNothing);
+    final firstPage = tester.element(find.byType(FourOrderLevelingPage));
+    await tester.tap(pinned('四等水准测量'));
+    await tester.pumpAndSettle();
+    expect(tester.element(find.byType(FourOrderLevelingPage)), same(firstPage));
 
-    Future<void> command(String text) async {
-      await tester.enterText(
-        find.byKey(const ValueKey('workspace-command-input')),
-        text,
-      );
-      await tester.testTextInput.receiveAction(TextInputAction.go);
-      await tester.pumpAndSettle();
-    }
-
-    await command('四等水准测量');
-    expect(find.byType(FourOrderLevelingPage, skipOffstage: false),
-        findsOneWidget);
-    await command('坐标转换');
+    await tester.tap(pinned('坐标转换'));
+    await tester.pumpAndSettle();
     expect(find.byType(ProjectionPage), findsOneWidget);
-    expect(
-        find.byType(FourOrderLevelingPage, skipOffstage: false), findsNothing);
-    await tester.binding.handlePopRoute();
+    expect(find.byType(FourOrderLevelingPage), findsNothing);
+    await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
     expect(find.byType(ProjectionPage), findsNothing);
-    expect(find.byKey(const ValueKey('workspace-root-header')), findsOneWidget);
+    expect(find.byType(FourOrderLevelingPage), findsNothing);
+    expect(
+        find.byKey(const ValueKey('sidebar-customize-pinned')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

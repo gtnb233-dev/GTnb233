@@ -3,9 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:survey_core/survey_core.dart';
 
-import '../../../app_info.dart';
 import '../../../export/export_service.dart';
-import '../../../nav/tools.dart';
 import '../../../export/survey_forms.dart';
 import '../../../export/xlsx_writer.dart';
 import '../../../l10n/survey_strings.dart';
@@ -13,8 +11,6 @@ import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
-import '../../tool_router.dart';
-import '../../widgets/command_palette.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
@@ -170,8 +166,7 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
     if (okRows.isNotEmpty) {
       final stPt = LivePlotPointData(
           x: sx, y: sy, label: context.tr('测站'), emphasis: true);
-      final bsPt =
-          LivePlotPointData(x: bx, y: by, label: context.tr('后视'));
+      final bsPt = LivePlotPointData(x: bx, y: by, label: context.tr('后视'));
       LivePlotScope.maybeRead(context)?.updateSnapshot(
         LivePlotSnapshot(
           title: context.tr('批量放样'),
@@ -385,7 +380,6 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
 
     return DetailScaffold(
       title: '批量放样',
-      desktopRail: const _StakeoutRail(),
       resultsBesideInputs: true,
       subtitle: '一次定向，批量算出多个目标点的水平角与平距',
       toolbar: PageActions(
@@ -477,7 +471,10 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                   runSpacing: Insets.s,
                   children: [
                     for (final (label, value) in [
-                      (context.tr('目标点'), _l(context, '${ok.length} 个', '${ok.length}')),
+                      (
+                        context.tr('目标点'),
+                        _l(context, '${ok.length} 个', '${ok.length}')
+                      ),
                       (
                         context.tr('最远平距'),
                         '${fmt(u.fromMeters(ok.map((r) => r.result!.distance).reduce(math.max)), digits)} ${u.symbol}'
@@ -727,55 +724,6 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
             ),
           ),
       ],
-    );
-  }
-}
-
-class _StakeoutRail extends StatelessWidget {
-  const _StakeoutRail();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final tools = kTools.where((tool) => tool.group == ToolGroup.coordinates);
-    return Material(
-      color: scheme.surfaceContainerLow,
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(Insets.m),
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.architecture, color: scheme.primary),
-              title: Text('Survey Pro', style: theme.textTheme.titleMedium),
-              subtitle: const Text(kAppVersionLabel),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => showCommandPalette(context),
-              icon: const Icon(Icons.search, size: 16),
-              label: const LocalText('查找工具'),
-            ),
-            const SizedBox(height: Insets.m),
-            for (final tool in tools)
-              ListTile(
-                dense: true,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(Radii.chip),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: Insets.s),
-                leading: Icon(tool.icon, size: 16),
-                title: LocalText(tool.title),
-                selected: tool.id == 'batch_stakeout',
-                selectedTileColor: scheme.primaryContainer,
-                onTap: tool.id == 'batch_stakeout'
-                    ? null
-                    : () => openTool(context, tool),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }

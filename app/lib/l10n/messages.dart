@@ -153,7 +153,7 @@ const englishMessages = <String, String>{
   '自动轮换双尺': 'Alternate staffs',
   '土方 TIN': 'TIN earthwork',
   '液态玻璃': 'Liquid Glass',
-  '悬浮操作台使用半透明背景': 'Translucent background for the floating command bar',
+  '弹层使用半透明背景': 'Use translucent backgrounds for pop-ups',
   '悬浮操作台与底栏使用半透明背景':
       'Translucent backgrounds for the floating command bar and navigation',
   '三角网棱柱体法 · 挖填方量': 'Triangulated prism method · Cut and fill',

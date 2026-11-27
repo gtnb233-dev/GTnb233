@@ -93,7 +93,7 @@ abstract final class NativeWindowBridge {
     }
   }
 
-  /// Enables or disables `FLAG_KEEP_SCREEN_ON` on supported hosts.
+  /// Keeps the display awake on supported native hosts.
   static Future<void> setKeepScreenOn(bool enabled) async {
     try {
       await _channel.invokeMethod<void>('setKeepScreenOn', enabled);

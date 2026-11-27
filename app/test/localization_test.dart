@@ -17,6 +17,7 @@ import 'package:survey_pro/state/control_points.dart';
 import 'package:survey_pro/state/drafts.dart';
 import 'package:survey_pro/state/settings.dart';
 import 'package:survey_pro/theme/app_theme.dart';
+import 'package:survey_pro/theme/workspace_layout.dart';
 import 'package:survey_pro/ui/pages/tools_page.dart';
 import 'package:survey_pro/ui/tool_router.dart';
 import 'package:survey_pro/ui/widgets/glass_nav.dart';
@@ -92,7 +93,10 @@ void main() {
     await settings.load();
     expect(settings.language, AppLanguage.system);
     await tester.pumpWidget(
-      SurveyApp(settings: settings, drafts: DraftStore()),
+      WorkspaceHost(
+        android: true,
+        child: SurveyApp(settings: settings, drafts: DraftStore()),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -207,11 +211,11 @@ void main() {
     expect(find.text('Starting data'), findsOneWidget);
     expect(find.text('Observed data'), findsOneWidget);
     expect(find.text('Accuracy assessment'), findsOneWidget);
-    expect(find.text('Export'), findsOneWidget);
-    expect(find.text('Clear'), findsWidgets);
+    expect(find.byTooltip('Export sheet'), findsOneWidget);
     await tester.tap(find.byTooltip('More actions'));
     await tester.pumpAndSettle();
     expect(find.text('Load textbook example'), findsOneWidget);
+    expect(find.text('Clear'), findsOneWidget);
 
     expect(
       _collectCjkViolations(tester)
@@ -307,7 +311,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Open Export menu and verify zero CJK.
-      await tester.tap(find.text('Export'));
+      await tester.tap(find.byTooltip('Export sheet'));
       await tester.pumpAndSettle();
       expect(
       _collectCjkViolations(tester)

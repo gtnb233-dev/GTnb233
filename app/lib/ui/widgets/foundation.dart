@@ -114,57 +114,72 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: Insets.xs,
-        right: Insets.xs,
-        bottom: Insets.s,
-        top: Insets.s,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.tr(title),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: scheme.onSurface,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0,
-                  ),
-                ),
-                if (caption != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      context.tr(caption!),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-              ],
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.tr(title),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: scheme.onSurface,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0,
+          ),
+        ),
+        if (caption != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              context.tr(caption!),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
           ),
-          if (trailing != null)
-            trailing!
-          else if (actions != null && actions!.isNotEmpty)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final action in actions!)
-                  Padding(
-                    padding: const EdgeInsets.only(left: Insets.xs),
-                    child: action,
-                  ),
-              ],
+      ],
+    );
+    final controls = trailing ??
+        (actions == null || actions!.isEmpty
+            ? null
+            : Wrap(
+                alignment: WrapAlignment.end,
+                spacing: Insets.xs,
+                runSpacing: Insets.xs,
+                children: actions!,
+              ));
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(Insets.xs, Insets.s, Insets.xs, Insets.s),
+      child: controls == null
+          ? heading
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 360 && (actions?.length ?? 0) > 1) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      heading,
+                      const SizedBox(height: Insets.xs),
+                      Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: controls),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(child: heading),
+                    const SizedBox(width: Insets.xs),
+                    ConstrainedBox(
+                      constraints:
+                          BoxConstraints(maxWidth: constraints.maxWidth * .66),
+                      child: controls,
+                    ),
+                  ],
+                );
+              },
             ),
-        ],
-      ),
     );
   }
 }

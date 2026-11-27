@@ -5,15 +5,11 @@ import 'package:flutter/material.dart';
 import '../export/export_service.dart';
 import '../l10n/survey_strings.dart';
 import '../state/drafts.dart';
-import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import '../theme/workspace_layout.dart';
-import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/measurement_units_button.dart';
-import 'widgets/command_palette.dart';
-import 'widgets/outline_symbol.dart';
 import 'widgets/overlays.dart';
 import 'widgets/page_actions.dart';
 import 'widgets/tutorial_panel.dart';
@@ -31,8 +27,6 @@ class PageScaffold extends StatelessWidget {
     this.trailing,
     this.header,
     this.fab,
-    this.overlayReserve,
-    this.topReserve = 0,
     this.toolbar,
     this.maxWidth = Insets.contentMaxWidth,
   });
@@ -48,8 +42,6 @@ class PageScaffold extends StatelessWidget {
   /// 标题下方的自定义区块（如状态总览卡）。
   final Widget? header;
   final Widget? fab;
-  final double? overlayReserve;
-  final double topReserve;
   final double maxWidth;
 
   @override
@@ -57,14 +49,11 @@ class PageScaffold extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final compact = workspaceUsesCompactLayout(context);
-    final android = WorkspaceHost.isAndroid(context);
-    final bottomReserve = overlayReserve ?? glassNavBottomReserve(context);
     return Scaffold(
       // 不能留 transparent：一旦外层没有不透明底色，窗口黑底会透出来。
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: fab,
       body: SafeArea(
-        bottom: android,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final pad = constraints.maxWidth >= 900 ? Insets.xxl : Insets.l;
@@ -73,16 +62,7 @@ class PageScaffold extends StatelessWidget {
                   ? const BouncingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics())
                   : null,
-              // 玻璃导航悬浮在内容之上：把让位放进滚动内容，滚到底时
-              // 最后一张卡片会停在条子上方，不会被永久遮住。
-              padding: EdgeInsets.fromLTRB(
-                pad,
-                Insets.l + topReserve,
-                pad,
-                android
-                    ? Insets.xl
-                    : overlayReserve ?? Insets.xxxl + bottomReserve,
-              ),
+              padding: EdgeInsets.fromLTRB(pad, Insets.l, pad, Insets.xl),
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
@@ -167,9 +147,7 @@ class DetailScaffold extends StatefulWidget {
     this.draftBadge,
     this.sideVisual,
     this.bottomSection,
-    this.desktopRail,
     this.resultsBesideInputs = false,
-    this.commandBar = false,
     this.maxWidth = 820,
     this.wideMaxWidth = 1160,
   });
@@ -196,9 +174,7 @@ class DetailScaffold extends StatefulWidget {
 
   /// 双栏下方通栏区（宽表、手簿、教材表格等）。
   final Widget? bottomSection;
-  final Widget? desktopRail;
   final bool resultsBesideInputs;
-  final bool commandBar;
 
   final double maxWidth;
   final double wideMaxWidth;
@@ -208,7 +184,6 @@ class DetailScaffold extends StatefulWidget {
 }
 
 class _DetailScaffoldState extends State<DetailScaffold> {
-  static const _compactHeaderHeight = 62.0;
   final ScrollController _scrollCtrl = ScrollController();
 
   double get _scrollOffset =>
@@ -293,9 +268,8 @@ class _DetailScaffoldState extends State<DetailScaffold> {
   }
 
   List<Widget> _buildPinnedHeaderButtons(
-    BuildContext context, {
-    required bool compact,
-  }) {
+    BuildContext context,
+  ) {
     final settings = SettingsScope.maybeOf(context);
     final pinnedIds = settings?.pinnedHeaderActions ??
         AppSettings.kDefaultPinnedHeaderActions;
@@ -311,9 +285,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
             PopupMenuButton<ExportFormat>(
               tooltip: context.tr('导出表格'),
               padding: EdgeInsets.zero,
-              icon: compact
-                  ? const Icon(Icons.ios_share, size: 18)
-                  : const OutlineSymbol(Icons.ios_share, size: 19),
+              icon: const Icon(Icons.ios_share, size: 18),
               onSelected: (f) => PageActions.runExport(
                 context,
                 buildTable: buildTable,
@@ -357,9 +329,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               visualDensity: VisualDensity.compact,
               iconSize: 18,
               onPressed: onPointNames,
-              icon: compact
-                  ? const Icon(Icons.edit_note_rounded, size: 19)
-                  : const OutlineSymbol(Icons.edit_note_rounded, size: 19),
+              icon: const Icon(Icons.edit_note_rounded, size: 19),
             ),
           );
         case 'sample':
@@ -370,9 +340,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               visualDensity: VisualDensity.compact,
               iconSize: 18,
               onPressed: sampleCb,
-              icon: compact
-                  ? const Icon(Icons.auto_fix_high_outlined, size: 18)
-                  : const OutlineSymbol(Icons.auto_fix_high_outlined, size: 19),
+              icon: const Icon(Icons.auto_fix_high_outlined, size: 18),
             ),
           );
         case 'clear':
@@ -389,9 +357,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 onClear: onClear,
                 confirmClear: pageActions.confirmClear,
               ),
-              icon: compact
-                  ? const Icon(Icons.restart_alt, size: 19)
-                  : const OutlineSymbol(Icons.restart_alt, size: 19),
+              icon: const Icon(Icons.restart_alt, size: 19),
             ),
           );
       }
@@ -620,7 +586,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               ),
               const Divider(height: Insets.m),
             ],
-            if (unpinned.isNotEmpty || actions.isNotEmpty || !android)
+            if (unpinned.isNotEmpty || actions.isNotEmpty)
               _groupHeader(sheetContext, '工具与辅助操作'),
             if (actions.isNotEmpty) ...[
               Wrap(spacing: 8, runSpacing: 8, children: actions),
@@ -634,14 +600,6 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 leading: Icon(_headerActionIcon(id)),
                 title: Text(_headerActionLabel(sheetContext, id)),
                 onTap: () => choose(id),
-              ),
-            if (!android)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.search_rounded),
-                title: const LocalText('快速跳转'),
-                onTap: () => choose('search'),
               ),
           ],
         );
@@ -691,129 +649,145 @@ class _DetailScaffoldState extends State<DetailScaffold> {
             confirmClear: pageActions.confirmClear,
           );
         }
-      case 'search':
-        await showCommandPalette(context);
     }
   }
 
-  Widget _compactHeader(BuildContext context, bool canPop) {
+  Widget _toolHeader(
+    BuildContext context, {
+    required bool canPop,
+    required bool stacked,
+    required bool tight,
+    required List<Widget> pinnedButtons,
+    required double height,
+  }) {
     final theme = Theme.of(context);
     final primary = widget.mobilePrimaryAction;
     final draftBadge = _buildDraftBadge(context);
-    final pinnedButtons = _buildPinnedHeaderButtons(context, compact: true);
-    return SizedBox(
-      height: _compactHeaderHeight,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      theme.scaffoldBackgroundColor,
-                      theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
-                      theme.scaffoldBackgroundColor.withValues(alpha: 0),
-                    ],
-                    stops: const [0.0, 0.62, 1.0],
-                  ),
-                ),
-              ),
-            ),
+    final heading = Row(
+      children: [
+        if (canPop) ...[
+          WorkspaceGlassButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            label: context.tr('返回'),
+            onPressed: () => Navigator.maybePop(context),
           ),
-          SizedBox(
-            height: _compactHeaderHeight,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
+          const SizedBox(width: 7),
+        ],
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  if (canPop) ...[
-                    WorkspaceGlassButton(
-                      icon: Icons.arrow_back_ios_new_rounded,
-                      label: context.tr('返回'),
-                      onPressed: () => Navigator.maybePop(context),
+                  Flexible(
+                    flex: 3,
+                    child: Text(
+                      context.tr(widget.title),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    const SizedBox(width: 7),
+                  ),
+                  if (draftBadge != null) ...[
+                    const SizedBox(width: 6),
+                    Flexible(flex: 2, child: draftBadge),
                   ],
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              flex: 3,
-                              child: Text(
-                                context.tr(widget.title),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            if (draftBadge != null) ...[
-                              const SizedBox(width: 6),
-                              Flexible(flex: 2, child: draftBadge),
-                            ],
-                          ],
-                        ),
-                        if ((widget.mobileSubtitle ?? widget.subtitle)
-                            case final subtitle?)
-                          Text(
-                            context.tr(subtitle),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  MeasurementUnitsButton(
-                    tight: MediaQuery.sizeOf(context).width <= 360,
-                    onLengthChanged: _pageActions?.onUnitChanged,
-                    onAngleChanged: _pageActions?.onAngleModeChanged,
-                  ),
-                  const SizedBox(width: 4),
-                  LiquidGlassSurface(
-                    key: const ValueKey('detail-action-capsule'),
-                    borderRadius: BorderRadius.circular(24),
-                    elevated: false,
-                    blurSigma: 12,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (primary != null)
-                          SizedBox(width: 40, height: 42, child: primary),
-                        for (final btn in pinnedButtons)
-                          SizedBox(width: 36, height: 42, child: btn),
-                        SizedBox(
-                          width: 40,
-                          height: 42,
-                          child: IconButton(
-                            tooltip: context.tr('更多操作'),
-                            iconSize: 20,
-                            onPressed: _showCompactActions,
-                            icon: const Icon(Icons.more_horiz_rounded),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
-            ),
+              if ((widget.mobileSubtitle ?? widget.subtitle)
+                  case final subtitle?)
+                Text(
+                  context.tr(subtitle),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
+      ],
+    );
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MeasurementUnitsButton(
+          tight: tight,
+          onLengthChanged: _pageActions?.onUnitChanged,
+          onAngleChanged: _pageActions?.onAngleModeChanged,
+        ),
+        const SizedBox(width: 4),
+        LiquidGlassSurface(
+          key: const ValueKey('detail-action-capsule'),
+          borderRadius: BorderRadius.circular(24),
+          elevated: false,
+          blurSigma: 12,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (primary != null)
+                SizedBox(width: 40, height: 42, child: primary),
+              for (final button in pinnedButtons)
+                SizedBox(width: 36, height: 42, child: button),
+              SizedBox(
+                width: 40,
+                height: 42,
+                child: IconButton(
+                  tooltip: context.tr('更多操作'),
+                  iconSize: 20,
+                  onPressed: _showCompactActions,
+                  icon: const Icon(Icons.more_horiz_rounded),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    return SizedBox(
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.scaffoldBackgroundColor,
+              theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
+              theme.scaffoldBackgroundColor.withValues(alpha: 0),
+            ],
+            stops: const [0.0, 0.62, 1.0],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: stacked
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    heading,
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: controls,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: heading),
+                    const SizedBox(width: 4),
+                    controls,
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -829,144 +803,28 @@ class _DetailScaffoldState extends State<DetailScaffold> {
 
   Widget _buildLayout(BuildContext context, BoxConstraints constraints) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final compact = workspaceUsesCompactLayout(context);
     final android = WorkspaceHost.isAndroid(context);
-    final size = MediaQuery.sizeOf(context);
     final canPop = Navigator.canPop(context);
-    final showCommandBar = !android &&
-        (widget.commandBar || canPop) &&
-        WorkspaceCommandsEnabled.of(context) &&
-        size.height >= 320 &&
-        MediaQuery.viewInsetsOf(context).bottom == 0;
-    final bottomReserve =
-        showCommandBar ? QuickCommandBar.bottomClearance(context) : Insets.xxl;
-    final twoPane = !compact &&
+    final pinnedButtons = _buildPinnedHeaderButtons(context);
+    final tight = constraints.maxWidth <= 360;
+    final controlsWidth = (tight ? 76 : 94) +
+        46 +
+        36 * pinnedButtons.length +
+        (widget.mobilePrimaryAction == null ? 0 : 40);
+    final stackedHeader = !android &&
+        constraints.maxWidth - controlsWidth - (canPop ? 79 : 24) < 110;
+    final headerHeight = stackedHeader ? 108.0 : 62.0;
+    final twoPane = !workspaceUsesCompactLayout(context) &&
         widget.sideVisual != null &&
-        constraints.maxWidth >= (android ? 560 : 880);
+        constraints.maxWidth >= 560;
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
     final resultsInRightPane = twoPane && widget.resultsBesideInputs;
-    final livePlot = compact || android ? null : LivePlotScope.maybeOf(context);
-    final desktopDraftBadge = _buildDraftBadge(context);
-    final desktopPinnedButtons = _buildPinnedHeaderButtons(
-      context,
-      compact: false,
-    );
-    final desktopHeader = Padding(
-      padding: const EdgeInsets.fromLTRB(Insets.l, 8, Insets.l, 8),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
-          child: AnimatedBuilder(
-            animation: _scrollCtrl,
-            builder: (context, _) {
-              final titleCol = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        flex: 3,
-                        child: Text(
-                          context.tr(widget.title),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0,
-                            color: scheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      if (desktopDraftBadge != null) ...[
-                        const SizedBox(width: 8),
-                        Flexible(flex: 2, child: desktopDraftBadge),
-                      ],
-                    ],
-                  ),
-                  if (widget.subtitle != null)
-                    Text(
-                      context.tr(widget.subtitle!),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              );
-
-              return Row(
-                children: [
-                  if (canPop) ...[
-                    IconButton(
-                      tooltip: context.tr('返回'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => Navigator.maybePop(context),
-                      icon: const OutlineSymbol(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 17,
-                      ),
-                    ),
-                    const SizedBox(width: Insets.xs),
-                  ],
-                  Expanded(child: titleCol),
-                  if (widget.actions != null && widget.actions!.isNotEmpty) ...[
-                    const SizedBox(width: Insets.s),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: widget.actions!,
-                    ),
-                  ],
-                  MeasurementUnitsButton(
-                    onLengthChanged: _pageActions?.onUnitChanged,
-                    onAngleChanged: _pageActions?.onAngleModeChanged,
-                  ),
-                  ...desktopPinnedButtons,
-                  if (livePlot != null)
-                    IconButton(
-                      tooltip: context.tr('实时坐标图分栏'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: livePlot.toggleSplit,
-                      icon: OutlineSymbol(
-                        livePlot.splitOpen
-                            ? Icons.vertical_split
-                            : Icons.vertical_split_outlined,
-                        size: 19,
-                        color: livePlot.splitOpen ? scheme.primary : null,
-                      ),
-                    ),
-                  IconButton(
-                    tooltip: context.tr('更多操作'),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: _showCompactActions,
-                    icon: const OutlineSymbol(
-                      Icons.more_horiz_rounded,
-                      size: 19,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
     final content = Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!android && widget.toolbar != null) ...[
-              widget.toolbar!,
-              const SizedBox(height: Insets.m),
-            ],
             if (twoPane) ...[
               Row(
                 key: const ValueKey('workspace-detail-split'),
@@ -1049,109 +907,57 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         ),
       ),
     );
-    final contentPadding = EdgeInsets.fromLTRB(
-      Insets.l,
-      Insets.s,
-      Insets.l,
-      bottomReserve,
-    );
-    final detail = Scaffold(
-      extendBody: showCommandBar && widget.bottomBar == null,
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        bottom: android && widget.bottomBar == null,
-        child: (compact || android)
-            ? CustomScrollView(
-                physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics()),
-                controller: _scrollCtrl,
-                slivers: [
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _CompactHeaderDelegate(
-                      height: _compactHeaderHeight,
-                      child: KeyedSubtree(
-                        key: const ValueKey('workspace-detail-header'),
-                        child: _compactHeader(context, canPop),
-                      ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: contentPadding,
-                    sliver: SliverToBoxAdapter(child: content),
-                  ),
-                ],
-              )
-            : Column(
-                children: [
-                  desktopHeader,
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scrollCtrl,
-                      padding: contentPadding,
-                      child: content,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-      bottomNavigationBar: showCommandBar
-          ? Column(mainAxisSize: MainAxisSize.min, children: [
-              if (widget.bottomBar != null) widget.bottomBar!,
-              const QuickCommandBar(secondary: true),
-            ])
-          : widget.bottomBar == null
-              ? null
-              : SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Insets.l,
-                      Insets.s,
-                      Insets.l,
-                      Insets.m,
-                    ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(maxWidth: effectiveMaxWidth),
-                        child: widget.bottomBar!,
-                      ),
-                    ),
-                  ),
-                ),
-    );
-    if (android ||
-        compact ||
-        constraints.maxWidth < 1140 ||
-        widget.desktopRail == null) {
-      return WorkspacePanelBackground(child: detail);
-    }
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SafeArea(
-            right: false,
-            child: Container(
-              width: 192,
-              decoration: BoxDecoration(
-                color: scheme.brightness == Brightness.dark
-                    ? IosColors.darkSidebarBg
-                    : IosColors.lightFill,
-                border: Border(
-                  right: BorderSide(
-                    color: IosColors.separator(scheme.brightness),
-                    width: 1.0,
+    return WorkspacePanelBackground(
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: SafeArea(
+          bottom: widget.bottomBar == null,
+          child: CustomScrollView(
+            physics: android
+                ? const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics())
+                : null,
+            controller: _scrollCtrl,
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _CompactHeaderDelegate(
+                  height: headerHeight,
+                  child: KeyedSubtree(
+                    key: const ValueKey('workspace-detail-header'),
+                    child: _toolHeader(context,
+                        canPop: canPop,
+                        stacked: stackedHeader,
+                        tight: tight,
+                        pinnedButtons: pinnedButtons,
+                        height: headerHeight),
                   ),
                 ),
               ),
-              child: widget.desktopRail!,
-            ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                    Insets.l, Insets.s, Insets.l, Insets.xxl),
+                sliver: SliverToBoxAdapter(child: content),
+              ),
+            ],
           ),
-          Expanded(child: detail),
-        ],
+        ),
+        bottomNavigationBar: widget.bottomBar == null
+            ? null
+            : SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      Insets.l, Insets.s, Insets.l, Insets.m),
+                  child: Center(
+                    heightFactor: 1,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
+                      child: widget.bottomBar!,
+                    ),
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -1195,19 +1001,4 @@ List<Widget> _stack(List<Widget> items) {
     out.add(items[i]);
   }
   return out;
-}
-
-/// 玻璃导航栏悬浮在内容之上时，滚动内容需要补的底部让位。
-///
-/// 窄屏使用悬浮玻璃导航时返回
-/// [GlassNavBar.bottomReserve]；宽屏是侧栏玻璃，不遮内容，返回 0。
-///
-/// 这里用 dependOnInheritedWidgetOfExactType 而不是 SettingsScope.of：
-/// 页面在没有 SettingsScope 的裸 pump 场景（个别测试 / 预览）按 0 处理，不崩。
-double glassNavBottomReserve(BuildContext context) {
-  final settings =
-      context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier;
-  if (settings == null || !settings.floatingGlassNav) return 0;
-  if (!workspaceUsesCompactLayout(context)) return 0;
-  return GlassNavBar.bottomReserve;
 }

@@ -7,7 +7,6 @@ import '../../app_info.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
-import '../../theme/workspace_layout.dart';
 import '../../theme/ui_style.dart';
 import '../page_scaffold.dart';
 import '../widgets/widgets.dart';
@@ -19,7 +18,6 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = SettingsScope.of(context);
-    final wide = !workspaceUsesCompactLayout(context);
     final drafts = DraftScope.maybeOf(context);
     final savedDraftCount = drafts?.savedCount ?? 0;
     final scheme = Theme.of(context).colorScheme;
@@ -125,7 +123,7 @@ class SettingsPage extends StatelessWidget {
                       fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  context.tr(wide ? '悬浮操作台使用半透明背景' : '悬浮操作台与底栏使用半透明背景'),
+                  context.tr('弹层使用半透明背景'),
                   style: const TextStyle(fontSize: 11.5),
                 ),
               ),

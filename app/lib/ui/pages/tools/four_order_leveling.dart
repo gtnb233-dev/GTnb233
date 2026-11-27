@@ -2137,7 +2137,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   Widget build(BuildContext context) {
     final route = _route;
     return DetailScaffold(
-      commandBar: true,
       resultsBesideInputs: true,
       sideVisual: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

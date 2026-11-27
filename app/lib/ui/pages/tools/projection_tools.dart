@@ -2101,7 +2101,6 @@ class _ProjectionPageState extends State<ProjectionPage>
   @override
   Widget build(BuildContext context) {
     return DetailScaffold(
-      commandBar: true,
       title: _pl(context, '坐标转换', 'Projection & Datum'),
       subtitle: _pl(
         context,

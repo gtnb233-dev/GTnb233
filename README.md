@@ -23,7 +23,7 @@
 | Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-armeabi-v7a.apk) |
 | Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-x86_64.apk) |
 
-- **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
+- **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留 ZIP 中的目录结构及同目录的 DLL。
 - **Android**：需要 Android 7.0 或更高版本。覆盖安装时选择与原安装包相同的架构。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/SHA256SUMS.txt)
 
 ## 核心亮点
@@ -35,7 +35,7 @@
 - **全局 `LivePlot` 实时动态坐标图**
   严格工程坐标系（`X↑北 / Y→东`），随输入实时绘制点位、连线、闭合差与高程纵断面，支持 60fps 缩放平移、点选查坐标及宽屏右侧分屏联动。
 - **Apple HIG 液态玻璃 + 响应式界面**
-  支持浅色、深色和跟随系统三态主题。Windows 与 Android 横屏采用可折叠侧栏分栏。Android 手机和平板竖屏使用四项悬浮底栏，测量工具页支持跟手侧滑返回和顶栏单位直切。
+  支持浅色、深色和跟随系统三态主题。Windows 与 Android 横屏共用可折叠侧栏和单层测量页头。Windows 使用系统原生窗口控件，窄窗使用侧栏图标轨。Android 手机和平板竖屏采用四项液态玻璃底栏，进入工具后可跟手侧滑返回。测量页可在顶栏直接切换长度与角度单位。
 - **防丢草稿与全离线多格式导出**
   输入自动防抖保存草稿并支持 Undo/Redo；成果支持导出 **2.5x 高清图片（Android 自动入相册）**、**含导线略图的 `.xlsx` 表格**、**UTF-8 BOM `.csv`** 及 **`.txt` 文本报告**，且界面与导出文件均支持全球多语言无残留切换。
 
@@ -51,7 +51,7 @@
 
 **Windows 宽屏 · 导线平差与 LivePlot**
 
-左侧为可折叠导航，中间录入导线观测数据，右侧 LivePlot 显示导线点位和连线。
+左侧为可折叠导航，可搜索工具和编辑常用工具。导线平差的单层页头集成草稿状态、单位直切与更多操作，右侧 LivePlot 分屏显示导线点位与连线。
 
 <img src="docs/screenshots/v1.0.0/windows-traverse-liveplot.png" width="980" alt="Windows 宽屏导线平差，左侧为导航，中央为导线录入，右侧为 LivePlot 分屏" />
 

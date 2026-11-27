@@ -250,6 +250,15 @@ bool FlutterWindow::OnCreate() {
           result->Success();
           return;
         }
+        if (method == "setKeepScreenOn") {
+          if (const auto* enabled = std::get_if<bool>(call.arguments())) {
+            const auto state = *enabled ? ES_CONTINUOUS | ES_DISPLAY_REQUIRED
+                                        : ES_CONTINUOUS;
+            ::SetThreadExecutionState(state);
+          }
+          result->Success();
+          return;
+        }
         result->NotImplemented();
       });
 

@@ -678,7 +678,6 @@ class _TraversePageState extends State<TraversePage>
       );
     }
     return DetailScaffold(
-      commandBar: true,
       title: '导线平差',
       toolbar: PageActions(
         pageId: draftPageId,

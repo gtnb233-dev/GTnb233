@@ -55,8 +55,10 @@ void main() {
 
       expect(LengthUnit.centimeter.areaFromSqMeters(1), closeTo(10000, 1e-9));
       expect(LengthUnit.millimeter.areaFromSqMeters(1), closeTo(1e6, 1e-9));
-      expect(LengthUnit.centimeter.volumeFromCubicMeters(1), closeTo(1e6, 1e-9));
-      expect(LengthUnit.millimeter.volumeFromCubicMeters(1), closeTo(1e9, 1e-9));
+      expect(
+          LengthUnit.centimeter.volumeFromCubicMeters(1), closeTo(1e6, 1e-9));
+      expect(
+          LengthUnit.millimeter.volumeFromCubicMeters(1), closeTo(1e9, 1e-9));
 
       expect(LengthUnit.meter.displayDigits(3), 3);
       expect(LengthUnit.centimeter.displayDigits(3), 2);
@@ -177,9 +179,8 @@ void main() {
       final settings = AppSettings();
       await _pump(tester, const InversePage(), settings: settings);
 
-      await tester.tap(find.byType(PopupMenuButton<LengthUnit>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('厘米 (cm)'));
+      await tester
+          .tap(find.byKey(const ValueKey('measurement-length-segment')));
       await tester.pumpAndSettle();
       expect(settings.lengthUnit, LengthUnit.centimeter);
       // 缺省 (1000,2000)->(1080,2060) 按 cm 解析 = 1.000 m
@@ -195,9 +196,11 @@ void main() {
       final settings = AppSettings();
       await _pump(tester, const LevelingPage(), settings: settings);
 
-      await tester.tap(find.byType(PopupMenuButton<LengthUnit>));
+      final lengthSegment =
+          find.byKey(const ValueKey('measurement-length-segment'));
+      await tester.tap(lengthSegment);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('毫米 (mm)'));
+      await tester.tap(lengthSegment);
       await tester.pumpAndSettle();
       expect(settings.lengthUnit, LengthUnit.millimeter);
 

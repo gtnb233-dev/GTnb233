@@ -36,8 +36,7 @@ void main() {
     // 确认草稿已回填
     expect(find.widgetWithText(TextField, '999.000'), findsOneWidget);
 
-    // 点清空
-    await tester.tap(find.text('清空'));
+    await tester.tap(find.byTooltip('清空'));
     await tester.pump();
 
     // 输入已复位为默认值，且未安排新的防抖写入
@@ -65,7 +64,8 @@ void main() {
     expect(text, isNot(contains('<v>NaN</v>')));
     expect(text, isNot(contains('<v>Infinity</v>')));
     expect(text, contains('<v>12.345</v>'));
-    expect(text, contains('t="inlineStr"><is><t xml:space="preserve">0001</t>'));
+    expect(
+        text, contains('t="inlineStr"><is><t xml:space="preserve">0001</t>'));
     // sheet name 不包含非法字符且长度 <= 31
     final m = RegExp(r'<sheet name="([^"]+)"').firstMatch(text);
     expect(m, isNotNull);

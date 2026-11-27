@@ -3,17 +3,9 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import 'tokens.dart';
-
-bool workspaceUsesCompactLayout(BuildContext context) {
-  if (WorkspaceHost.isAndroid(context)) {
-    return MediaQuery.orientationOf(context) == Orientation.portrait;
-  }
-  final size = MediaQuery.sizeOf(context);
-  final wide = size.width >= kSidebarNavigationMinWidth ||
-      (size.width > size.height && size.width >= 640);
-  return !wide;
-}
+bool workspaceUsesCompactLayout(BuildContext context) =>
+    WorkspaceHost.isAndroid(context) &&
+    MediaQuery.orientationOf(context) == Orientation.portrait;
 
 /// Android chrome differs from the desktop shell at the same window size.
 class WorkspaceHost extends InheritedWidget {

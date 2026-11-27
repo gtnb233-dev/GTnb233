@@ -146,11 +146,6 @@ bool Win32Window::Create(const std::wstring& title,
 
   UpdateTheme(window);
 
-  // Trigger WM_NCCALCSIZE immediately so custom-caption client area applies.
-  SetWindowPos(window, nullptr, 0, 0, 0, 0,
-               SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
-                   SWP_NOACTIVATE);
-
   return OnCreate();
 }
 
@@ -191,48 +186,6 @@ Win32Window::MessageHandler(HWND hwnd,
         PostQuitMessage(0);
       }
       return 0;
-
-    case WM_NCCALCSIZE: {
-      if (wparam == TRUE) {
-        auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
-        if (IsZoomed(hwnd)) {
-          HMONITOR monitor =
-              MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-          MONITORINFO mi{};
-          mi.cbSize = sizeof(mi);
-          if (GetMonitorInfo(monitor, &mi)) {
-            params->rgrc[0] = mi.rcWork;
-          }
-        }
-        return 0;
-      }
-      break;
-    }
-
-    case WM_NCHITTEST: {
-      if (!IsZoomed(hwnd)) {
-        RECT win_rect;
-        GetWindowRect(hwnd, &win_rect);
-        const LONG x = static_cast<LONG>(static_cast<short>(LOWORD(lparam)));
-        const LONG y = static_cast<LONG>(static_cast<short>(HIWORD(lparam)));
-        UINT dpi = FlutterDesktopGetDpiForMonitor(
-            MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST));
-        const LONG border = Scale(6, dpi / 96.0);
-        const bool left = x >= win_rect.left && x < win_rect.left + border;
-        const bool right = x < win_rect.right && x >= win_rect.right - border;
-        const bool top = y >= win_rect.top && y < win_rect.top + border;
-        const bool bottom = y < win_rect.bottom && y >= win_rect.bottom - border;
-        if (top && left) return HTTOPLEFT;
-        if (top && right) return HTTOPRIGHT;
-        if (bottom && left) return HTBOTTOMLEFT;
-        if (bottom && right) return HTBOTTOMRIGHT;
-        if (left) return HTLEFT;
-        if (right) return HTRIGHT;
-        if (top) return HTTOP;
-        if (bottom) return HTBOTTOM;
-      }
-      break;
-    }
 
     case WM_DPICHANGED: {
       auto newRectSize = reinterpret_cast<RECT*>(lparam);

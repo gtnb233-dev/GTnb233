@@ -15,13 +15,9 @@ import '../widgets/workspace_commands.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage(
-      {super.key,
-      required this.onNavigate,
-      required this.onOpenSettings,
-      this.underFloatingHeader = false});
+      {super.key, required this.onNavigate, required this.onOpenSettings});
   final ValueChanged<int> onNavigate;
   final VoidCallback onOpenSettings;
-  final bool underFloatingHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -59,8 +55,6 @@ class HomePage extends StatelessWidget {
         );
     return PageScaffold(
       title: '工程测量',
-      topReserve: underFloatingHeader && compact ? 54 : 0,
-      overlayReserve: android ? null : QuickCommandBar.bottomClearance(context),
       trailing: [
         if (android && compact)
           IconButton(
@@ -69,7 +63,7 @@ class HomePage extends StatelessWidget {
             onPressed: () => showCommandPalette(context),
             icon: const OutlineSymbol(Icons.search_rounded),
           )
-        else if (compact || android)
+        else if (android)
           IconButton(
             tooltip: 'LivePlot',
             onPressed: () => showWorkspacePlot(context),
