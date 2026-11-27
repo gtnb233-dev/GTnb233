@@ -716,182 +716,183 @@ class _TraversePageState extends State<TraversePage>
         'Computed via ${_leftAngles ? 'left angles' : 'right angles'}; angular misclosure distributed equally, '
             'coordinate misclosure ${_distribution == MisclosureDistribution.byLength ? 'by side length' : 'by ΔX/ΔY'}',
       ),
-      sideVisual: r == null
-          ? null
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SectionHeader(
-                  title: '导线图形',
-                  caption: '上北右东；起点红线指正北 N，红弧为起始方位角 α₀，实线为平差后导线，橙虚为闭合差',
-                ),
-                const SizedBox(height: Insets.s),
-                LivePlot(
-                  surveyNorthUp: true,
-                  selectedIndex: _selectedTraversePoint,
-                  onTap: (point) {
-                    final index = drawablePoints
-                        .indexWhere((candidate) => identical(candidate, point));
-                    if (index >= 0) {
-                      setState(() => _selectedTraversePoint = index);
-                    }
-                  },
-                  points: drawablePoints,
-                  lines: [
-                    if (plotPts.isNotEmpty)
-                      PlotLine(
-                        from: PlotPoint(
-                          x: plotPts.first.x,
-                          y: plotPts.first.y,
-                          label: '',
-                        ),
-                        to: PlotPoint(
-                          x: plotPts.first.x + northLen,
-                          y: plotPts.first.y,
-                          label: '',
-                        ),
-                        color: const Color(0xFFFF3B30),
-                        label: '北 N',
-                      ),
-                    for (var i = 0; i + 1 < plotPts.length; i++)
-                      PlotLine(
-                        from: PlotPoint(
-                          x: plotPts[i].x,
-                          y: plotPts[i].y,
-                          label: '',
-                        ),
-                        to: PlotPoint(
-                          x: plotPts[i + 1].x,
-                          y: plotPts[i + 1].y,
-                          label: '',
-                        ),
-                        label:
-                            'D=${fmt(u.fromMeters(r.distances[i]), u.displayDigits(1))}',
-                      ),
-                  ],
-                  arcs: [
-                    if (plotPts.isNotEmpty &&
-                        r.azimuthsDeg.isNotEmpty &&
-                        (r.azimuthsDeg.first % 360).abs() > 1e-3)
-                      PlotArc(
-                        centerX: plotPts.first.x,
-                        centerY: plotPts.first.y,
-                        startRad: 0,
-                        sweepRad: (r.azimuthsDeg.first % 360) * math.pi / 180,
-                        radiusPx: 26,
-                        color: const Color(0xFFFF3B30),
-                        label: 'α₀',
-                      ),
-                  ],
-                  paths: [
-                    if (r.points.length >= 2)
-                      PlotPath(
-                        points: [
-                          for (final pt in r.points)
-                            PlotPoint(
-                              x: u.fromMeters(pt.x),
-                              y: u.fromMeters(pt.y),
-                              label: '',
-                            ),
-                        ],
-                        dashed: true,
-                        color: scheme.onSurfaceVariant,
-                        strokeWidth: 1.4,
-                      ),
-                  ],
-                  arrows: misclosureArrows,
-                  unit: u.symbol,
-                  height: 270,
-                  exportTitle: '导线图形',
-                  emptyHint: '输入起算数据后显示导线图形',
-                ),
-                const SizedBox(height: Insets.l),
-                SectionHeader(
-                  title: '精度评定',
-                  actions: [
-                    TextButton(
-                      onPressed: () => _showTraverseAssessment(r),
-                      child: const LocalText('查看评定'),
-                    ),
-                    const InfoHintTooltip(
-                      message: '角度闭合差按角数平均改正，坐标闭合差按边长或增量比例配赋。',
-                    ),
-                    Pill(
-                      label: r.angleOk && r.linearOk ? '合格' : '超限',
-                      tone: r.angleOk && r.linearOk
-                          ? PillTone.success
-                          : PillTone.danger,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Insets.s),
-                ToleranceGauge(
-                  label: '角度闭合差 fβ',
-                  value: r.angleMisclosureSec,
-                  limit: r.angleLimitSec,
-                  valueText: misclosureText(r.angleMisclosureSec),
-                  limitText: '限差 ±${fmt(r.angleLimitSec, 1)}″',
-                  ok: r.angleOk,
-                ),
-                const SizedBox(height: Insets.s),
-                ToleranceGauge(
-                  label: '全长相对闭合差 K',
-                  value: r.linearMisclosure * 1000,
-                  limit: r.relativeLimitDenominator > 0
-                      ? (r.totalLength / r.relativeLimitDenominator) * 1000
-                      : 0,
-                  valueText: formattableRelative(r),
-                  limitText:
-                      '限值 1/${r.relativeLimitDenominator.toStringAsFixed(0)}',
-                  ok: r.linearOk,
-                ),
-                const SizedBox(height: Insets.s),
-                ResultGrid(
-                  items: [
-                    ResultTile(
-                      label: '角度闭合差 fβ',
-                      value: misclosureText(r.angleMisclosureSec),
-                      emphasis: true,
-                      note: '限差 ±${fmt(r.angleLimitSec, 1)}″',
-                    ),
-                    ResultTile(
-                      label: '坐标闭合差 fx / fy',
-                      value: '${fmt(r.fx * 1000, 1)} / ${fmt(r.fy * 1000, 1)}',
-                      unit: 'mm',
-                      emphasis: true,
-                      note: 'f = ${fmt(r.linearMisclosure * 1000, 1)} mm',
-                    ),
-                    ResultTile(
-                      label: '全长相对闭合差',
-                      value: formattableRelative(r),
-                      emphasis: true,
-                      note: '限值 1/${r.relativeLimitDenominator}',
-                    ),
-                    ResultTile(
-                      label: '导线全长',
-                      value: fmt(
-                        u.fromMeters(r.totalLength),
-                        u.displayDigits(s.coordDigits),
-                      ),
-                      unit: u.symbol,
-                      note: u == LengthUnit.meter
-                          ? null
-                          : '= ${fmt(r.totalLength, s.coordDigits)} m',
-                    ),
-                  ],
-                ),
-                if (!(r.angleOk && r.linearOk)) ...[
-                  const SizedBox(height: Insets.m),
-                  SurveyAlert(
-                    tone: AlertTone.warning,
-                    title: '导线闭合差超限',
-                    message: 'fβ = ${misclosureText(r.angleMisclosureSec)}'
-                        '（限差 ±${fmt(r.angleLimitSec, 1)}″），'
-                        'K = ${formattableRelative(r)}，建议复核测站角度与边长录入。',
+      sideVisual: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionHeader(
+            title: '导线图形',
+            caption: '上北右东；起点红线指正北 N，红弧为起始方位角 α₀，实线为平差后导线，橙虚为闭合差',
+          ),
+          const SizedBox(height: Insets.s),
+          LivePlot(
+            surveyNorthUp: true,
+            selectedIndex: _selectedTraversePoint,
+            onTap: (point) {
+              final index = drawablePoints
+                  .indexWhere((candidate) => identical(candidate, point));
+              if (index >= 0) {
+                setState(() => _selectedTraversePoint = index);
+              }
+            },
+            points: drawablePoints,
+            lines: [
+              if (plotPts.isNotEmpty)
+                PlotLine(
+                  from: PlotPoint(
+                    x: plotPts.first.x,
+                    y: plotPts.first.y,
+                    label: '',
                   ),
-                ],
+                  to: PlotPoint(
+                    x: plotPts.first.x + northLen,
+                    y: plotPts.first.y,
+                    label: '',
+                  ),
+                  color: const Color(0xFFFF3B30),
+                  label: '北 N',
+                ),
+              for (var i = 0; i + 1 < plotPts.length; i++)
+                PlotLine(
+                  from: PlotPoint(
+                    x: plotPts[i].x,
+                    y: plotPts[i].y,
+                    label: '',
+                  ),
+                  to: PlotPoint(
+                    x: plotPts[i + 1].x,
+                    y: plotPts[i + 1].y,
+                    label: '',
+                  ),
+                  label:
+                      'D=${fmt(u.fromMeters(r!.distances[i]), u.displayDigits(1))}',
+                ),
+            ],
+            arcs: [
+              if (plotPts.isNotEmpty &&
+                  r != null &&
+                  r.azimuthsDeg.isNotEmpty &&
+                  (r.azimuthsDeg.first % 360).abs() > 1e-3)
+                PlotArc(
+                  centerX: plotPts.first.x,
+                  centerY: plotPts.first.y,
+                  startRad: 0,
+                  sweepRad: (r.azimuthsDeg.first % 360) * math.pi / 180,
+                  radiusPx: 26,
+                  color: const Color(0xFFFF3B30),
+                  label: 'α₀',
+                ),
+            ],
+            paths: [
+              if (r != null && r.points.length >= 2)
+                PlotPath(
+                  points: [
+                    for (final pt in r.points)
+                      PlotPoint(
+                        x: u.fromMeters(pt.x),
+                        y: u.fromMeters(pt.y),
+                        label: '',
+                      ),
+                  ],
+                  dashed: true,
+                  color: scheme.onSurfaceVariant,
+                  strokeWidth: 1.4,
+                ),
+            ],
+            arrows: misclosureArrows,
+            unit: u.symbol,
+            height: 270,
+            exportTitle: '导线图形',
+            emptyHint: '输入起算数据后显示导线图形',
+          ),
+          if (r != null) ...[
+            const SizedBox(height: Insets.l),
+            SectionHeader(
+              title: '精度评定',
+              actions: [
+                TextButton(
+                  onPressed: () => _showTraverseAssessment(r),
+                  child: const LocalText('查看评定'),
+                ),
+                const InfoHintTooltip(
+                  message: '角度闭合差按角数平均改正，坐标闭合差按边长或增量比例配赋。',
+                ),
+                Pill(
+                  label: r.angleOk && r.linearOk ? '合格' : '超限',
+                  tone: r.angleOk && r.linearOk
+                      ? PillTone.success
+                      : PillTone.danger,
+                ),
               ],
             ),
+            const SizedBox(height: Insets.s),
+            ToleranceGauge(
+              label: '角度闭合差 fβ',
+              value: r.angleMisclosureSec,
+              limit: r.angleLimitSec,
+              valueText: misclosureText(r.angleMisclosureSec),
+              limitText: '限差 ±${fmt(r.angleLimitSec, 1)}″',
+              ok: r.angleOk,
+            ),
+            const SizedBox(height: Insets.s),
+            ToleranceGauge(
+              label: '全长相对闭合差 K',
+              value: r.linearMisclosure * 1000,
+              limit: r.relativeLimitDenominator > 0
+                  ? (r.totalLength / r.relativeLimitDenominator) * 1000
+                  : 0,
+              valueText: formattableRelative(r),
+              limitText:
+                  '限值 1/${r.relativeLimitDenominator.toStringAsFixed(0)}',
+              ok: r.linearOk,
+            ),
+            const SizedBox(height: Insets.s),
+            ResultGrid(
+              items: [
+                ResultTile(
+                  label: '角度闭合差 fβ',
+                  value: misclosureText(r.angleMisclosureSec),
+                  emphasis: true,
+                  note: '限差 ±${fmt(r.angleLimitSec, 1)}″',
+                ),
+                ResultTile(
+                  label: '坐标闭合差 fx / fy',
+                  value: '${fmt(r.fx * 1000, 1)} / ${fmt(r.fy * 1000, 1)}',
+                  unit: 'mm',
+                  emphasis: true,
+                  note: 'f = ${fmt(r.linearMisclosure * 1000, 1)} mm',
+                ),
+                ResultTile(
+                  label: '全长相对闭合差',
+                  value: formattableRelative(r),
+                  emphasis: true,
+                  note: '限值 1/${r.relativeLimitDenominator}',
+                ),
+                ResultTile(
+                  label: '导线全长',
+                  value: fmt(
+                    u.fromMeters(r.totalLength),
+                    u.displayDigits(s.coordDigits),
+                  ),
+                  unit: u.symbol,
+                  note: u == LengthUnit.meter
+                      ? null
+                      : '= ${fmt(r.totalLength, s.coordDigits)} m',
+                ),
+              ],
+            ),
+            if (!(r.angleOk && r.linearOk)) ...[
+              const SizedBox(height: Insets.m),
+              SurveyAlert(
+                tone: AlertTone.warning,
+                title: '导线闭合差超限',
+                message: 'fβ = ${misclosureText(r.angleMisclosureSec)}'
+                    '（限差 ±${fmt(r.angleLimitSec, 1)}″），'
+                    'K = ${formattableRelative(r)}，建议复核测站角度与边长录入。',
+              ),
+            ],
+          ],
+        ],
+      ),
       bottomSection: r == null
           ? null
           : Column(
@@ -1876,6 +1877,7 @@ class _LevelingPageState extends State<LevelingPage>
           _calc();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: r == null
           ? null
           : Column(

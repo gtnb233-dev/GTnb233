@@ -1933,16 +1933,41 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   }
 
   Widget _resultSection(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final route = _route;
-    if (route == null) {
-      return const EmptyHint(
-        message: '填满一站 8 个读数后显示路线成果',
-        icon: Icons.height,
-      );
-    }
+    final active = _activeStation ?? _rows.firstOrNull;
     final selected =
-        _completeRows.indexOf(_rows.indexOf(_activeStation ?? _rows.first));
+        active == null ? -1 : _completeRows.indexOf(_rows.indexOf(active));
+    final profile = LevelingProfileChart(
+      pointNames: route?.pointNames ?? const [],
+      heightsM: route?.heightsM ?? const [],
+      distancesM: [
+        for (final st in _stationResults) st.backDistanceM + st.frontDistanceM,
+      ],
+      correctionsMm: route?.correctionsMm ?? const [],
+      emptyHint: '填满一站 8 个读数后显示路线成果',
+      selectedStation: selected >= 0 ? selected : null,
+      onStationSelected: (index) =>
+          _selectStation(_completeRows[index], locate: true),
+      errorStations: <int>{
+        for (var k = 0; k < _stationResults.length; k++)
+          if (!_stationResults[k].ok) k,
+      },
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        profile,
+        if (route != null) ...[
+          const SizedBox(height: Insets.m),
+          _routeSummary(context, route, selected),
+        ],
+      ],
+    );
+  }
+
+  Widget _routeSummary(
+      BuildContext context, LevelingRouteResult route, int selected) {
+    final scheme = Theme.of(context).colorScheme;
     final localPoints = readWorkspacePoints(drafts);
     final pointsByRoute =
         route.pointNames.map((id) => localPoints[id]).toList();
@@ -2039,23 +2064,6 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           ),
           const SizedBox(height: Insets.m),
         ],
-        LevelingProfileChart(
-          pointNames: route.pointNames,
-          heightsM: route.heightsM,
-          distancesM: [
-            for (final st in _stationResults)
-              st.backDistanceM + st.frontDistanceM,
-          ],
-          correctionsMm: route.correctionsMm,
-          selectedStation: selected >= 0 ? selected : null,
-          onStationSelected: (index) =>
-              _selectStation(_completeRows[index], locate: true),
-          errorStations: <int>{
-            for (var k = 0; k < _stationResults.length; k++)
-              if (!_stationResults[k].ok) k,
-          },
-        ),
-        const SizedBox(height: Insets.m),
         ResultGrid(
           items: [
             ResultTile(

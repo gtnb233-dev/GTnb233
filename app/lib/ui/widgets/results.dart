@@ -112,22 +112,27 @@ class _ResultTileState extends State<ResultTile> {
             ),
             const SizedBox(width: Insets.s),
             Flexible(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 160),
-                transitionBuilder: (child, anim) =>
-                    FadeTransition(opacity: anim, child: child),
-                child: Text(
-                  widget.value,
-                  key: ValueKey<String>(widget.value),
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: widget.dense ? 15 : 18,
-                    fontWeight: FontWeight.w600,
-                    color: valueColor,
-                    fontFamily: kSurveyMono,
-                    fontFamilyFallback: const ['Noto Sans SC'],
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    letterSpacing: -0.2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  transitionBuilder: (child, anim) =>
+                      FadeTransition(opacity: anim, child: child),
+                  child: Text(
+                    widget.value,
+                    key: ValueKey<String>(widget.value),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: widget.dense ? 15 : 18,
+                      fontWeight: FontWeight.w600,
+                      color: valueColor,
+                      fontFamily: kSurveyMono,
+                      fontFamilyFallback: const ['Noto Sans SC'],
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      letterSpacing: -0.2,
+                    ),
                   ),
                 ),
               ),
@@ -445,18 +450,22 @@ class _MetricTileState extends State<MetricTile> {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Flexible(
-                  child: Text(
-                    widget.value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: widget.accent ?? scheme.onSurface,
-                      letterSpacing: -0.3,
-                      fontFamily: kSurveyMono,
-                      fontFamilyFallback: const ['Noto Sans SC'],
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      widget.value,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: widget.accent ?? scheme.onSurface,
+                        letterSpacing: -0.3,
+                        fontFamily: kSurveyMono,
+                        fontFamilyFallback: const ['Noto Sans SC'],
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../engine/rust_bridge.dart';
@@ -31,9 +32,20 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   final _workspaceNavigator = GlobalKey<NavigatorState>();
   final _destination = ValueNotifier((0, true));
-  late final _navObserver = WorkspaceNavigatorObserver(() {
-    if (mounted) setState(() {});
-  });
+  late final _navObserver =
+      WorkspaceNavigatorObserver(_refreshSidebarSelection);
+
+  void _refreshSidebarSelection() {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(() {});
+    }
+  }
 
   int get _index => _destination.value.$1;
   BuildContext get _workspaceContext =>
@@ -214,28 +226,16 @@ class _AppShellState extends State<AppShell> {
                 compact: compact,
                 collapsed: sidebarCollapsed,
                 forceCollapsed: narrowWindow || compactSplit,
-                rail: _IconRail(
+                sidebar: (labelOpacity) => _WorkspaceSidebar(
                   index: _index,
                   activeRouteName: _navObserver.activeName,
-                  pinnedTools: settings.pinnedTools,
-                  onOpenTool: _openSidebarTool,
-                  onSearch: () => showCommandPalette(_workspaceContext),
-                  onHome: () => _go(0),
-                  onTools: () => _go(3),
-                  onCustomizePinned: () =>
-                      _showCustomizePinned(_workspaceContext),
-                  onHistory: () => showDraftHistory(_workspaceContext),
-                  onSettings: () => _go(4),
-                  onLivePlot: onLivePlot,
-                  onToggleSidebar: narrowWindow ? null : toggleSidebar,
-                ),
-                panel: _ProjectsPanel(
-                  index: _index,
-                  activeRouteName: _navObserver.activeName,
+                  activeArgument: _navObserver.activeArgument,
+                  labelOpacity: labelOpacity,
+                  collapsed: sidebarCollapsed,
                   onPage: _go,
                   onOpenTool: _openSidebarTool,
                   onLivePlot: onLivePlot,
-                  onToggleSidebar: toggleSidebar,
+                  onToggleSidebar: narrowWindow ? null : toggleSidebar,
                   actionContext: () => _workspaceContext,
                 ),
                 content: Expanded(
@@ -274,8 +274,7 @@ class _WorkspaceColumns extends StatefulWidget {
     required this.compact,
     required this.collapsed,
     required this.forceCollapsed,
-    required this.rail,
-    required this.panel,
+    required this.sidebar,
     required this.content,
     this.trailing,
   });
@@ -283,8 +282,7 @@ class _WorkspaceColumns extends StatefulWidget {
   final bool compact;
   final bool collapsed;
   final bool forceCollapsed;
-  final Widget rail;
-  final Widget panel;
+  final Widget Function(double labelOpacity) sidebar;
   final Widget content;
   final Widget? trailing;
 
@@ -353,42 +351,7 @@ class _WorkspaceColumnsState extends State<_WorkspaceColumns>
                     width: width,
                     child: ClipRect(
                       child: RepaintBoundary(
-                        child: ColoredBox(
-                          color: Theme.of(context).colorScheme.surface,
-                          child: Stack(
-                            children: [
-                              PositionedDirectional(
-                                start: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: _railWidth,
-                                child: Offstage(
-                                  offstage: panelOpacity > 0,
-                                  child: IgnorePointer(
-                                      ignoring: moving, child: widget.rail),
-                                ),
-                              ),
-                              PositionedDirectional(
-                                start: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: _panelWidth,
-                                child: Offstage(
-                                  offstage: panelOpacity == 0,
-                                  child: ExcludeFocus(
-                                    excluding: moving || panelOpacity == 0,
-                                    child: IgnorePointer(
-                                      ignoring: moving,
-                                      child: Opacity(
-                                          opacity: panelOpacity,
-                                          child: widget.panel),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        child: widget.sidebar(panelOpacity),
                       ),
                     ),
                   ),
@@ -401,162 +364,13 @@ class _WorkspaceColumnsState extends State<_WorkspaceColumns>
       );
 }
 
-class _IconRail extends StatelessWidget {
-  const _IconRail({
+class _WorkspaceSidebar extends StatefulWidget {
+  const _WorkspaceSidebar({
     required this.index,
     required this.activeRouteName,
-    required this.onSearch,
-    required this.onHome,
-    required this.onTools,
-    required this.pinnedTools,
-    required this.onOpenTool,
-    required this.onCustomizePinned,
-    required this.onLivePlot,
-    required this.onHistory,
-    required this.onSettings,
-    required this.onToggleSidebar,
-  });
-
-  final int index;
-  final String? activeRouteName;
-  final VoidCallback onSearch;
-  final VoidCallback onHome;
-  final VoidCallback onTools;
-  final List<String> pinnedTools;
-  final ValueChanged<ToolDef> onOpenTool;
-  final VoidCallback onCustomizePinned;
-  final VoidCallback? onLivePlot;
-  final VoidCallback onHistory;
-  final VoidCallback onSettings;
-  final VoidCallback? onToggleSidebar;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onRoot = activeRouteName == null;
-    return ColoredBox(
-      key: const ValueKey('desktop-icon-rail'),
-      color: theme.colorScheme.surface,
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                _RailButton(
-                  buttonKey: const ValueKey('sidebar-search-btn'),
-                  tooltip: context.tr('搜索工具与公式'),
-                  icon: Icons.search,
-                  onTap: onSearch,
-                ),
-                _RailButton(
-                  tooltip: context.tr('首页'),
-                  icon: (onRoot && index == 0)
-                      ? Icons.dashboard
-                      : Icons.dashboard_outlined,
-                  selected: onRoot && index == 0,
-                  onTap: onHome,
-                ),
-                const SizedBox(height: 4),
-                _RailButton(
-                  tooltip: context.tr('工具库'),
-                  icon: (onRoot && index == 3)
-                      ? Icons.widgets
-                      : Icons.widgets_outlined,
-                  selected: onRoot && index == 3,
-                  onTap: onTools,
-                ),
-                for (final id in pinnedTools)
-                  if (toolById(id) case final tool?)
-                    _RailButton(
-                      tooltip: context.tr(tool.title),
-                      icon: tool.icon,
-                      selected: activeRouteName == 'tool/$id',
-                      onTap: () => onOpenTool(tool),
-                    ),
-                _RailButton(
-                  buttonKey: const ValueKey('sidebar-customize-pinned'),
-                  tooltip: context.tr('自定义常用工具'),
-                  icon: Icons.tune_rounded,
-                  onTap: onCustomizePinned,
-                ),
-                if (onLivePlot != null)
-                  _RailButton(
-                    buttonKey: const ValueKey('workspace-liveplot-toggle'),
-                    tooltip: context.tr('实时坐标图分栏'),
-                    icon: Icons.vertical_split_outlined,
-                    onTap: onLivePlot,
-                  ),
-                const SizedBox(height: 4),
-                _RailButton(
-                  tooltip: context.tr('最近历史'),
-                  icon: Icons.history,
-                  onTap: onHistory,
-                ),
-              ],
-            ),
-          ),
-          _RailButton(
-            tooltip: context.tr('设置'),
-            icon: (onRoot && index == 4)
-                ? Icons.settings
-                : Icons.settings_outlined,
-            selected: onRoot && index == 4,
-            onTap: onSettings,
-          ),
-          _RailButton(
-            buttonKey: const ValueKey('sidebar-toggle-btn'),
-            tooltip: context.tr('展开侧边栏'),
-            icon: Icons.view_sidebar_outlined,
-            onTap: onToggleSidebar,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RailButton extends StatelessWidget {
-  const _RailButton({
-    this.buttonKey,
-    required this.tooltip,
-    required this.icon,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final Key? buttonKey;
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return IconButton(
-      key: buttonKey,
-      tooltip: tooltip,
-      onPressed: onTap,
-      style: IconButton.styleFrom(
-        minimumSize: const Size(40, 40),
-        padding: EdgeInsets.zero,
-        backgroundColor:
-            selected ? colors.primary.withValues(alpha: 0.12) : null,
-        foregroundColor: selected ? colors.primary : colors.onSurfaceVariant,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Radii.field),
-        ),
-      ),
-      icon: OutlineSymbol(icon, size: 19),
-    );
-  }
-}
-
-class _ProjectsPanel extends StatefulWidget {
-  const _ProjectsPanel({
-    required this.index,
-    required this.activeRouteName,
+    required this.activeArgument,
+    required this.labelOpacity,
+    required this.collapsed,
     required this.onPage,
     required this.onOpenTool,
     required this.onToggleSidebar,
@@ -566,21 +380,23 @@ class _ProjectsPanel extends StatefulWidget {
 
   final int index;
   final String? activeRouteName;
+  final Object? activeArgument;
+  final double labelOpacity;
+  final bool collapsed;
   final ValueChanged<int> onPage;
   final ValueChanged<ToolDef> onOpenTool;
-  final VoidCallback onToggleSidebar;
+  final VoidCallback? onToggleSidebar;
   final VoidCallback? onLivePlot;
   final BuildContext Function() actionContext;
 
   @override
-  State<_ProjectsPanel> createState() => _ProjectsPanelState();
+  State<_WorkspaceSidebar> createState() => _WorkspaceSidebarState();
 }
 
-class _ProjectsPanelState extends State<_ProjectsPanel> {
+class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
   final _filterCtrl = TextEditingController();
-  String _query = '';
   bool _recentExpanded = true;
-  final Set<String> _expandedProjects = <String>{};
+  final _openProjects = <String>{};
 
   @override
   void dispose() {
@@ -591,303 +407,231 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
-    return ListenableBuilder(
-      listenable: settings.recentTool,
-      builder: (context, _) => _buildPanel(context, settings),
-    );
-  }
-
-  Widget _buildPanel(BuildContext context, AppSettings settings) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = Theme.of(context).colorScheme;
     final drafts = DraftScope.maybeOf(context);
-    final active = settings.lastDraftId ?? settings.lastTool;
-    final allIds = drafts?.recentIds ?? const <String>[];
-    final q = _query.trim().toLowerCase();
-    bool matches(String id) {
-      if (q.isEmpty) return true;
-      final title = draftTitle(context, drafts, id).toLowerCase();
-      final proj = (drafts?.projectOf(id) ?? '').toLowerCase();
-      return title.contains(q) || proj.contains(q);
-    }
+    final recent = drafts?.recentIds ?? const <String>[];
+    final query = _filterCtrl.text.trim().toLowerCase();
+    bool matches(String id) =>
+        query.isEmpty ||
+        draftTitle(context, drafts, id).toLowerCase().contains(query) ||
+        (drafts?.projectOf(id) ?? '').toLowerCase().contains(query);
+    final filtered = recent.where(matches).toList(growable: false);
+    final pinned = settings.pinnedToolIds.map(toolById).whereType<ToolDef>();
+    final route = widget.activeRouteName;
+    final argument = widget.activeArgument;
+    final activeTool =
+        route?.startsWith('tool/') == true ? route!.substring(5) : null;
+    final selectedDraft = switch (argument) {
+      final String id when recent.contains(id) => id,
+      _
+          when recent.contains(activeTool) &&
+              !settings.pinnedToolIds.contains(activeTool) =>
+        activeTool,
+      _ => null,
+    };
+    final selectedInRecent =
+        _recentExpanded && filtered.contains(selectedDraft);
+    final scope = widget.actionContext;
+    final opacity = widget.labelOpacity;
 
-    final projects = drafts?.projects ?? const <String>[];
-    final filteredRecent = allIds.where(matches).toList(growable: false);
-    final pinnedTools =
-        settings.pinnedToolIds.map(toolById).whereType<ToolDef>().toList();
+    Widget entry(
+      String title,
+      IconData icon,
+      VoidCallback? onTap, {
+      Key? key,
+      String? tooltip,
+      bool selected = false,
+      bool quiet = false,
+      bool status = false,
+    }) =>
+        _SidebarEntry(
+          key: key,
+          title: title,
+          icon: icon,
+          onTap: onTap,
+          tooltip: tooltip,
+          labelOpacity: opacity,
+          selected: selected,
+          quiet: quiet,
+          status: status,
+        );
 
+    Widget draftEntry(String id, bool selected) => entry(
+          draftTitle(context, drafts, id),
+          Icons.description_outlined,
+          () => openWorkspaceDraft(scope(), id, fromSidebar: true),
+          selected: selected,
+          quiet: true,
+        );
+
+    final engine = SurveyHybridEngine.instance.isNativeLoaded ? 'Rust' : 'Dart';
+    final offlineStatus = '$engine · ${context.tr('离线')}';
+    final collapseLabel = context.tr(widget.collapsed ? '展开侧边栏' : '收起侧边栏');
     return Material(
       color: colors.brightness == Brightness.dark
           ? IosColors.darkSidebarBg
           : IosColors.lightFill,
       child: SafeArea(
+        top: false,
         right: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+        left: false,
+        minimum: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ListView(
+                primary: false,
+                padding: EdgeInsets.zero,
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(Radii.field),
-                      onTap: () =>
-                          showCoordinatePresets(widget.actionContext()),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 6),
-                        child: Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Survey Pro',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 16,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    key: const ValueKey('sidebar-search-btn'),
-                    tooltip: context.tr('搜索工具与公式'),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => showCommandPalette(widget.actionContext()),
-                    icon: const OutlineSymbol(Icons.search, size: 17),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _filterCtrl,
-                onChanged: (v) => setState(() => _query = v),
-                style: const TextStyle(fontSize: 12.5),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: context.tr('筛选草稿'),
-                  prefixIcon: const Icon(Icons.search, size: 16),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close, size: 15),
-                          onPressed: () {
-                            _filterCtrl.clear();
-                            setState(() => _query = '');
-                          },
-                        ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _SidebarEntry(
-                title: context.tr('新建测量'),
-                icon: Icons.add,
-                onTap: () => showWorkspaceCreate(widget.actionContext()),
-                selected: false,
-              ),
-              const Divider(height: 16),
-              Expanded(
-                child: ListView(
-                  primary: false,
-                  padding: EdgeInsets.zero,
-                  children: [
-                    _SidebarEntry(
-                      title: context.tr('首页'),
-                      icon: Icons.dashboard_outlined,
-                      onTap: () => widget.onPage(0),
-                      selected:
-                          widget.activeRouteName == null && widget.index == 0,
-                    ),
-                    _SidebarEntry(
-                      title: context.tr('工具库'),
-                      icon: Icons.widgets_outlined,
-                      onTap: () => widget.onPage(3),
-                      selected:
-                          widget.activeRouteName == null && widget.index == 3,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 2, 2),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              context.tr('常用工具'),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            key: const ValueKey('sidebar-customize-pinned'),
-                            tooltip: context.tr('自定义常用工具'),
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
-                            ),
-                            onPressed: () => _showCustomizePinned(context),
-                            icon: OutlineSymbol(
-                              Icons.tune_rounded,
-                              size: 15,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    for (final tool in pinnedTools)
-                      _SidebarEntry(
-                        title: context.tr(tool.title),
-                        icon: tool.icon,
-                        onTap: () => widget.onOpenTool(tool),
-                        selected: widget.activeRouteName == 'tool/${tool.id}',
-                      ),
-                    const SizedBox(height: 8),
-                    if (projects.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
-                        child: Text(
-                          context.tr('项目'),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                  entry('Survey Pro', Icons.search_rounded,
+                      () => showCommandPalette(scope()),
+                      key: const ValueKey('sidebar-search-btn'),
+                      tooltip: context.tr('搜索工具与公式')),
+                  entry(context.tr('首页'), Icons.dashboard_outlined,
+                      () => widget.onPage(0),
+                      key: const ValueKey('sidebar-home'),
+                      selected: route == null && widget.index == 0),
+                  entry(context.tr('工具库'), Icons.widgets_outlined,
+                      () => widget.onPage(3),
+                      key: const ValueKey('sidebar-library'),
+                      selected: route == null && widget.index == 3),
+                  const SizedBox(height: 6),
+                  entry(context.tr('常用工具'), Icons.tune_rounded,
+                      () => _showCustomizePinned(context),
+                      key: const ValueKey('sidebar-customize-pinned'),
+                      tooltip: context.tr('自定义常用工具'),
+                      quiet: true),
+                  for (final tool in pinned)
+                    entry(context.tr(tool.title), tool.icon,
+                        () => widget.onOpenTool(tool),
+                        key: ValueKey('sidebar-tool-${tool.id}'),
+                        selected:
+                            selectedDraft == null && activeTool == tool.id),
+                  const SizedBox(height: 6),
+                  entry(context.tr('新建测量'), Icons.add,
+                      () => showWorkspaceCreate(scope())),
+                  SizedBox(
+                    height: 40,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 56,
+                          child: IconButton(
+                            tooltip: context.tr('筛选草稿'),
+                            icon: const OutlineSymbol(Icons.manage_search,
+                                size: 18),
+                            onPressed: () => showDraftHistory(scope()),
                           ),
                         ),
-                      ),
-                      for (final project in projects) ...[
-                        _ProjectFolderGroup(
-                          project: project,
-                          expanded: q.isNotEmpty ||
-                              _expandedProjects.contains(project),
-                          onToggle: () => setState(() {
-                            if (!_expandedProjects.remove(project)) {
-                              _expandedProjects.add(project);
-                            }
-                          }),
-                          draftIds: (drafts?.idsInProject(project) ?? const [])
-                              .where(matches)
-                              .toList(growable: false),
-                          activeId: active,
-                          drafts: drafts,
-                          onOpenDraft: (id) => openWorkspaceDraft(
-                              widget.actionContext(), id,
-                              fromSidebar: true),
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                    ],
-                    InkWell(
-                      borderRadius: BorderRadius.circular(Radii.field),
-                      onTap: () =>
-                          setState(() => _recentExpanded = !_recentExpanded),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                context.tr('最近'),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: _SidebarLabel(
+                            opacity: opacity,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 3, 12, 3),
+                              child: TextField(
+                                controller: _filterCtrl,
+                                onChanged: (_) => setState(() {}),
+                                style: const TextStyle(fontSize: 12),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  hintText: context.tr('筛选草稿'),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 6),
+                                  suffixIcon: query.isEmpty
+                                      ? null
+                                      : InkWell(
+                                          onTap: () =>
+                                              setState(_filterCtrl.clear),
+                                          child:
+                                              const Icon(Icons.close, size: 14),
+                                        ),
+                                  suffixIconConstraints:
+                                      const BoxConstraints.tightFor(
+                                          width: 24, height: 26),
                                 ),
                               ),
                             ),
-                            Icon(
-                              _recentExpanded
-                                  ? Icons.keyboard_arrow_down_rounded
-                                  : Icons.chevron_right_rounded,
-                              size: 16,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    if (_recentExpanded) ...[
-                      if (filteredRecent.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: LocalText('暂无草稿',
-                              style: theme.textTheme.bodySmall),
-                        ),
-                      for (final id in filteredRecent)
-                        _SidebarEntry(
-                          title: draftTitle(context, drafts, id),
-                          icon: Icons.description_outlined,
-                          onTap: () => openWorkspaceDraft(
-                              widget.actionContext(), id,
-                              fromSidebar: true),
-                          selected: id == active,
-                        ),
+                  ),
+                  for (final project in drafts?.projects ?? const <String>[])
+                    if (drafts!
+                            .idsInProject(project)
+                            .where(matches)
+                            .toList(growable: false)
+                        case final ids when ids.isNotEmpty) ...[
+                      entry(
+                          project,
+                          _openProjects.contains(project)
+                              ? Icons.folder_open_outlined
+                              : Icons.folder_outlined,
+                          () => setState(() {
+                                if (!_openProjects.remove(project)) {
+                                  _openProjects.add(project);
+                                }
+                              }),
+                          quiet: true),
+                      if (query.isNotEmpty || _openProjects.contains(project))
+                        for (final id in ids)
+                          draftEntry(
+                              id, !selectedInRecent && id == selectedDraft),
                     ],
-                  ],
-                ),
-              ),
-              const Divider(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            settings.workspaceEllipsoid,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium,
+                  entry(
+                      context.tr('最近'),
+                      Icons.history,
+                      widget.collapsed
+                          ? () => showDraftHistory(scope())
+                          : () => setState(
+                              () => _recentExpanded = !_recentExpanded),
+                      tooltip: context.tr('最近历史'),
+                      quiet: true),
+                  if (_recentExpanded) ...[
+                    if (filtered.isEmpty)
+                      SizedBox(
+                        height: 24,
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Padding(
+                            padding:
+                                const EdgeInsetsDirectional.only(start: 60),
+                            child: _SidebarLabel(
+                              opacity: opacity,
+                              child: LocalText('暂无草稿',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: colors.onSurfaceVariant)),
+                            ),
                           ),
-                          Text(
-                            SurveyHybridEngine.instance.isNativeLoaded
-                                ? 'Rust FFI'
-                                : 'Dart · ${context.tr('离线')}',
-                            style: theme.textTheme.bodySmall,
-                            maxLines: 1,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                  if (widget.onLivePlot != null)
-                    IconButton(
-                      key: const ValueKey('workspace-liveplot-toggle'),
-                      tooltip: context.tr('实时坐标图分栏'),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: widget.onLivePlot,
-                      icon: const OutlineSymbol(Icons.vertical_split_outlined,
-                          size: 18),
-                    ),
-                  IconButton(
-                    tooltip: context.tr('设置'),
-                    onPressed: () => widget.onPage(4),
-                    icon: const OutlineSymbol(Icons.settings_outlined),
-                  ),
-                  IconButton(
-                    key: const ValueKey('sidebar-toggle-btn'),
-                    tooltip: context.tr('收起侧边栏'),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: widget.onToggleSidebar,
-                    icon: const OutlineSymbol(Icons.view_sidebar_outlined,
-                        size: 18),
-                  ),
+                    for (final id in filtered)
+                      draftEntry(id, id == selectedDraft),
+                  ],
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 4),
+            if (widget.onLivePlot != null)
+              entry(context.tr('实时坐标图分栏'), Icons.vertical_split_outlined,
+                  widget.onLivePlot,
+                  key: const ValueKey('workspace-liveplot-toggle')),
+            entry(offlineStatus, Icons.circle,
+                () => showCoordinatePresets(scope()),
+                tooltip: '${settings.workspaceEllipsoid} · $offlineStatus',
+                quiet: true,
+                status: true),
+            entry(context.tr('设置'), Icons.settings_outlined,
+                () => widget.onPage(4),
+                selected: route == null && widget.index == 4),
+            entry(collapseLabel, Icons.view_sidebar_outlined,
+                widget.onToggleSidebar,
+                key: const ValueKey('sidebar-toggle-btn')),
+          ],
         ),
       ),
     );
@@ -1017,131 +761,101 @@ class _CustomizePinnedSheet extends StatelessWidget {
   }
 }
 
-class _ProjectFolderGroup extends StatelessWidget {
-  const _ProjectFolderGroup({
-    required this.project,
-    required this.expanded,
-    required this.onToggle,
-    required this.draftIds,
-    required this.activeId,
-    required this.drafts,
-    required this.onOpenDraft,
-  });
-
-  final String project;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final List<String> draftIds;
-  final String? activeId;
-  final DraftStore? drafts;
-  final ValueChanged<String> onOpenDraft;
-
-  @override
-  Widget build(BuildContext context) {
-    if (draftIds.isEmpty) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(Radii.field),
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Row(
-              children: [
-                OutlineSymbol(
-                  expanded ? Icons.folder_open_outlined : Icons.folder_outlined,
-                  size: 16,
-                  color: colors.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    project,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${draftIds.length}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (expanded)
-          Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final id in draftIds)
-                  _SidebarEntry(
-                    title: draftTitle(context, drafts, id),
-                    icon: Icons.description_outlined,
-                    onTap: () => onOpenDraft(id),
-                    selected: id == activeId,
-                  ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
+/// Only sidebar labels fade. Icons and the row height are shared at both widths.
 class _SidebarEntry extends StatelessWidget {
   const _SidebarEntry({
+    super.key,
     required this.title,
     required this.icon,
     required this.onTap,
-    required this.selected,
+    required this.labelOpacity,
+    this.tooltip,
+    this.selected = false,
+    this.quiet = false,
+    this.status = false,
   });
 
   final String title;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final double labelOpacity;
+  final String? tooltip;
   final bool selected;
+  final bool quiet;
+  final bool status;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final background = selected ? colors.primary.withValues(alpha: .12) : null;
     final foreground = selected ? colors.primary : colors.onSurfaceVariant;
-    return Semantics(
-      selected: selected,
-      child: TextButton.icon(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          foregroundColor: foreground,
-          backgroundColor: background,
-          minimumSize: const Size.fromHeight(38),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Radii.field),
-          ),
-        ),
-        icon: OutlineSymbol(icon, size: 17),
-        label: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    return SizedBox(
+      height: 40,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Tooltip(
+          message: tooltip ?? title,
+          child: Semantics(
+            selected: selected,
+            child: Material(
+              color: selected
+                  ? colors.primary.withValues(alpha: .12)
+                  : status
+                      ? colors.surfaceContainerHighest.withValues(alpha: .42)
+                      : Colors.transparent,
+              borderRadius: BorderRadius.circular(status ? 999 : Radii.field),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(status ? 999 : Radii.field),
+                onTap: onTap,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 40,
+                      child: Center(
+                          child: OutlineSymbol(icon,
+                              size: status ? 8 : 18,
+                              color: status ? colors.primary : foreground)),
+                    ),
+                    Expanded(
+                      child: _SidebarLabel(
+                        opacity: labelOpacity,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(
+                              start: 4, end: 8),
+                          child: Text(title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: quiet && !selected
+                                    ? foreground.withValues(alpha: .83)
+                                    : foreground,
+                                fontSize: quiet ? 11.5 : 13,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              )),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _SidebarLabel extends StatelessWidget {
+  const _SidebarLabel({required this.opacity, required this.child});
+
+  final double opacity;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (opacity == 0) return const SizedBox.shrink();
+    return ClipRect(child: Opacity(opacity: opacity, child: child));
   }
 }

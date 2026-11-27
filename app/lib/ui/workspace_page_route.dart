@@ -5,7 +5,7 @@ import 'package:flutter/material.dart' show Theme;
 import '../theme/workspace_layout.dart';
 import 'widgets/liquid_glass.dart';
 
-/// Tracks the visible page after pushes, replacements and removals settle.
+/// Tracks the logical destination as soon as Navigator changes the stack.
 class WorkspaceNavigatorObserver extends NavigatorObserver {
   WorkspaceNavigatorObserver(this.onChanged);
 
@@ -20,8 +20,9 @@ class WorkspaceNavigatorObserver extends NavigatorObserver {
 
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
+    final previous = (activeName, activeArgument);
     this.topRoute = topRoute;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onChanged());
+    if (previous != (activeName, activeArgument)) onChanged();
   }
 }
 
@@ -367,7 +368,10 @@ class _WorkspacePageDeckState extends State<WorkspacePageDeck>
                   scale: visible && active && _outgoing != null
                       ? .985 + .015 * _opacity
                       : 1,
-                  child: RepaintBoundary(child: page),
+                  child: WorkspaceEntranceScope(
+                    pending: !_motion.isCompleted,
+                    child: RepaintBoundary(child: page),
+                  ),
                 ),
               ),
             ),

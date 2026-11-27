@@ -326,8 +326,62 @@ class ScrollEdgeFade extends StatelessWidget {
       );
 }
 
-/// Defers building a heavy [child] (such as a chart or wide table) until the
-/// enclosing [ModalRoute] entrance transition has completed.
+/// Extends the route readiness check to transitions between cached pages.
+class WorkspaceEntranceScope extends InheritedWidget {
+  const WorkspaceEntranceScope({
+    super.key,
+    required this.pending,
+    required super.child,
+  });
+
+  final bool pending;
+
+  static bool isPending(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<WorkspaceEntranceScope>()
+          ?.pending ??
+      false;
+
+  @override
+  bool updateShouldNotify(WorkspaceEntranceScope oldWidget) =>
+      pending != oldWidget.pending;
+}
+
+/// A static, theme-matched frame for deferred chart content.
+class ChartLoadingPlaceholder extends StatelessWidget {
+  const ChartLoadingPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ExcludeSemantics(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(Radii.card),
+        ),
+        child: Align(
+          child: FractionallySizedBox(
+            widthFactor: .84,
+            heightFactor: .64,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(
+                  4,
+                  (_) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: colors.outlineVariant.withValues(alpha: .36),
+                      )),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Mounts heavy content after the route and any cached-page transition settle.
 class DeferredTransitionChild extends StatefulWidget {
   const DeferredTransitionChild({
     super.key,
@@ -335,12 +389,14 @@ class DeferredTransitionChild extends StatefulWidget {
     this.placeholderHeight = 180,
     this.placeholder,
     this.afterFrame = false,
+    this.fadeIn = false,
   });
 
   final Widget child;
   final double placeholderHeight;
   final Widget? placeholder;
   final bool afterFrame;
+  final bool fadeIn;
 
   @override
   State<DeferredTransitionChild> createState() =>
@@ -349,42 +405,60 @@ class DeferredTransitionChild extends StatefulWidget {
 
 class _DeferredTransitionChildState extends State<DeferredTransitionChild> {
   Animation<double>? _animation;
+  bool _waited = false;
   bool _ready = false;
+  bool _fading = false;
+  bool _visible = false;
+  bool _queued = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_ready) return;
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final pending = WorkspaceEntranceScope.isPending(context);
     final animation = ModalRoute.of(context)?.animation;
-    if (disableAnimations ||
-        animation == null ||
-        animation.isCompleted ||
-        animation.value >= 1.0) {
+    if (reduceMotion) {
+      _reveal();
+    } else if (pending) {
       _detach();
-      _ready = true;
-      return;
-    }
-    if (!identical(_animation, animation)) {
-      _detach();
-      _animation = animation;
-      animation.addStatusListener(_onStatusChanged);
+      _waited = true;
+    } else if (animation == null || animation.isCompleted) {
+      if (!_queued) _reveal();
+    } else {
+      _waited = true;
+      if (!identical(_animation, animation)) {
+        _detach();
+        _animation = animation;
+        animation.addStatusListener(_onStatusChanged);
+      }
     }
   }
 
   void _onStatusChanged(AnimationStatus status) {
-    if (status == AnimationStatus.completed ||
-        (_animation?.value ?? 0) >= 1.0) {
-      _detach();
-      if (mounted && !_ready) {
-        if (widget.afterFrame) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _ready = true);
-          });
-        } else {
-          setState(() => _ready = true);
-        }
-      }
+    if (status != AnimationStatus.completed) return;
+    _detach();
+    if (widget.afterFrame) {
+      _queued = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _ready) return;
+        _queued = false;
+        if (!WorkspaceEntranceScope.isPending(context)) setState(_reveal);
+      });
+    } else {
+      setState(_reveal);
+    }
+  }
+
+  void _reveal() {
+    _detach();
+    _ready = true;
+    _fading =
+        _waited && widget.fadeIn && !MediaQuery.disableAnimationsOf(context);
+    if (_fading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _visible = true);
+      });
     }
   }
 
@@ -401,9 +475,26 @@ class _DeferredTransitionChildState extends State<DeferredTransitionChild> {
 
   @override
   Widget build(BuildContext context) {
-    if (_ready) {
-      return widget.child;
-    }
-    return widget.placeholder ?? SizedBox(height: widget.placeholderHeight);
+    final placeholder =
+        widget.placeholder ?? SizedBox(height: widget.placeholderHeight);
+    if (!_ready) return placeholder;
+    if (!_fading && !_visible) return widget.child;
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        if (_fading)
+          Positioned.fill(
+              key: const ValueKey('chart-fade-placeholder'),
+              child: placeholder),
+        AnimatedOpacity(
+          key: const ValueKey('chart-reveal'),
+          opacity: _visible ? 1 : 0,
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          onEnd: () => setState(() => _fading = false),
+          child: widget.child,
+        ),
+      ],
+    );
   }
 }

@@ -1115,6 +1115,7 @@ class _EarthworkPageState extends State<EarthworkPage>
           _calc();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [

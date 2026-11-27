@@ -28,7 +28,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Search & toggle keys are in the sidebar (initially collapsed -> _IconRail).
+    // Search & toggle keys are in the sidebar (initially collapsed).
     expect(find.byKey(const ValueKey('sidebar-search-btn')).hitTestable(),
         findsOneWidget);
     expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(),
@@ -103,7 +103,7 @@ void main() {
         .pumpWidget(SurveyApp(settings: settings, drafts: DraftStore()));
     await tester.pumpAndSettle();
 
-    final rail = find.byKey(const ValueKey('desktop-icon-rail'));
+    final rail = find.byKey(const ValueKey('workspace-sidebar'));
     Finder pinned(String label) =>
         find.descendant(of: rail, matching: find.byTooltip(label));
     await tester.tap(pinned('四等水准测量'));

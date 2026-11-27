@@ -586,6 +586,7 @@ class _CircularCurvePageState extends State<CircularCurvePage>
           _calc();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
@@ -1356,6 +1357,7 @@ class _ClothoidPageState extends State<ClothoidPage>
           _calc();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: sideVisual,
       bottomSection: bottomSection,
       children: [
@@ -1903,6 +1905,7 @@ class _VerticalCurvePageState extends State<VerticalCurvePage>
           _calc();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: sideVisual,
       children: [
         PageTutorial(
@@ -2501,6 +2504,7 @@ class _RouteStakePageState extends State<RouteStakePage>
           _pushLivePlot();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: sideVisual,
       children: [
         PageTutorial(

@@ -793,190 +793,196 @@ class _LivePlotState extends State<LivePlot>
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: _empty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.polyline_outlined,
-                      size: 26,
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.tr(widget.emptyHint),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final size = Size(constraints.maxWidth, constraints.maxHeight);
-                _lastCanvasSize = size;
-                final curRange = _currentRange();
-                final hudText = _hudLabel(size, curRange);
-                return Listener(
-                  onPointerSignal: (event) {
-                    if (!widget.interactiveViewport) return;
-                    if (event is PointerScrollEvent) {
-                      final keys = HardwareKeyboard.instance.logicalKeysPressed;
-                      final ctrl =
-                          keys.contains(LogicalKeyboardKey.controlLeft) ||
-                              keys.contains(LogicalKeyboardKey.controlRight);
-                      if (!ctrl) return;
-                      final factor = event.scrollDelta.dy > 0 ? 1.18 : 0.85;
-                      _zoomBy(factor, focalLocal: event.localPosition);
-                    }
-                  },
-                  child: Stack(
+      child: DeferredTransitionChild(
+        fadeIn: true,
+        placeholder: const ChartLoadingPlaceholder(),
+        child: _empty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Positioned.fill(
-                        child: MouseRegion(
-                          cursor: _panningView
-                              ? SystemMouseCursors.grabbing
-                              : (_hoverIndex != null || _dragIndex != null)
-                                  ? SystemMouseCursors.move
-                                  : MouseCursor.defer,
-                          onHover: (event) {
-                            _updateHover(event.localPosition, size);
-                          },
-                          onExit: (_) {
-                            if (_hoverIndex != null || _hoverLocal != null) {
-                              setState(() {
-                                _hoverIndex = null;
-                                _hoverLocal = null;
-                              });
-                            }
-                          },
-                          child: RawGestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            gestures: <Type, GestureRecognizerFactory>{
-                              if (widget.draggable ||
-                                  (widget.interactiveViewport &&
-                                      _manualRange != null))
-                                _PointPanRecognizer:
-                                    GestureRecognizerFactoryWithHandlers<
-                                        _PointPanRecognizer>(
-                                  _PointPanRecognizer.new,
-                                  (recognizer) {
-                                    recognizer.canStart = (local) {
-                                      final idx = _hitIndex(
-                                          local, size, _currentRange());
-                                      if (idx != null && _canDrag(idx)) {
-                                        return true;
-                                      }
-                                      return widget.interactiveViewport &&
-                                          _manualRange != null;
-                                    };
-                                    recognizer.onStart = (details) {
-                                      final range = _currentRange();
-                                      final index = _hitIndex(
-                                        details.localPosition,
-                                        size,
-                                        range,
-                                      );
-                                      if (index != null && _canDrag(index)) {
-                                        _startDrag(
-                                          index,
+                      Icon(
+                        Icons.polyline_outlined,
+                        size: 26,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.tr(widget.emptyHint),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final size =
+                      Size(constraints.maxWidth, constraints.maxHeight);
+                  _lastCanvasSize = size;
+                  final curRange = _currentRange();
+                  final hudText = _hudLabel(size, curRange);
+                  return Listener(
+                    onPointerSignal: (event) {
+                      if (!widget.interactiveViewport) return;
+                      if (event is PointerScrollEvent) {
+                        final keys =
+                            HardwareKeyboard.instance.logicalKeysPressed;
+                        final ctrl =
+                            keys.contains(LogicalKeyboardKey.controlLeft) ||
+                                keys.contains(LogicalKeyboardKey.controlRight);
+                        if (!ctrl) return;
+                        final factor = event.scrollDelta.dy > 0 ? 1.18 : 0.85;
+                        _zoomBy(factor, focalLocal: event.localPosition);
+                      }
+                    },
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: MouseRegion(
+                            cursor: _panningView
+                                ? SystemMouseCursors.grabbing
+                                : (_hoverIndex != null || _dragIndex != null)
+                                    ? SystemMouseCursors.move
+                                    : MouseCursor.defer,
+                            onHover: (event) {
+                              _updateHover(event.localPosition, size);
+                            },
+                            onExit: (_) {
+                              if (_hoverIndex != null || _hoverLocal != null) {
+                                setState(() {
+                                  _hoverIndex = null;
+                                  _hoverLocal = null;
+                                });
+                              }
+                            },
+                            child: RawGestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              gestures: <Type, GestureRecognizerFactory>{
+                                if (widget.draggable ||
+                                    (widget.interactiveViewport &&
+                                        _manualRange != null))
+                                  _PointPanRecognizer:
+                                      GestureRecognizerFactoryWithHandlers<
+                                          _PointPanRecognizer>(
+                                    _PointPanRecognizer.new,
+                                    (recognizer) {
+                                      recognizer.canStart = (local) {
+                                        final idx = _hitIndex(
+                                            local, size, _currentRange());
+                                        if (idx != null && _canDrag(idx)) {
+                                          return true;
+                                        }
+                                        return widget.interactiveViewport &&
+                                            _manualRange != null;
+                                      };
+                                      recognizer.onStart = (details) {
+                                        final range = _currentRange();
+                                        final index = _hitIndex(
                                           details.localPosition,
                                           size,
                                           range,
                                         );
-                                      } else if (widget.interactiveViewport &&
-                                          _manualRange != null) {
-                                        setState(() {
-                                          _panningView = true;
-                                          _panLastLocal = details.localPosition;
-                                        });
-                                      }
-                                    };
-                                    recognizer.onUpdate = (details) {
-                                      if (_dragIndex != null) {
-                                        _updateDrag(
-                                            details.localPosition, size);
-                                      } else if (_panningView &&
-                                          _panLastLocal != null) {
-                                        final delta = details.localPosition -
-                                            _panLastLocal!;
-                                        _panLastLocal = details.localPosition;
-                                        final cur = _currentRange();
-                                        final scale = math.min(
-                                              size.width,
-                                              size.height,
-                                            ) /
-                                            cur.span;
-                                        if (scale > 0) {
+                                        if (index != null && _canDrag(index)) {
+                                          _startDrag(
+                                            index,
+                                            details.localPosition,
+                                            size,
+                                            range,
+                                          );
+                                        } else if (widget.interactiveViewport &&
+                                            _manualRange != null) {
                                           setState(() {
-                                            _manualRange = widget.surveyNorthUp
-                                                ? PlotRange(
-                                                    minX: cur.minX +
-                                                        delta.dy / scale,
-                                                    minY: cur.minY -
-                                                        delta.dx / scale,
-                                                    span: cur.span,
-                                                  )
-                                                : PlotRange(
-                                                    minX: cur.minX -
-                                                        delta.dx / scale,
-                                                    minY: cur.minY +
-                                                        delta.dy / scale,
-                                                    span: cur.span,
-                                                  );
+                                            _panningView = true;
+                                            _panLastLocal =
+                                                details.localPosition;
                                           });
                                         }
-                                      }
-                                    };
-                                    recognizer.onEnd = (_) {
-                                      if (_dragIndex != null) {
-                                        _endDrag();
-                                      } else if (_panningView) {
-                                        setState(() {
-                                          _panningView = false;
-                                          _panLastLocal = null;
-                                        });
-                                      }
-                                    };
-                                    recognizer.onCancel = () {
-                                      if (_dragIndex != null) {
-                                        _endDrag();
-                                      } else if (_panningView) {
-                                        setState(() {
-                                          _panningView = false;
-                                          _panLastLocal = null;
-                                        });
-                                      }
-                                    };
-                                  },
-                                ),
-                              if (widget.onTap != null)
-                                TapGestureRecognizer:
-                                    GestureRecognizerFactoryWithHandlers<
-                                        TapGestureRecognizer>(
-                                  TapGestureRecognizer.new,
-                                  (recognizer) {
-                                    recognizer.onTapUp = (details) {
-                                      final hit = _hitTest(
-                                        details.localPosition,
-                                        size,
-                                        _currentRange(),
-                                      );
-                                      if (hit != null) widget.onTap!(hit);
-                                    };
-                                  },
-                                ),
-                            },
-                            child: RepaintBoundary(
-                              key: _boundaryKey,
-                              child: DeferredTransitionChild(
+                                      };
+                                      recognizer.onUpdate = (details) {
+                                        if (_dragIndex != null) {
+                                          _updateDrag(
+                                              details.localPosition, size);
+                                        } else if (_panningView &&
+                                            _panLastLocal != null) {
+                                          final delta = details.localPosition -
+                                              _panLastLocal!;
+                                          _panLastLocal = details.localPosition;
+                                          final cur = _currentRange();
+                                          final scale = math.min(
+                                                size.width,
+                                                size.height,
+                                              ) /
+                                              cur.span;
+                                          if (scale > 0) {
+                                            setState(() {
+                                              _manualRange =
+                                                  widget.surveyNorthUp
+                                                      ? PlotRange(
+                                                          minX: cur.minX +
+                                                              delta.dy / scale,
+                                                          minY: cur.minY -
+                                                              delta.dx / scale,
+                                                          span: cur.span,
+                                                        )
+                                                      : PlotRange(
+                                                          minX: cur.minX -
+                                                              delta.dx / scale,
+                                                          minY: cur.minY +
+                                                              delta.dy / scale,
+                                                          span: cur.span,
+                                                        );
+                                            });
+                                          }
+                                        }
+                                      };
+                                      recognizer.onEnd = (_) {
+                                        if (_dragIndex != null) {
+                                          _endDrag();
+                                        } else if (_panningView) {
+                                          setState(() {
+                                            _panningView = false;
+                                            _panLastLocal = null;
+                                          });
+                                        }
+                                      };
+                                      recognizer.onCancel = () {
+                                        if (_dragIndex != null) {
+                                          _endDrag();
+                                        } else if (_panningView) {
+                                          setState(() {
+                                            _panningView = false;
+                                            _panLastLocal = null;
+                                          });
+                                        }
+                                      };
+                                    },
+                                  ),
+                                if (widget.onTap != null)
+                                  TapGestureRecognizer:
+                                      GestureRecognizerFactoryWithHandlers<
+                                          TapGestureRecognizer>(
+                                    TapGestureRecognizer.new,
+                                    (recognizer) {
+                                      recognizer.onTapUp = (details) {
+                                        final hit = _hitTest(
+                                          details.localPosition,
+                                          size,
+                                          _currentRange(),
+                                        );
+                                        if (hit != null) widget.onTap!(hit);
+                                      };
+                                    },
+                                  ),
+                              },
+                              child: RepaintBoundary(
+                                key: _boundaryKey,
                                 child: AnimatedBuilder(
                                   animation: _controller,
                                   builder: (context, _) => CustomPaint(
@@ -1033,181 +1039,182 @@ class _LivePlotState extends State<LivePlot>
                             ),
                           ),
                         ),
-                      ),
-                      // 1. 左上角：实时坐标读数（Unslop 安静仪器铭牌）
-                      if (hudText != null || widget.points.isNotEmpty)
-                        Positioned(
-                          left: 8,
-                          top: 8,
-                          child: IgnorePointer(
-                            child: LiquidGlassSurface(
-                              borderRadius: BorderRadius.circular(Radii.chip),
-                              elevated: false,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              child: Text(
-                                context.tr(
-                                  hudText ??
-                                      (widget.surveyNorthUp
-                                          ? _engineeringCoordinates(
-                                              widget.points.first.x,
-                                              widget.points.first.y,
-                                              digits: 3)
-                                          : 'X ${widget.points.first.x.toStringAsFixed(3)} · Y ${widget.points.first.y.toStringAsFixed(3)}'),
+                        // 1. 左上角：实时坐标读数（Unslop 安静仪器铭牌）
+                        if (hudText != null || widget.points.isNotEmpty)
+                          Positioned(
+                            left: 8,
+                            top: 8,
+                            child: IgnorePointer(
+                              child: LiquidGlassSurface(
+                                borderRadius: BorderRadius.circular(Radii.chip),
+                                elevated: false,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
                                 ),
-                                style: TextStyle(
-                                  fontFamily: kSurveyMono,
-                                  fontFamilyFallback: const ['Noto Sans SC'],
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: scheme.onSurface,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
+                                child: Text(
+                                  context.tr(
+                                    hudText ??
+                                        (widget.surveyNorthUp
+                                            ? _engineeringCoordinates(
+                                                widget.points.first.x,
+                                                widget.points.first.y,
+                                                digits: 3)
+                                            : 'X ${widget.points.first.x.toStringAsFixed(3)} · Y ${widget.points.first.y.toStringAsFixed(3)}'),
+                                  ),
+                                  style: TextStyle(
+                                    fontFamily: kSurveyMono,
+                                    fontFamilyFallback: const ['Noto Sans SC'],
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: scheme.onSurface,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        // 2. 右上角：指北标
+                        if (widget.showNorth)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: IgnorePointer(
+                              child: LiquidGlassSurface(
+                                width: 32,
+                                height: 32,
+                                borderRadius:
+                                    BorderRadius.circular(Radii.field),
+                                elevated: false,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.navigation_rounded,
+                                      size: 12,
+                                      color: IosColors.red(scheme.brightness),
+                                    ),
+                                    Text(
+                                      'N',
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        height: 1.0,
+                                        fontWeight: FontWeight.w600,
+                                        color: scheme.onSurface,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      // 2. 右上角：指北标
-                      if (widget.showNorth)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: IgnorePointer(
+                        // 3. 左下角：自适应整尺比例尺
+                        if (widget.showScaleBar)
+                          Positioned(
+                            left: 8,
+                            bottom: 8,
+                            child: IgnorePointer(
+                              child: Builder(
+                                builder: (context) {
+                                  final scale =
+                                      math.min(size.width, size.height) /
+                                          curRange.span;
+                                  final step = niceScaleLength(scale);
+                                  final barW = (step * scale).clamp(24.0, 96.0);
+                                  final label = step >= 1
+                                      ? '${step.toStringAsFixed(0)}${widget.unit}'
+                                      : '${step.toStringAsFixed(2)}${widget.unit}';
+                                  return LiquidGlassSurface(
+                                    borderRadius:
+                                        BorderRadius.circular(Radii.chip),
+                                    elevated: false,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: barW,
+                                          height: 2.5,
+                                          decoration: BoxDecoration(
+                                            color: scheme.onSurface
+                                                .withValues(alpha: 0.78),
+                                            borderRadius:
+                                                BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          label,
+                                          style: TextStyle(
+                                            fontFamily: kSurveyMono,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: scheme.onSurface,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        // 4. 右下角：纵向缩放控制条
+                        if (widget.showToolbar && widget.interactiveViewport)
+                          Positioned(
+                            right: 8,
+                            bottom: 8,
                             child: LiquidGlassSurface(
-                              width: 32,
-                              height: 32,
                               borderRadius: BorderRadius.circular(Radii.field),
                               elevated: false,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 4,
+                              ),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.navigation_rounded,
-                                    size: 12,
-                                    color: IosColors.red(scheme.brightness),
+                                  _PlotToolIcon(
+                                    tooltip: context.tr('放大 (Ctrl+滚轮)'),
+                                    icon: Icons.add,
+                                    onPressed: () => _zoomBy(0.75),
                                   ),
-                                  Text(
-                                    'N',
-                                    style: TextStyle(
-                                      fontSize: 8.5,
-                                      height: 1.0,
-                                      fontWeight: FontWeight.w600,
-                                      color: scheme.onSurface,
+                                  _PlotToolIcon(
+                                    tooltip: context.tr('缩小 (Ctrl+滚轮)'),
+                                    icon: Icons.remove,
+                                    onPressed: () => _zoomBy(1.33),
+                                  ),
+                                  if (_manualRange != null)
+                                    _PlotToolIcon(
+                                      tooltip: context.tr('复位全图'),
+                                      icon: Icons.center_focus_strong_outlined,
+                                      color: scheme.primary,
+                                      onPressed: _resetViewport,
                                     ),
-                                  ),
+                                  if (widget.exportTitle != null)
+                                    _PlotToolIcon(
+                                      tooltip: context.tr('保存图形为 PNG'),
+                                      icon: _exportingPng
+                                          ? Icons.hourglass_top_rounded
+                                          : Icons.image_outlined,
+                                      onPressed:
+                                          _exportingPng ? null : _exportPng,
+                                    ),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                      // 3. 左下角：自适应整尺比例尺
-                      if (widget.showScaleBar)
-                        Positioned(
-                          left: 8,
-                          bottom: 8,
-                          child: IgnorePointer(
-                            child: Builder(
-                              builder: (context) {
-                                final scale =
-                                    math.min(size.width, size.height) /
-                                        curRange.span;
-                                final step = niceScaleLength(scale);
-                                final barW = (step * scale).clamp(24.0, 96.0);
-                                final label = step >= 1
-                                    ? '${step.toStringAsFixed(0)}${widget.unit}'
-                                    : '${step.toStringAsFixed(2)}${widget.unit}';
-                                return LiquidGlassSurface(
-                                  borderRadius:
-                                      BorderRadius.circular(Radii.chip),
-                                  elevated: false,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: barW,
-                                        height: 2.5,
-                                        decoration: BoxDecoration(
-                                          color: scheme.onSurface
-                                              .withValues(alpha: 0.78),
-                                          borderRadius:
-                                              BorderRadius.circular(2),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        label,
-                                        style: TextStyle(
-                                          fontFamily: kSurveyMono,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                          color: scheme.onSurface,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      // 4. 右下角：纵向缩放控制条
-                      if (widget.showToolbar && widget.interactiveViewport)
-                        Positioned(
-                          right: 8,
-                          bottom: 8,
-                          child: LiquidGlassSurface(
-                            borderRadius: BorderRadius.circular(Radii.field),
-                            elevated: false,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 2,
-                              vertical: 4,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _PlotToolIcon(
-                                  tooltip: context.tr('放大 (Ctrl+滚轮)'),
-                                  icon: Icons.add,
-                                  onPressed: () => _zoomBy(0.75),
-                                ),
-                                _PlotToolIcon(
-                                  tooltip: context.tr('缩小 (Ctrl+滚轮)'),
-                                  icon: Icons.remove,
-                                  onPressed: () => _zoomBy(1.33),
-                                ),
-                                if (_manualRange != null)
-                                  _PlotToolIcon(
-                                    tooltip: context.tr('复位全图'),
-                                    icon: Icons.center_focus_strong_outlined,
-                                    color: scheme.primary,
-                                    onPressed: _resetViewport,
-                                  ),
-                                if (widget.exportTitle != null)
-                                  _PlotToolIcon(
-                                    tooltip: context.tr('保存图形为 PNG'),
-                                    icon: _exportingPng
-                                        ? Icons.hourglass_top_rounded
-                                        : Icons.image_outlined,
-                                    onPressed:
-                                        _exportingPng ? null : _exportPng,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 

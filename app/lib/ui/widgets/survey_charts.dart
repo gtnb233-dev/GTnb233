@@ -148,6 +148,8 @@ class _EarthworkGridChartState extends State<EarthworkGridChart> {
                   },
                   child: RepaintBoundary(
                     child: DeferredTransitionChild(
+                      fadeIn: true,
+                      placeholder: const ChartLoadingPlaceholder(),
                       placeholderHeight: widget.height,
                       child: CustomPaint(
                         size: size,
@@ -196,8 +198,7 @@ class _EarthworkGridChartState extends State<EarthworkGridChart> {
                             .join(' / '),
                         'cut': fmt(selected.cut, 2),
                         'fill': fmt(selected.fill, 2),
-                        'split':
-                            selected.split ? context.tr('（跨零线细分）') : '',
+                        'split': selected.split ? context.tr('（跨零线细分）') : '',
                       },
                     ),
               style: TextStyle(
@@ -473,6 +474,8 @@ class SectionProfileChart extends StatelessWidget {
             height: height,
             child: RepaintBoundary(
               child: DeferredTransitionChild(
+                fadeIn: true,
+                placeholder: const ChartLoadingPlaceholder(),
                 placeholderHeight: height,
                 child: CustomPaint(
                   painter: _SectionProfilePainter(
@@ -691,6 +694,8 @@ class VerticalCurveChart extends StatelessWidget {
             height: height,
             child: RepaintBoundary(
               child: DeferredTransitionChild(
+                fadeIn: true,
+                placeholder: const ChartLoadingPlaceholder(),
                 placeholderHeight: height,
                 child: CustomPaint(
                   painter: _VerticalCurvePainter(
@@ -904,6 +909,7 @@ class LevelingProfileChart extends StatelessWidget {
     this.selectedStation,
     this.onStationSelected,
     this.height = 230,
+    this.emptyHint,
   });
 
   final List<String> pointNames;
@@ -914,11 +920,13 @@ class LevelingProfileChart extends StatelessWidget {
   final int? selectedStation;
   final ValueChanged<int>? onStationSelected;
   final double height;
+  final String? emptyHint;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (heightsM.length < 2 || correctionsMm.isEmpty) {
+    final hasData = heightsM.length >= 2 && correctionsMm.isNotEmpty;
+    if (!hasData && emptyHint == null) {
       return const SizedBox.shrink();
     }
     final chainages = <double>[0];
@@ -959,44 +967,52 @@ class LevelingProfileChart extends StatelessWidget {
           const SizedBox(height: Insets.s),
           SizedBox(
             height: height,
-            child: LayoutBuilder(builder: (context, constraints) {
-              final painter = _LevelingProfilePainter(
-                pointNames: pointNames,
-                heightsM: heightsM,
-                chainages: chainages,
-                correctionsMm: correctionsMm,
-                errorStations: errorStations,
-                selectedStation: selectedStation,
-                correctionLabel: context.tr('改正(mm)'),
-                scheme: scheme,
-                fontFamily: DefaultTextStyle.of(context).style.fontFamily,
-                fontFamilyFallback:
-                    DefaultTextStyle.of(context).style.fontFamilyFallback,
-              );
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapUp: onStationSelected == null
-                    ? null
-                    : (event) {
-                        final x = painter.chainageAt(
-                            event.localPosition.dx, constraints.maxWidth);
-                        if (x == null) return;
-                        var station = 0;
-                        while (station < chainages.length - 2 &&
-                            x > chainages[station + 1]) {
-                          station++;
-                        }
-                        onStationSelected!(station);
-                      },
-                child: RepaintBoundary(
-                  child: DeferredTransitionChild(
-                    placeholderHeight: height,
-                    child: CustomPaint(
-                        painter: painter, child: const SizedBox.expand()),
-                  ),
-                ),
-              );
-            }),
+            child: DeferredTransitionChild(
+              fadeIn: true,
+              placeholder: const ChartLoadingPlaceholder(),
+              child: !hasData
+                  ? Center(
+                      child: Text(context.tr(emptyHint!),
+                          textAlign: TextAlign.center))
+                  : LayoutBuilder(builder: (context, constraints) {
+                      final painter = _LevelingProfilePainter(
+                        pointNames: pointNames,
+                        heightsM: heightsM,
+                        chainages: chainages,
+                        correctionsMm: correctionsMm,
+                        errorStations: errorStations,
+                        selectedStation: selectedStation,
+                        correctionLabel: context.tr('改正(mm)'),
+                        scheme: scheme,
+                        fontFamily:
+                            DefaultTextStyle.of(context).style.fontFamily,
+                        fontFamilyFallback: DefaultTextStyle.of(context)
+                            .style
+                            .fontFamilyFallback,
+                      );
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapUp: onStationSelected == null
+                            ? null
+                            : (event) {
+                                final x = painter.chainageAt(
+                                    event.localPosition.dx,
+                                    constraints.maxWidth);
+                                if (x == null) return;
+                                var station = 0;
+                                while (station < chainages.length - 2 &&
+                                    x > chainages[station + 1]) {
+                                  station++;
+                                }
+                                onStationSelected!(station);
+                              },
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                              painter: painter, child: const SizedBox.expand()),
+                        ),
+                      );
+                    }),
+            ),
           ),
         ],
       ),

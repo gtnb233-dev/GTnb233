@@ -191,7 +191,7 @@ void main() {
 
     tester.view.physicalSize = const Size(360, 700);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('desktop-icon-rail')), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
     expect(find.byType(GlassNavBar), findsNothing);
     expect(tester.widget<TextField>(librarySearch).controller!.text, '坐标反算');
 

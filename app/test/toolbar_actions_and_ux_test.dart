@@ -16,7 +16,10 @@ import 'package:survey_pro/ui/pages/home_page.dart';
 import 'package:survey_pro/ui/pages/tools_page.dart';
 import 'package:survey_pro/ui/pages/tools/control_tools.dart';
 import 'package:survey_pro/ui/pages/tools/coord_tools.dart';
+import 'package:survey_pro/ui/pages/tools/four_order_leveling.dart';
 import 'package:survey_pro/ui/tool_router.dart';
+import 'package:survey_pro/ui/widgets/liquid_glass.dart';
+import 'package:survey_pro/ui/widgets/outline_symbol.dart';
 import 'package:survey_pro/ui/widgets/page_actions.dart';
 import 'package:survey_pro/ui/widgets/results.dart';
 import 'package:survey_pro/ui/workspace_page_route.dart';
@@ -169,6 +172,159 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (tool, page) in [
+    ('traverse', TraversePage),
+    ('leveling4', FourOrderLevelingPage),
+  ]) {
+    testWidgets(
+        '$tool keeps both columns from the first frame and fades the chart in place',
+        (tester) async {
+      await pumpAndroid(tester, const Size(1024, 640));
+      selectTool(tester, tool);
+      await tester.pump();
+      final target = find.byType(page);
+      Finder keyed(String key) =>
+          find.descendant(of: target, matching: find.byKey(ValueKey(key)));
+      final left = keyed('workspace-detail-inputs');
+      final right = keyed('workspace-detail-visuals');
+      final skeleton = find.descendant(
+          of: right, matching: find.byType(ChartLoadingPlaceholder));
+      final fade = find.descendant(
+          of: right, matching: find.byKey(const ValueKey('chart-reveal')));
+      expect(left, findsOneWidget);
+      expect(right, findsOneWidget);
+      expect(skeleton, findsOneWidget);
+      expect(fade, findsNothing);
+      final widths = (tester.getSize(left).width, tester.getSize(right).width);
+      final plotSize = tester.getSize(skeleton);
+      final plotTop = tester.getTopLeft(skeleton).dy;
+      expect(tester.getTopLeft(right).dx - tester.getTopRight(left).dx, 16);
+      void expectWidths() {
+        expect(
+            (tester.getSize(left).width, tester.getSize(right).width), widths);
+      }
+
+      await tester.pump(const Duration(milliseconds: 100));
+      expectWidths();
+      expect(tester.getSize(skeleton), plotSize);
+      expect(fade, findsNothing);
+      await tester.pump(const Duration(milliseconds: 170));
+      expectWidths();
+      expect(fade, findsOneWidget);
+      expect(tester.getSize(fade), plotSize);
+      expect(tester.getTopLeft(fade).dy, closeTo(plotTop, .01));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final fadeTransition = find
+          .descendant(of: fade, matching: find.byType(FadeTransition))
+          .first;
+      expect(tester.widget<FadeTransition>(fadeTransition).opacity.value,
+          inExclusiveRange(0.0, 1.0));
+      expectWidths();
+      await tester.pumpAndSettle();
+      expect(skeleton, findsNothing);
+      expectWidths();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a new cached tool reserves its plot until the sidebar fade ends',
+      (tester) async {
+    await pumpAndroid(tester, const Size(1024, 640));
+    selectTool(tester, 'inverse');
+    await tester.pumpAndSettle();
+    selectTool(tester, 'traverse');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+    final page = find.byType(TraversePage);
+    expect(ModalRoute.of(tester.element(page))!.animation!.isCompleted, isTrue);
+    final right = find.descendant(
+        of: page,
+        matching: find.byKey(const ValueKey('workspace-detail-visuals')));
+    final skeleton = find.descendant(
+        of: right, matching: find.byType(ChartLoadingPlaceholder));
+    final chart = find.descendant(
+        of: right, matching: find.byKey(const ValueKey('chart-reveal')));
+    expect(skeleton, findsOneWidget);
+    expect(chart, findsNothing);
+    final width = tester.getSize(right).width;
+    await tester.pump(const Duration(milliseconds: 112));
+    expect(chart, findsOneWidget);
+    expect(tester.getSize(right).width, width);
+    await tester.pumpAndSettle();
+    expect(skeleton, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'sidebar keeps icon anchors and selects the library on the first back frame',
+      (tester) async {
+    await pumpAndroid(tester, const Size(1024, 640));
+    final entries = [
+      for (final id in [
+        'search-btn',
+        'home',
+        'library',
+        'customize-pinned',
+        'tool-traverse',
+        'toggle-btn'
+      ])
+        find.byKey(ValueKey('sidebar-$id')),
+    ];
+    List<Offset> anchors() => [
+          for (final entry in entries)
+            tester.getCenter(find
+                .descendant(of: entry, matching: find.byType(OutlineSymbol))
+                .first),
+        ];
+    final initial = anchors();
+    await tester.tap(entries.last);
+    await tester.pump();
+    for (final elapsed in [30, 50, 80, 80]) {
+      await tester.pump(Duration(milliseconds: elapsed));
+      expect(anchors(), initial);
+    }
+    await tester.pumpAndSettle();
+    expect(anchors(), initial);
+    await tester.tap(entries.last);
+    await tester.pump();
+    for (final elapsed in [40, 60, 80, 60]) {
+      await tester.pump(Duration(milliseconds: elapsed));
+      expect(anchors(), initial);
+    }
+    await tester.pumpAndSettle();
+
+    bool selected(Finder entry) =>
+        tester
+            .widget<Semantics>(
+              find
+                  .descendant(
+                      of: entry,
+                      matching: find.byWidgetPredicate(
+                        (widget) =>
+                            widget is Semantics &&
+                            widget.properties.selected != null,
+                      ))
+                  .first,
+            )
+            .properties
+            .selected ??
+        false;
+    final library = entries[2];
+    final traverse = entries[4];
+    await tester.tap(library);
+    await tester.pumpAndSettle();
+    await tester.tap(traverse);
+    await tester.pumpAndSettle();
+    expect(selected(traverse), isTrue);
+    expect(selected(library), isFalse);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pump();
+    expect(selected(library), isTrue);
+    expect(selected(traverse), isFalse);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
       'sidebar labels fade before width changes, and the tools accordion animates',
       (tester) async {
@@ -501,6 +657,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('large DMS and coordinates scale to stay on one line',
+      (tester) async {
+    const angle = '57°59\'48.6"';
+    const coordinate = '3,147,596.3218';
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 145,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ResultTile(label: '角度', value: angle),
+                MetricTile(label: '坐标', value: coordinate, unit: 'm'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    for (final value in [angle, coordinate]) {
+      final text = find.text(value);
+      final widget = tester.widget<Text>(text);
+      final box = tester.renderObject<RenderBox>(text);
+      expect(widget.maxLines, 1);
+      expect(widget.softWrap, isFalse);
+      expect(box.getTransformTo(null).storage[0], inExclusiveRange(0.0, 1.0));
+    }
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
       'tapping ResultTile and MetricTile copies value to Clipboard and shows toast',
       (tester) async {

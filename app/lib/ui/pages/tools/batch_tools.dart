@@ -406,6 +406,7 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
           _calc();
         },
       ),
+      reserveSideVisual: true,
       sideVisual: !hasStation
           ? null
           : Column(

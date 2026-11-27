@@ -146,6 +146,7 @@ class DetailScaffold extends StatefulWidget {
     this.toolbar,
     this.draftBadge,
     this.sideVisual,
+    this.reserveSideVisual = false,
     this.bottomSection,
     this.resultsBesideInputs = false,
     this.maxWidth = 820,
@@ -171,6 +172,9 @@ class DetailScaffold extends StatefulWidget {
 
   /// 宽屏右侧栏（实时图形 + 核心成果卡）；窄屏时顺次排在 [children] 之后。
   final Widget? sideVisual;
+
+  /// Keeps the input and visual columns fixed while calculated data is pending.
+  final bool reserveSideVisual;
 
   /// 双栏下方通栏区（宽表、手簿、教材表格等）。
   final Widget? bottomSection;
@@ -815,10 +819,15 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         constraints.maxWidth - controlsWidth - (canPop ? 79 : 24) < 110;
     final headerHeight = stackedHeader ? 108.0 : 62.0;
     final twoPane = !workspaceUsesCompactLayout(context) &&
-        widget.sideVisual != null &&
+        (widget.sideVisual != null || widget.reserveSideVisual) &&
         constraints.maxWidth >= 560;
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
     final resultsInRightPane = twoPane && widget.resultsBesideInputs;
+    final sideVisual = widget.sideVisual ??
+        const DeferredTransitionChild(
+          placeholder: SizedBox(height: 220, child: ChartLoadingPlaceholder()),
+          child: SizedBox.shrink(),
+        );
     final content = Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
@@ -831,6 +840,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
+                    key: const ValueKey('workspace-detail-inputs'),
                     flex: 5,
                     child: RepaintBoundary(
                       child: KeyedSubtree(
@@ -844,6 +854,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                   ),
                   const SizedBox(width: Insets.l),
                   Expanded(
+                    key: const ValueKey('workspace-detail-visuals'),
                     flex: 6,
                     child: AnimatedBuilder(
                       animation: _scrollCtrl,
@@ -878,12 +889,12 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                             ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: _stack([
-                                  widget.sideVisual!,
+                                  sideVisual,
                                   if (widget.bottomSection != null)
                                     widget.bottomSection!,
                                 ]),
                               )
-                            : widget.sideVisual!,
+                            : sideVisual,
                       ),
                     ),
                   ),
