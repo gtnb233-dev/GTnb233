@@ -45,27 +45,24 @@
 
 多语言覆盖导航、设置、首页、全部 19 项测量工具、弹窗、22 套离线教案、42 个结构化错误提示及 Excel / CSV / TXT / PNG 导出模板（英文模式通过全量零汉字 Zero-CJK 巡检，小语种缺失词条统一回退至英文）。语言设置沿用现有测量坐标约定。
 
-## v2.0.5 液态玻璃导航
+## v1.0.0 界面预览
 
-下图展示早期版本的悬浮玻璃底栏。横滑时高亮胶囊随手指移动，松手后打开对应页面。
+截图由 v1.0.0 源码在 Flutter 中渲染，测量页使用内置示例数据。
 
-<img src="docs/screenshots/v2.0.5/liquid-bottom-nav.png" width="585" alt="液态玻璃底栏，浅色静止状态和深色拖动状态" />
+**Windows 宽屏 · 导线平差与 LivePlot**
 
-## v2.0.0 界面预览
+左侧为可折叠导航，中间录入导线观测数据，右侧 LivePlot 显示导线点位和连线。
 
-**Windows · 批量放样**  
-左侧录入测站、后视和目标点，右侧查看放样图、关键数值和成果表。
+<img src="docs/screenshots/v1.0.0/windows-traverse-liveplot.png" width="980" alt="Windows 宽屏导线平差，左侧为导航，中央为导线录入，右侧为 LivePlot 分屏" />
 
-<img src="docs/screenshots/v2.0.0/windows-stakeout.png" width="980" alt="Windows 深色批量放样工作区，左侧录入，右侧显示坐标图和成果表" />
+**Android 竖屏 · 首页与四等水准测量**
 
-**Android · 工作台与导线平差**  
-首页可直接切换长度量级、角度录入方式和坐标小数位，也能搜索工具与公式。计算页支持表格粘贴、角度分格和教材算例。
+首页提供搜索、草稿和常用工具入口，底部为「首页 / 工具库 / LivePlot / 设置」四项液态玻璃导航。四等水准测量页展示双面尺手簿和逐站检核结果。
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/v2.0.0/android-home-light.png" width="230" alt="Android 浅色首页" /><br />浅色工作台</td>
-    <td align="center"><img src="docs/screenshots/v2.0.0/android-home-dark.png" width="230" alt="Android 深色首页" /><br />深色工作台</td>
-    <td align="center"><img src="docs/screenshots/v2.0.0/android-traverse.png" width="230" alt="Android 导线平差录入页" /><br />导线平差</td>
+    <td align="center"><img src="docs/screenshots/v1.0.0/android-portrait-home.png" width="280" alt="Android 竖屏首页，底部有首页、工具库、LivePlot 和设置四项液态玻璃导航" /><br />竖屏首页</td>
+    <td align="center"><img src="docs/screenshots/v1.0.0/android-leveling4.png" width="280" alt="Android 四等水准测量页，显示四站双面尺手簿、视距检核和闭合差" /><br />四等水准测量</td>
   </tr>
 </table>
 
@@ -92,6 +89,7 @@ Windows 和 Android 共用 Flutter 界面与 Dart 测量核心。
 | [`app/lib`](app/lib) | 工作台、测量工具、绘图、草稿与成果导出 |
 | [`app/windows`](app/windows) · [`app/android`](app/android) | Windows 和 Android 平台工程 |
 | [`packages/survey_core`](packages/survey_core) | 可独立运行与测试的 Dart 测量计算库 |
+| [`rust/survey_rust_core`](rust/survey_rust_core) | Rust FFI 计算核心，覆盖 DXF 解析、TIN 三角网土方、2D 空间索引与水准检核 |
 | [`app/test`](app/test) · [`tools`](tools) | 应用回归测试和构建辅助脚本 |
 
 本版使用 Flutter **3.35.5** 和 Dart **3.9.2**。Windows 的常规构建需要 Visual Studio 的「使用 C++ 的桌面开发」工作负载。Android 需要 JDK 17 或更高版本及 Android SDK 36。 [Flutter Windows 环境](https://docs.flutter.dev/platform-integration/windows/setup) · [Flutter Android 构建说明](https://docs.flutter.dev/deployment/android)
