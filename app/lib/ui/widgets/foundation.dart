@@ -296,6 +296,8 @@ class PrimaryAction extends StatelessWidget {
             ],
           );
     return SpringPress(
+      scaleDown: .985,
+      duration: const Duration(milliseconds: 90),
       enabled: !busy && onPressed != null,
       child: SizedBox(
         width: double.infinity,

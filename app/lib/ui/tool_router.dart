@@ -27,6 +27,7 @@ Future<void> openTool(
   BuildContext context,
   ToolDef tool, {
   String? draftId,
+  bool fromSidebar = false,
   bool replaceExistingTool = false,
 }) async {
   final navigator = Navigator.of(context);
@@ -62,7 +63,9 @@ Future<void> openTool(
       observer.onChanged();
       return;
     }
-    final route = WorkspaceToolRoute((name, resume), buildTool);
+    final route = WorkspaceToolRoute((name, resume), buildTool,
+        fromSidebar: fromSidebar,
+        reduceMotion: MediaQuery.disableAnimationsOf(context));
     if (navigator.canPop()) {
       await navigator.pushAndRemoveUntil(route, (route) => route.isFirst);
     } else {
@@ -121,8 +124,8 @@ Future<void> openWorkspacePage(
   }
   final route = WorkspacePageRoute<void>(
     settings: RouteSettings(name: name, arguments: argument),
+    reduceMotion: MediaQuery.disableAnimationsOf(context),
     builder: builder,
-    wideMotion: !workspaceUsesCompactLayout(context),
   );
   if (shallow && navigator.canPop()) {
     await navigator.pushAndRemoveUntil(route, (route) => route.isFirst);

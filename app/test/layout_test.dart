@@ -273,7 +273,7 @@ void main() {
     expect(settings.lengthUnit.symbol, 'cm');
 
     final route = ModalRoute.of(tester.element(find.byType(InversePage)))!;
-    expect(route.transitionDuration, const Duration(milliseconds: 200));
+    expect(route.transitionDuration, const Duration(milliseconds: 260));
     await tester.tap(find.byTooltip('返回'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 70));
@@ -458,7 +458,7 @@ void main() {
   }
 
   testWidgets(
-      'Android portrait tablet crossfades the four tabs and slides the indicator',
+      'Android portrait tablet fades one tab at a time and slides the indicator',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(800, 1280);
@@ -480,8 +480,11 @@ void main() {
     expect(tester.getCenter(nav).dx, closeTo(400, 1));
     await tester.tap(tab('工具库'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 56));
+    await tester.pump(const Duration(milliseconds: 40));
     expect(find.byType(HomePage), findsOneWidget);
+    expect(find.byType(ToolsPage), findsNothing);
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(find.byType(HomePage), findsNothing);
     expect(find.byType(ToolsPage), findsOneWidget);
     final toolOpacity = find
         .ancestor(of: find.byType(ToolsPage), matching: find.byType(Opacity))

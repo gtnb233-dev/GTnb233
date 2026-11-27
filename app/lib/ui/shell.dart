@@ -30,12 +30,12 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final _workspaceNavigator = GlobalKey<NavigatorState>();
-  final _destination = ValueNotifier(0);
+  final _destination = ValueNotifier((0, true));
   late final _navObserver = WorkspaceNavigatorObserver(() {
     if (mounted) setState(() {});
   });
 
-  int get _index => _destination.value;
+  int get _index => _destination.value.$1;
   BuildContext get _workspaceContext =>
       _workspaceNavigator.currentContext ?? context;
 
@@ -60,12 +60,23 @@ class _AppShellState extends State<AppShell> {
   ];
 
   void _go(int index) {
-    _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
-    if (_index != index) setState(() => _destination.value = index);
+    final navigator = _workspaceNavigator.currentState;
+    final returning = navigator?.canPop() ?? false;
+    final route = _navObserver.topRoute;
+    if (returning &&
+        route is WorkspacePageRoute &&
+        !workspaceUsesCompactLayout(context)) {
+      route.prepareSidebarExit();
+    }
+    if (_index != index) {
+      setState(() => _destination.value = (index, !returning));
+    }
+    if (returning) navigator!.popUntil((route) => route.isFirst);
   }
 
   void _openSidebarTool(ToolDef tool) {
-    openTool(_workspaceContext, tool, replaceExistingTool: true);
+    openTool(_workspaceContext, tool,
+        fromSidebar: true, replaceExistingTool: true);
   }
 
   @override
@@ -84,10 +95,10 @@ class _AppShellState extends State<AppShell> {
         observers: [_navObserver],
         onGenerateRoute: (_) => WorkspacePageRoute<void>(
           builder: (_) => WorkspacePanelBackground(
-            child: ValueListenableBuilder<int>(
+            child: ValueListenableBuilder<(int, bool)>(
               valueListenable: _destination,
-              builder: (context, index, _) =>
-                  _rootFrame(context, _rootPages(context, index)),
+              builder: (context, destination, _) => _rootFrame(
+                  context, _rootPages(context, destination.$1, destination.$2)),
             ),
           ),
         ),
@@ -95,7 +106,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _rootPages(BuildContext context, int index) {
+  Widget _rootPages(BuildContext context, int index, bool animate) {
     final android = WorkspaceHost.isAndroid(context);
     final pages = <Widget>[
       HomePage(
@@ -115,9 +126,11 @@ class _AppShellState extends State<AppShell> {
     return WorkspacePageDeck(
       pages: {for (final (index, page) in pages.indexed) index: page},
       active: index,
-      duration: workspaceUsesCompactLayout(context)
-          ? const Duration(milliseconds: 180)
-          : Duration.zero,
+      duration: !animate
+          ? Duration.zero
+          : workspaceUsesCompactLayout(context)
+              ? const Duration(milliseconds: 180)
+              : workspaceSidebarDuration,
     );
   }
 
@@ -197,65 +210,56 @@ class _AppShellState extends State<AppShell> {
               bottom: false,
               left: android && !compact,
               right: android && !compact,
-              child: Row(
-                children: [
-                  if (!compact)
-                    SizedBox(
-                      key: const ValueKey('workspace-sidebar'),
-                      width: sidebarCollapsed ? 56 : 240,
-                      child: RepaintBoundary(
-                        child: sidebarCollapsed
-                            ? _IconRail(
-                                index: _index,
-                                activeRouteName: _navObserver.activeName,
-                                pinnedTools: settings.pinnedTools,
-                                onOpenTool: _openSidebarTool,
-                                onSearch: () =>
-                                    showCommandPalette(_workspaceContext),
-                                onHome: () => _go(0),
-                                onTools: () => _go(3),
-                                onCustomizePinned: () =>
-                                    _showCustomizePinned(_workspaceContext),
-                                onHistory: () =>
-                                    showDraftHistory(_workspaceContext),
-                                onSettings: () => _go(4),
-                                onLivePlot: onLivePlot,
-                                onToggleSidebar:
-                                    narrowWindow ? null : toggleSidebar,
-                              )
-                            : _ProjectsPanel(
-                                index: _index,
-                                activeRouteName: _navObserver.activeName,
-                                onPage: _go,
-                                onOpenTool: _openSidebarTool,
-                                onLivePlot: onLivePlot,
-                                onToggleSidebar: toggleSidebar,
-                                actionContext: () => _workspaceContext,
+              child: _WorkspaceColumns(
+                compact: compact,
+                collapsed: sidebarCollapsed,
+                forceCollapsed: narrowWindow || compactSplit,
+                rail: _IconRail(
+                  index: _index,
+                  activeRouteName: _navObserver.activeName,
+                  pinnedTools: settings.pinnedTools,
+                  onOpenTool: _openSidebarTool,
+                  onSearch: () => showCommandPalette(_workspaceContext),
+                  onHome: () => _go(0),
+                  onTools: () => _go(3),
+                  onCustomizePinned: () =>
+                      _showCustomizePinned(_workspaceContext),
+                  onHistory: () => showDraftHistory(_workspaceContext),
+                  onSettings: () => _go(4),
+                  onLivePlot: onLivePlot,
+                  onToggleSidebar: narrowWindow ? null : toggleSidebar,
+                ),
+                panel: _ProjectsPanel(
+                  index: _index,
+                  activeRouteName: _navObserver.activeName,
+                  onPage: _go,
+                  onOpenTool: _openSidebarTool,
+                  onLivePlot: onLivePlot,
+                  onToggleSidebar: toggleSidebar,
+                  actionContext: () => _workspaceContext,
+                ),
+                content: Expanded(
+                  key: const ValueKey('workspace-content'),
+                  child: _workspacePages(),
+                ),
+                trailing: splitOpen
+                    ? SizedBox(
+                        key: const ValueKey('workspace-liveplot-split'),
+                        width: plotWidth,
+                        child: RepaintBoundary(
+                          child: ColoredBox(
+                            color: Theme.of(context).colorScheme.surface,
+                            child: Padding(
+                              padding: const EdgeInsets.all(Insets.m),
+                              child: WorkspaceLivePlotPanel(
+                                expandCanvas: true,
+                                onClose: () => livePlot!.setSplitOpen(false),
                               ),
-                      ),
-                    ),
-                  Expanded(
-                    key: const ValueKey('workspace-content'),
-                    child: _workspacePages(),
-                  ),
-                  if (splitOpen)
-                    SizedBox(
-                      key: const ValueKey('workspace-liveplot-split'),
-                      width: plotWidth,
-                      child: RepaintBoundary(
-                        child: ColoredBox(
-                          color: Theme.of(context).colorScheme.surface,
-                          child: Padding(
-                            padding: const EdgeInsets.all(Insets.m),
-                            child: WorkspaceLivePlotPanel(
-                              expandCanvas: true,
-                              onClose: () => livePlot!.setSplitOpen(false),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                      )
+                    : null,
               ),
             ),
           ),
@@ -263,6 +267,138 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
+}
+
+class _WorkspaceColumns extends StatefulWidget {
+  const _WorkspaceColumns({
+    required this.compact,
+    required this.collapsed,
+    required this.forceCollapsed,
+    required this.rail,
+    required this.panel,
+    required this.content,
+    this.trailing,
+  });
+
+  final bool compact;
+  final bool collapsed;
+  final bool forceCollapsed;
+  final Widget rail;
+  final Widget panel;
+  final Widget content;
+  final Widget? trailing;
+
+  @override
+  State<_WorkspaceColumns> createState() => _WorkspaceColumnsState();
+}
+
+class _WorkspaceColumnsState extends State<_WorkspaceColumns>
+    with SingleTickerProviderStateMixin {
+  static const _railWidth = 56.0;
+  static const _panelWidth = 240.0;
+  static const _labelStart = 2 / 3;
+  late final _motion = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+    value: widget.collapsed ? 0 : 1,
+  );
+
+  @override
+  void didUpdateWidget(covariant _WorkspaceColumns oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.collapsed == oldWidget.collapsed) return;
+    if (widget.compact ||
+        oldWidget.compact ||
+        widget.forceCollapsed ||
+        oldWidget.forceCollapsed ||
+        MediaQuery.disableAnimationsOf(context)) {
+      _motion.value = widget.collapsed ? 0 : 1;
+    } else if (widget.collapsed) {
+      _motion.reverse();
+    } else {
+      _motion.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _motion.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _motion,
+        child: widget.content,
+        builder: (context, content) {
+          final progress = _motion.value;
+          final moving = !widget.compact && _motion.isAnimating;
+          final expanding = !widget.collapsed;
+          final widthProgress = expanding
+              ? workspaceMotionCurve.transform(progress)
+              : 1 -
+                  workspaceMotionCurve
+                      .transform((1 - progress / _labelStart).clamp(0.0, 1.0));
+          final width = _railWidth + (_panelWidth - _railWidth) * widthProgress;
+          final panelOpacity = Curves.easeIn.transform(
+            ((progress - _labelStart) / (1 - _labelStart)).clamp(0.0, 1.0),
+          );
+          return GlassBlurSuspensionScope(
+            suspended: moving || GlassBlurSuspensionScope.isSuspended(context),
+            child: Row(
+              children: [
+                if (!widget.compact)
+                  SizedBox(
+                    key: const ValueKey('workspace-sidebar'),
+                    width: width,
+                    child: ClipRect(
+                      child: RepaintBoundary(
+                        child: ColoredBox(
+                          color: Theme.of(context).colorScheme.surface,
+                          child: Stack(
+                            children: [
+                              PositionedDirectional(
+                                start: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: _railWidth,
+                                child: Offstage(
+                                  offstage: panelOpacity > 0,
+                                  child: IgnorePointer(
+                                      ignoring: moving, child: widget.rail),
+                                ),
+                              ),
+                              PositionedDirectional(
+                                start: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: _panelWidth,
+                                child: Offstage(
+                                  offstage: panelOpacity == 0,
+                                  child: ExcludeFocus(
+                                    excluding: moving || panelOpacity == 0,
+                                    child: IgnorePointer(
+                                      ignoring: moving,
+                                      child: Opacity(
+                                          opacity: panelOpacity,
+                                          child: widget.panel),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                content!,
+                if (widget.trailing != null) widget.trailing!,
+              ],
+            ),
+          );
+        },
+      );
 }
 
 class _IconRail extends StatelessWidget {
@@ -645,8 +781,9 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                               .toList(growable: false),
                           activeId: active,
                           drafts: drafts,
-                          onOpenDraft: (id) =>
-                              openWorkspaceDraft(widget.actionContext(), id),
+                          onOpenDraft: (id) => openWorkspaceDraft(
+                              widget.actionContext(), id,
+                              fromSidebar: true),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -690,8 +827,9 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                         _SidebarEntry(
                           title: draftTitle(context, drafts, id),
                           icon: Icons.description_outlined,
-                          onTap: () =>
-                              openWorkspaceDraft(widget.actionContext(), id),
+                          onTap: () => openWorkspaceDraft(
+                              widget.actionContext(), id,
+                              fromSidebar: true),
                           selected: id == active,
                         ),
                     ],

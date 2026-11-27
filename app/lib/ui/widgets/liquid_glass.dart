@@ -134,12 +134,14 @@ class SpringPress extends StatefulWidget {
     required this.child,
     this.onTap,
     this.scaleDown = 0.98,
+    this.duration = Motion.quick,
     this.enabled = true,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final double scaleDown;
+  final Duration duration;
   final bool enabled;
 
   @override
@@ -160,7 +162,7 @@ class _SpringPressState extends State<SpringPress> {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final scaled = AnimatedScale(
       scale: _pressed && !reduceMotion ? widget.scaleDown : 1.0,
-      duration: Motion.quick,
+      duration: reduceMotion ? Duration.zero : widget.duration,
       curve: Motion.ease,
       child: widget.onTap == null
           ? widget.child

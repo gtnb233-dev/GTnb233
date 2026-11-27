@@ -29,9 +29,12 @@ String draftTitle(BuildContext context, DraftStore? store, String id) =>
         ? '三点后方交会'
         : toolById(id.split('/').first)?.title ?? '草稿');
 
-Future<void> openWorkspaceDraft(BuildContext context, String id) async {
+Future<void> openWorkspaceDraft(BuildContext context, String id,
+    {bool fromSidebar = false}) async {
   final tool = toolById(id.split('/').first);
-  if (tool != null) await openTool(context, tool, draftId: id);
+  if (tool != null) {
+    await openTool(context, tool, draftId: id, fromSidebar: fromSidebar);
+  }
 }
 
 final _workspaceSheets = Expando<ValueNotifier<bool>>();

@@ -13,6 +13,7 @@ import 'package:survey_pro/state/settings.dart';
 import 'package:survey_pro/theme/app_theme.dart';
 import 'package:survey_pro/theme/workspace_layout.dart';
 import 'package:survey_pro/ui/pages/home_page.dart';
+import 'package:survey_pro/ui/pages/tools_page.dart';
 import 'package:survey_pro/ui/pages/tools/control_tools.dart';
 import 'package:survey_pro/ui/pages/tools/coord_tools.dart';
 import 'package:survey_pro/ui/tool_router.dart';
@@ -21,6 +22,19 @@ import 'package:survey_pro/ui/widgets/results.dart';
 import 'package:survey_pro/ui/workspace_page_route.dart';
 
 import 'support/app_scope.dart';
+
+double paintedOpacity(Finder finder) {
+  final element = finder.evaluate().singleOrNull;
+  if (element == null) return 0;
+  var opacity = 1.0;
+  element.visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is Offstage && widget.offstage) opacity = 0;
+    if (widget is Opacity) opacity *= widget.opacity;
+    return opacity > 0;
+  });
+  return opacity;
+}
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -44,35 +58,49 @@ void main() {
     unawaited(openTool(home, toolById(id)!));
   }
 
-  testWidgets('wide tool routes animate entry, cached switches and exit',
+  testWidgets(
+      'wide tool routes slide opaquely and fade cached tools in sequence',
       (tester) async {
     await pumpAndroid(tester, const Size(915, 412));
     selectTool(tester, 'inverse');
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 30));
     final inverse = find.byType(InversePage);
+    final home = find.byType(HomePage);
+    final workspace = find.byKey(const ValueKey('workspace-content'));
+    expect(paintedOpacity(inverse), 1);
+    expect(paintedOpacity(home), 1);
+    expect(tester.getTopLeft(inverse).dx,
+        greaterThan(tester.getTopLeft(workspace).dx));
+    expect(
+        tester.getTopLeft(home).dx, lessThan(tester.getTopLeft(workspace).dx));
+    expect(
+        find.descendant(of: workspace, matching: find.byType(BackdropFilter)),
+        findsNothing);
     final original = tester.state(inverse);
     final route = ModalRoute.of(tester.element(inverse))!;
     expect(route, isA<WorkspaceToolRoute>());
-    expect(route.transitionDuration, const Duration(milliseconds: 200));
+    expect(route.transitionDuration, const Duration(milliseconds: 260));
     expect(route.animation!.value, inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
 
     selectTool(tester, 'traverse');
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 35));
     final traverse = find.byType(TraversePage);
-    expect(traverse, findsOneWidget);
-    expect(inverse, findsOneWidget);
+    expect(paintedOpacity(inverse), inExclusiveRange(0.0, 1.0));
+    expect(paintedOpacity(traverse), 0);
+    await tester.pump(const Duration(milliseconds: 31));
+    expect(paintedOpacity(inverse), 0);
+    expect(paintedOpacity(traverse), closeTo(0, .001));
+    await tester.pump(const Duration(milliseconds: 36));
+    expect(paintedOpacity(inverse), 0);
+    expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
     expect(ModalRoute.of(tester.element(traverse)), same(route));
-    final switchOpacity =
-        find.ancestor(of: traverse, matching: find.byType(Opacity)).first;
-    expect(tester.widget<Opacity>(switchOpacity).opacity,
-        inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
 
     selectTool(tester, 'inverse');
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(tester.state(inverse), same(original));
     for (final tool in ['leveling4', 'convert', 'earthwork']) {
       selectTool(tester, tool);
@@ -85,8 +113,127 @@ void main() {
     await tester.pump(const Duration(milliseconds: 80));
     expect(route.animation!.status, AnimationStatus.reverse);
     expect(route.animation!.value, inExclusiveRange(0.0, 1.0));
+    expect(
+        paintedOpacity(find.byKey(const ValueKey('workspace-detail-header'))),
+        1);
+    expect(paintedOpacity(home), 1);
     await tester.pumpAndSettle();
     expect(find.byType(HomePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'sidebar navigation paints only one page across root and tool routes',
+      (tester) async {
+    await pumpAndroid(tester, const Size(1024, 640));
+    final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+    Finder button(String label) =>
+        find.descendant(of: sidebar, matching: find.byTooltip(label));
+    final home = find.byType(HomePage);
+    final tools = find.byType(ToolsPage);
+    final traverse = find.byType(TraversePage);
+
+    await tester.tap(button('工具库'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    expect(paintedOpacity(home), inExclusiveRange(0.0, 1.0));
+    expect(paintedOpacity(tools), 0);
+    await tester.pump(const Duration(milliseconds: 75));
+    expect(paintedOpacity(home), 0);
+    expect(paintedOpacity(tools), inExclusiveRange(0.0, 1.0));
+    await tester.pumpAndSettle();
+
+    await tester.tap(button('导线平差'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    expect(paintedOpacity(tools), inExclusiveRange(0.0, 1.0));
+    expect(paintedOpacity(traverse), 0);
+    final route = ModalRoute.of(tester.element(traverse))!;
+    expect(route.transitionDuration, workspaceSidebarDuration);
+    await tester.pump(const Duration(milliseconds: 75));
+    expect(paintedOpacity(tools), 0);
+    expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
+    await tester.pumpAndSettle();
+
+    await tester.tap(button('首页'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    expect(route.reverseTransitionDuration, workspaceSidebarDuration);
+    expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
+    expect(paintedOpacity(home), 0);
+    await tester.pump(const Duration(milliseconds: 75));
+    expect(paintedOpacity(traverse), 0);
+    expect(paintedOpacity(home), inExclusiveRange(0.0, 1.0));
+    await tester.pumpAndSettle();
+    expect(paintedOpacity(home), 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'sidebar labels fade before width changes, and the tools accordion animates',
+      (tester) async {
+    await pumpAndroid(tester, const Size(915, 412));
+    final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+    final toggle = find.byKey(const ValueKey('sidebar-toggle-btn'));
+    await tester.tap(toggle);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.getSize(sidebar).width, inExclusiveRange(56.0, 240.0));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(sidebar).width, 240);
+    await tester.tap(toggle);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(tester.getSize(sidebar).width, 240);
+    final title =
+        find.descendant(of: sidebar, matching: find.text('Survey Pro'));
+    expect(paintedOpacity(title), inExclusiveRange(0.0, 1.0));
+    await tester.pump(const Duration(milliseconds: 65));
+    expect(paintedOpacity(title), 0);
+    expect(tester.getSize(sidebar).width, inExclusiveRange(56.0, 240.0));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(sidebar).width, 56);
+
+    await tester.tap(find.byTooltip('工具库'));
+    await tester.pumpAndSettle();
+    final group = find.byKey(const ValueKey('toolbox-group-coordinates'));
+    final collapsed = tester.getSize(group).height;
+    await tester.tap(find.descendant(of: group, matching: find.text('坐标与放样')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    final mid = tester.getSize(group).height;
+    await tester.pumpAndSettle();
+    expect(mid, inExclusiveRange(collapsed, tester.getSize(group).height));
+    final rotation =
+        find.descendant(of: group, matching: find.byType(AnimatedRotation));
+    expect(tester.widget<AnimatedRotation>(rotation).duration,
+        workspaceSidebarDuration);
+    final row = find.byKey(const ValueKey('toolbox-tool-inverse'));
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getCenter(row));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.renderObject<RenderBox>(row).getTransformTo(null).storage[0],
+        closeTo(.985, .001));
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.renderObject<RenderBox>(row).getTransformTo(null).storage[0],
+        closeTo(1, .001));
+    await tester.ensureVisible(group);
+    await tester.pumpAndSettle();
+    final groupTitle = find.descendant(of: group, matching: find.text('坐标与放样'));
+    final expandedHeight = tester.getSize(group).height;
+    await tester.ensureVisible(groupTitle);
+    await tester.pumpAndSettle();
+    await tester.tap(groupTitle);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(tester.getSize(group).height,
+        inExclusiveRange(collapsed, expandedHeight));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(group).height, collapsed);
+    expect(row, findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -116,6 +116,7 @@ class _ToolsPageState extends State<ToolsPage> {
           for (final group in ToolGroup.values)
             if (!searching || grouped[group] != null) ...[
               _GroupCard(
+                key: ValueKey<String>('toolbox-group-${group.name}'),
                 group: group,
                 tools: searching ? grouped[group]! : toolsOf(group),
                 expanded: searching || _expanded.contains(group),
@@ -137,8 +138,9 @@ class _ToolsPageState extends State<ToolsPage> {
 }
 
 /// 手风琴式分类卡片：点标题就地展开，工具行紧贴卡片下方、缩进对齐标题。
-class _GroupCard extends StatelessWidget {
+class _GroupCard extends StatefulWidget {
   const _GroupCard({
+    super.key,
     required this.group,
     required this.tools,
     required this.expanded,
@@ -155,10 +157,28 @@ class _GroupCard extends StatelessWidget {
   final VoidCallback? onToggle;
 
   @override
+  State<_GroupCard> createState() => _GroupCardState();
+}
+
+class _GroupCardState extends State<_GroupCard> {
+  late bool _showRows = widget.expanded;
+
+  @override
+  void didUpdateWidget(covariant _GroupCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.expanded || MediaQuery.disableAnimationsOf(context)) {
+      _showRows = widget.expanded;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final _GroupCard(:group, :tools, :expanded, :onToggle) = widget;
+    final motion = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
     return SurfaceCard(
-      key: ValueKey<String>('toolbox-group-${group.name}'),
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -225,7 +245,7 @@ class _GroupCard extends StatelessWidget {
                   // 展开时箭头转 90°。
                   AnimatedRotation(
                     turns: expanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 140),
+                    duration: motion,
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       Icons.chevron_right,
@@ -237,37 +257,59 @@ class _GroupCard extends StatelessWidget {
               ),
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? Column(
-                    key: ValueKey<String>('toolbox-group-body-${group.name}'),
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: scheme.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                      for (var i = 0; i < tools.length; i++) ...[
-                        _ToolRow(tool: tools[i]),
-                        if (i != tools.length - 1)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 56),
-                            child: Divider(
-                              height: 1,
-                              thickness: 1,
-                              color:
-                                  scheme.outlineVariant.withValues(alpha: 0.3),
+          ClipRect(
+            child: AnimatedSize(
+              duration: motion,
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              onEnd: () {
+                if (!widget.expanded && _showRows) {
+                  setState(() => _showRows = false);
+                }
+              },
+              child: _showRows && (expanded || motion != Duration.zero)
+                  ? Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: expanded ? 1 : 0,
+                      child: ExcludeFocus(
+                        excluding: !expanded,
+                        child: ExcludeSemantics(
+                          excluding: !expanded,
+                          child: IgnorePointer(
+                            ignoring: !expanded,
+                            child: Column(
+                              key: ValueKey<String>(
+                                  'toolbox-group-body-${group.name}'),
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: scheme.outlineVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                                for (var i = 0; i < tools.length; i++) ...[
+                                  _ToolRow(tool: tools[i]),
+                                  if (i != tools.length - 1)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 56),
+                                      child: Divider(
+                                        height: 1,
+                                        thickness: 1,
+                                        color: scheme.outlineVariant
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                ],
+                                const SizedBox(height: Insets.xs),
+                              ],
                             ),
                           ),
-                      ],
-                      const SizedBox(height: Insets.xs),
-                    ],
-                  )
-                : const SizedBox.shrink(),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ),
         ],
       ),
@@ -287,74 +329,79 @@ class _ToolRow extends StatelessWidget {
     final settings =
         context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier;
     final pinned = settings?.isPinned(tool.id) ?? false;
-    return InkWell(
-      key: ValueKey<String>('toolbox-tool-${tool.id}'),
-      onTap: () => openTool(context, tool),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(56, 10, Insets.m, 10),
-        child: Row(
-          children: [
-            Icon(tool.icon, size: 18, color: scheme.onSurfaceVariant),
-            const SizedBox(width: Insets.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr(tool.title),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
+    return SpringPress(
+      scaleDown: .985,
+      duration: const Duration(milliseconds: 90),
+      child: InkWell(
+        key: ValueKey<String>('toolbox-tool-${tool.id}'),
+        onTap: () => openTool(context, tool),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(56, 10, Insets.m, 10),
+          child: Row(
+            children: [
+              Icon(tool.icon, size: 18, color: scheme.onSurfaceVariant),
+              const SizedBox(width: Insets.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr(tool.title),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    context.tr(tool.subtitle),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: scheme.onSurfaceVariant,
+                    const SizedBox(height: 1),
+                    Text(
+                      context.tr(tool.subtitle),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            if (settings != null)
-              IconButton(
-                key: ValueKey<String>('toolbox-pin-${tool.id}'),
-                tooltip: context.tr(pinned ? '取消首页固定' : '固定到首页常用'),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                icon: Icon(
-                  pinned ? Icons.star_rounded : Icons.star_border_rounded,
-                  size: 17,
-                  color: pinned
-                      ? scheme.primary
-                      : scheme.onSurfaceVariant.withValues(alpha: 0.65),
+                  ],
                 ),
-                onPressed: () async {
-                  await SettingsScope.read(context).togglePinnedTool(tool.id);
-                  if (!context.mounted) return;
-                  SurveyToast.info(
-                    context,
-                    context.tr(
-                      pinned ? '已从首页常用移除「{tool}」' : '已固定「{tool}」到首页常用',
-                      {'tool': context.tr(tool.title)},
-                    ),
-                  );
-                },
               ),
-            const SizedBox(width: Insets.xs),
-            Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-            ),
-          ],
+              if (settings != null)
+                IconButton(
+                  key: ValueKey<String>('toolbox-pin-${tool.id}'),
+                  tooltip: context.tr(pinned ? '取消首页固定' : '固定到首页常用'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 30, minHeight: 30),
+                  icon: Icon(
+                    pinned ? Icons.star_rounded : Icons.star_border_rounded,
+                    size: 17,
+                    color: pinned
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant.withValues(alpha: 0.65),
+                  ),
+                  onPressed: () async {
+                    await SettingsScope.read(context).togglePinnedTool(tool.id);
+                    if (!context.mounted) return;
+                    SurveyToast.info(
+                      context,
+                      context.tr(
+                        pinned ? '已从首页常用移除「{tool}」' : '已固定「{tool}」到首页常用',
+                        {'tool': context.tr(tool.title)},
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(width: Insets.xs),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
         ),
       ),
     );
