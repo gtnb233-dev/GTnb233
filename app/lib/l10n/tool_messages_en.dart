@@ -1470,4 +1470,74 @@ const toolEnglishMessages = <String, String>{
   '已导入 {count} 个点': 'Imported {count} points',
   '无法导入，请检查 DXF / CSV / DAT / TXT 文件格式':
       'Unable to import; please check the DXF / CSV / DAT / TXT file format',
+
+  // Wave 3: DXF export, Smart Import, Draft Snapshots, Resection handoff, GNSS NMEA
+  'DXF 图件': 'DXF Drawing',
+  '标准 DXF 矢量图 (.dxf)': 'Standard DXF vector (.dxf)',
+  '导出为标准 DXF': 'Export as standard DXF',
+  '导出为 DXF': 'Export as DXF',
+  '数据导入': 'Data import',
+  '导入坐标': 'Import coordinates',
+  '从文件导入（SAF / 系统文件）': 'Import from file (SAF / System)',
+  '从剪贴板智能识别': 'Smart parse from clipboard',
+  '导入预览确认': 'Import preview confirmation',
+  '导入模式': 'Import mode',
+  '追加': 'Append',
+  '确认导入': 'Confirm import',
+  '剪贴板为空': 'Clipboard is empty',
+  '剪贴板': 'Clipboard',
+  '未识别到有效坐标或 DXF 实体':
+      'No valid coordinates or DXF entities recognized',
+  '保存版本快照': 'Save version snapshot',
+  '版本快照对比': 'Version snapshot diff',
+  '平差前': 'Before adjustment',
+  '复测版': 'Re-survey',
+  '恢复此快照': 'Restore snapshot',
+  '删除快照': 'Delete snapshot',
+  '未命名快照': 'Untitled snapshot',
+  '输入自定义快照名称（如：平差前、复测版）':
+      'Enter custom snapshot label (e.g. Before adjustment)',
+  '暂无已保存的版本快照': 'No saved version snapshots',
+  '与当前草稿一致': 'Matches current draft',
+  '变更字段（{count} 项）：': 'Changed fields ({count}):',
+  '已保存快照：{label}': 'Saved snapshot: {label}',
+  '已恢复快照：{label}': 'Restored snapshot: {label}',
+  '已删除快照：{label}': 'Deleted snapshot: {label}',
+  '关闭': 'Close',
+  '设为当前放样测站': 'Set as current stakeout station',
+  'NMEA 采点填入': 'NMEA Sample & Fill',
+  'GNSS 就绪': 'GNSS Ready',
+  'GNSS 未连接': 'GNSS Disconnected',
+  'GNSS 数据来源': 'GNSS source',
+  '坐标按 CGCS2000 3°带投影': 'Coordinates use the CGCS2000 3° Gauss–Krüger zone',
+  '从剪贴板读取 NMEA': 'Read NMEA from clipboard',
+  '连接已配对的 GNSS 接收机': 'Connect a paired GNSS receiver',
+  '请在系统设置中开启蓝牙、配对接收机并授权':
+      'Enable Bluetooth, pair the receiver in system settings, and grant access',
+  'GNSS 已连接，取得定位后可再次采点': 'Receiver connected. Sample again once it has a fix.',
+  '无法连接 GNSS 接收机': 'Could not connect to the GNSS receiver',
+  'GNSS 模拟': 'GNSS Sim',
+  '模拟 GNSS': 'Simulated GNSS',
+  '未连接外设': 'No receiver connected',
+  '文件读取失败：{error}': 'Failed to read file: {error}',
+  '未检测到 GNSS 定位信号或设备未连接':
+      'No GNSS fix detected or receiver disconnected',
+  'GNSS 定位尚未固定或数据无效':
+      'GNSS fix unavailable or invalid NMEA sentence',
+  '已填入 GNSS 坐标（X={x}, Y={y}, H={h}）':
+      'Filled GNSS coordinates (X={x}, Y={y}, H={h})',
+  '已填入 GNSS 高程（H={h} m）': 'Filled GNSS elevation (H={h} m)',
+  '选择坐标或 DXF 数据的导入来源，导入前将展示预览确认表':
+      'Select an import source for coordinates or DXF data; a preview confirmation table will appear before importing.',
+  '支持 DXF、CSV、DAT、TXT 坐标文件': 'Supports DXF, CSV, DAT, and TXT coordinate files',
+  '自动清洗微信/QQ聊天、Excel多行及逗号/空格坐标':
+      'Auto-cleans WeChat/QQ messages, Excel multi-line pastes, and comma/space coordinates',
+  '剪贴板为空，请先复制坐标或 DXF 文本':
+      'Clipboard is empty; copy coordinates or DXF text first',
+  '已导入 {count} 个坐标点': 'Imported {count} coordinate points',
+  '来源：{source} · 共识别 {count} 个点':
+      'Source: {source} · {count} points recognized',
+  '已解析 DXF 实体：{count} 个': 'Parsed DXF entities: {count}',
+  '仅预览前 100 个点，确认后将全部导入':
+      'Showing first 100 points; all points will be imported on confirmation',
 };

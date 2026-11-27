@@ -12,6 +12,7 @@ import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
 import '../../widgets/draft_mixin.dart';
+import '../../widgets/gnss_chip.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
@@ -640,6 +641,13 @@ class _BatchStakeoutPageState extends State<BatchStakeoutPage>
                   onPressed: () => _pickControlPoint(false),
                 ),
               ],
+            ),
+            GnssSampleChip(
+              onSample: (x, y, _) {
+                _sx.text = fmt(u.fromMeters(x), digits);
+                _sy.text = fmt(u.fromMeters(y), digits);
+                _calc();
+              },
             ),
           ],
         ),

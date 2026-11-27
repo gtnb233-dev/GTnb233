@@ -117,6 +117,7 @@ class AppSettings extends ChangeNotifier {
   ];
 
   static const List<String> kValidHeaderActions = [
+    'import',
     'export',
     'point_names',
     'sample',
@@ -124,8 +125,8 @@ class AppSettings extends ChangeNotifier {
   ];
 
   static const List<String> kDefaultPinnedHeaderActions = [
+    'import',
     'export',
-    'point_names',
     'clear',
   ];
 

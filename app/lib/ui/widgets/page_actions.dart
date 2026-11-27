@@ -12,6 +12,7 @@ import '../../theme/workspace_layout.dart';
 import 'liquid_glass.dart';
 import 'compact_controls.dart';
 import 'overlays.dart';
+import 'snapshot_diff_sheet.dart';
 
 /// 计算页顶部工具条：草稿保存状态 + 量级选择 (m/cm/mm) + 角度格式切换 + 导出 + 清空草稿。
 class PageActions extends StatefulWidget {
@@ -142,6 +143,32 @@ class PageActions extends StatefulWidget {
       SurveyToast.info(context, '已清空本页草稿');
     }
   }
+
+  /// 保存当前页面草稿的版本快照。
+  static Future<void> runSaveSnapshot(
+    BuildContext context, {
+    required String pageId,
+    String? label,
+  }) async {
+    final drafts = DraftScope.maybeRead(context);
+    if (drafts == null) return;
+    await drafts.flushPage(pageId);
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final snapshotLabel =
+        label ?? '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
+    await drafts.saveSnapshot(pageId, snapshotLabel);
+    if (context.mounted) {
+      SurveyToast.success(context, '已保存版本快照');
+    }
+  }
+
+  /// 打开版本快照对比面板。
+  static Future<void> runSnapshotDiff(
+    BuildContext context, {
+    required String pageId,
+  }) =>
+      showSnapshotDiffSheet(context, pageId);
 
   @override
   State<PageActions> createState() => _PageActionsState();
@@ -364,6 +391,7 @@ class _PageActionsState extends State<PageActions> {
                         ExportFormat.png => Icons.image_outlined,
                         ExportFormat.csv => Icons.table_chart_outlined,
                         ExportFormat.txt => Icons.description_outlined,
+                        ExportFormat.dxf => Icons.layers_outlined,
                       },
                       size: 16,
                     ),

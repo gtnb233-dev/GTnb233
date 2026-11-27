@@ -9,6 +9,9 @@ const String kSurveyThemeChannel = 'survey/theme';
 /// 原生文件选择器与相册/分享集成的冻结 MethodChannel 契约名称（Wave 1 M3/M6）。
 const String kSurveyFilesChannel = 'survey/files';
 
+/// 原生 GNSS / 蓝牙 NMEA 数据采集的冻结 MethodChannel 契约名称。
+const String kSurveyGnssChannel = 'survey/gnss';
+
 /// [kSurveyThemeChannel] 的类型化静态调用封装。
 ///
 /// 所有方法均捕获 [MissingPluginException] 与 [PlatformException]，
@@ -162,7 +165,8 @@ abstract final class NativeFilesBridge {
       if (path == null || path.isEmpty) return null;
       final file = File(path);
       if (!await file.exists() || await file.length() > maxDocumentBytes) {
-        throw const FormatException('Document not found or exceeds 16 MB limit');
+        throw const FormatException(
+            'Document not found or exceeds 16 MB limit');
       }
       final bytes = await file.readAsBytes();
       if (bytes.length > maxDocumentBytes) {
@@ -251,6 +255,94 @@ abstract final class NativeFilesBridge {
       return false;
     } on PlatformException {
       return false;
+    }
+  }
+}
+
+/// 本地蓝牙 SPP 接收机的连接状态和最近的有效期内报文。
+class GnssSample {
+  const GnssSample({
+    required this.connected,
+    this.rawGga,
+  });
+
+  final bool connected;
+  final String? rawGga;
+}
+
+typedef GnssReceiver = ({String address, String name});
+
+/// [kSurveyGnssChannel] 的类型化静态调用封装。
+abstract final class NativeGnssBridge {
+  static const MethodChannel _channel = MethodChannel(kSurveyGnssChannel);
+
+  static Future<bool> isAvailable() async {
+    try {
+      return await _channel.invokeMethod<bool>('isAvailable') ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  static Future<List<GnssReceiver>> pairedReceivers() async {
+    try {
+      final result =
+          await _channel.invokeListMethod<Object?>('pairedReceivers') ?? [];
+      return [
+        for (final device in result)
+          if (device
+              case {'address': final String address, 'name': final String name})
+            (address: address, name: name),
+      ];
+    } on MissingPluginException {
+      return const [];
+    } on PlatformException {
+      return const [];
+    }
+  }
+
+  static Future<bool> connect({required String deviceAddress}) async {
+    try {
+      return await _channel.invokeMethod<bool>('connect', {
+            'deviceAddress': deviceAddress,
+          }) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  static Future<void> disconnect() async {
+    try {
+      await _channel.invokeMethod<void>('disconnect');
+    } on MissingPluginException {
+      // No-op on non-native / test hosts.
+    } on PlatformException {
+      // No-op on unsupported hosts.
+    }
+  }
+
+  static Future<GnssSample> readLatestGga() async {
+    try {
+      final result = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'readLatestGga',
+      );
+      final connected = result?['connected'] == true;
+      final raw = result?['rawGga'];
+      return GnssSample(
+        connected: connected,
+        rawGga: connected && result?['simulated'] != true && raw is String
+            ? raw
+            : null,
+      );
+    } on MissingPluginException {
+      return const GnssSample(connected: false);
+    } on PlatformException {
+      return const GnssSample(connected: false);
     }
   }
 }

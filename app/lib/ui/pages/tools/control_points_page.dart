@@ -820,6 +820,12 @@ class _ControlPointsPageState extends State<ControlPointsPage> {
         'Manage local control points with CSV / CASS / DXF import/export and LivePlot projection',
       ),
       trailing: [
+        IconButton(
+          key: const ValueKey('header-import-btn'),
+          tooltip: _l(context, '从文件导入 (CSV / DXF)', 'Import from file (CSV / DXF)'),
+          onPressed: () => _importFromFile(store),
+          icon: const OutlineSymbol(Icons.file_upload_outlined, size: 18),
+        ),
         FilledButton.icon(
           onPressed: () => _openEditor(store),
           icon: const OutlineSymbol(Icons.add, size: 18),

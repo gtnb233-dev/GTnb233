@@ -36,6 +36,17 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
   final List<Map<String, String>> _redoStack = [];
   Map<String, String> _lastSnapshot = const {};
   DraftStore? _store;
+  int _lastRestoreRevision = 0;
+
+  void _onStoreChanged() {
+    final store = _store;
+    if (store == null || !mounted) return;
+    final rev = store.restoreRevision(draftPageId);
+    if (rev != _lastRestoreRevision) {
+      _lastRestoreRevision = rev;
+      _applySnapshot(store.read(draftPageId));
+    }
+  }
 
   /// 供页面在导出/清空前取用。
   DraftStore get drafts => _store ?? DraftScope.read(context);
@@ -106,6 +117,8 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
     _draftBound = true;
     final store = DraftScope.read(context);
     _store = store;
+    _lastRestoreRevision = store.restoreRevision(draftPageId);
+    store.addListener(_onStoreChanged);
     final saved = store.read(draftPageId);
     draftFields.forEach((field, controller) {
       // 只回填**真的存过**的字段。没有草稿时绝不能用 draftDefaults 覆盖控制器，
@@ -172,6 +185,7 @@ mixin DraftMixin<T extends StatefulWidget> on State<T> {
     // 只落盘不取消又会留下 pending Timer（widget 测试直接报 A Timer is still pending）。
     final store = _store;
     if (store != null) {
+      store.removeListener(_onStoreChanged);
       unawaited(store.flushPage(draftPageId, notify: false));
     }
     draftFields.forEach((field, controller) {

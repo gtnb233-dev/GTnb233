@@ -1,181 +1,89 @@
-# -*- coding: utf-8 -*-
-"""生成工程测量工具箱的 Windows 应用图标（纯 Python 标准库，多尺寸合法 .ico + PNG）。
-
-图案：科技蓝渐变圆角底 (#3B82F6 → #1D4ED8) + 罗盘刻度外环 + 精密三角网标架 + 测站中心点。
-
-输出（app/windows/runner/resources/）：
-  app_icon.ico        16/32/48/64 用 32 位 BMP 条目、128/256 用 PNG 条目
-  app_icon.png        512/1024 源图（与 Windows/Android 资源一致）
-  app_icon_256.png    256 预览图
-
-运行：python make_icon.py
-"""
+"""Generate Survey Pro icons for Windows, Android and the README from the K vector."""
 from __future__ import annotations
 
 import math
+import re
 import struct
 import sys
 import zlib
 from pathlib import Path
+from xml.etree import ElementTree
 
-OUT_DIR = Path(__file__).resolve().parent.parent / "runner" / "resources"
+APP_DIR = Path(__file__).resolve().parents[2]
+OUT_DIR = APP_DIR / "windows" / "runner" / "resources"
+DOCS_IMAGES = APP_DIR.parent / "docs" / "screenshots"
+SVG_NS = "{http://www.w3.org/2000/svg}"
 
 BMP_SIZES = (16, 32, 48, 64)
 PNG_SIZES = (128, 256)
 ALL_SIZES = tuple(sorted(BMP_SIZES + PNG_SIZES))
 
-# 科技蓝渐变色板（与桌面端主题 kSeed #2F6FED / #3B82F6 → #1D4ED8 统一）
-BLUE_TOP_LEFT = (59.0, 130.0, 246.0)     # #3B82F6
-BLUE_MID = (37.0, 99.0, 235.0)           # #2563EB
-BLUE_BOT_RIGHT = (29.0, 78.0, 216.0)     # #1D4ED8
+def load_icon():
+    svg = ElementTree.parse(DOCS_IMAGES / "app_icon.svg").getroot()
+    _, _, width, height = map(int, svg.attrib["viewBox"].split())
+    if width != height or svg.attrib["viewBox"] != f"0 0 {width} {height}":
+        raise ValueError("Expected a square icon with its origin at (0, 0).")
+
+    background, *paths = svg
+    if (
+        background.tag != SVG_NS + "rect"
+        or background.get("width") != str(width)
+        or background.get("height") != str(height)
+    ):
+        raise ValueError("Expected a full-bleed background rectangle.")
+
+    colors = [bytes.fromhex(background.attrib["fill"].removeprefix("#"))]
+    polygons = []
+    for path in paths:
+        data = path.attrib["d"]
+        if path.tag != SVG_NS + "path" or not re.fullmatch(
+            r"M \d+ \d+(?: L \d+ \d+){2,} Z", data
+        ):
+            raise ValueError("Expected a closed polygon made of M/L/Z commands.")
+        coords = list(map(int, re.findall(r"\d+", data)))
+        polygons.append(list(zip(coords[::2], coords[1::2])))
+        colors.append(bytes.fromhex(path.attrib["fill"].removeprefix("#")))
+    return width, colors, polygons
 
 
-def _clamp01(v: float) -> float:
-    return 0.0 if v <= 0.0 else (1.0 if v >= 1.0 else v)
-
-
-def _smooth_alpha(sdf_px: float) -> float:
-    """将像素单位的有符号距离平滑为 [0, 1] 覆盖率。"""
-    return _clamp01(0.5 - sdf_px)
-
-
-def _sd_round_box(px: float, py: float, bx: float, by: float, r: float) -> float:
-    qx = abs(px) - bx + r
-    qy = abs(py) - by + r
-    return math.hypot(max(qx, 0.0), max(qy, 0.0)) + min(max(qx, qy), 0.0) - r
-
-
-def _dist_segment(px: float, py: float, ax: float, ay: float, bx: float, by: float) -> float:
-    dx = bx - ax
-    dy = by - ay
-    denom = dx * dx + dy * dy
-    if denom <= 1e-12:
-        return math.hypot(px - ax, py - ay)
-    t = _clamp01(((px - ax) * dx + (py - ay) * dy) / denom)
-    return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
-
-
-def _blend(dst_r: float, dst_g: float, dst_b: float, dst_a: float,
-           src_r: float, src_g: float, src_b: float, src_a: float) -> tuple[float, float, float, float]:
-    out_a = src_a + dst_a * (1.0 - src_a)
-    if out_a <= 1e-9:
-        return (0.0, 0.0, 0.0, 0.0)
-    out_r = (src_r * src_a + dst_r * dst_a * (1.0 - src_a)) / out_a
-    out_g = (src_g * src_a + dst_g * dst_a * (1.0 - src_a)) / out_a
-    out_b = (src_b * src_a + dst_b * dst_a * (1.0 - src_a)) / out_a
-    return (out_r, out_g, out_b, out_a)
-
-
-def render_rgba(size: int) -> bytes:
-    """使用解析 SDF 在 size x size 画布生成 RGBA 字节流，边缘天然抗锯齿。"""
-    inv = 1.0 / size
-    min_stroke_uv = 1.15 * inv  # 16px 小尺寸下保持最少 ~1.15px 清晰度
-
-    # 几何参数（归一化 [0, 1] 坐标，中心 (0.5, 0.5)）
-    box_half = 0.468
-    box_radius = 0.112
-
-    ring_r = 0.305
-    ring_w = max(0.013, min_stroke_uv * 0.72)
-
-    tri_w = max(0.029, min_stroke_uv * 0.92)
-    ax, ay = 0.500, 0.220
-    bx, by = 0.258, 0.708
-    cx, cy = 0.742, 0.708
-
-    dot_cx, dot_cy = 0.500, 0.548
-    dot_r = max(0.056, 1.3 * inv)
-
-    tick_w = max(0.014, min_stroke_uv * 0.65)
-    ticks = (
-        (0.500, 0.125, 0.500, 0.185),  # N
-        (0.875, 0.500, 0.815, 0.500),  # E
-        (0.500, 0.875, 0.500, 0.815),  # S
-        (0.125, 0.500, 0.185, 0.500),  # W
-    )
-
-    buf = bytearray(size * size * 4)
-    idx = 0
-    for y in range(size):
-        v = (y + 0.5) * inv
-        dy_c = v - 0.5
-        for x in range(size):
-            u = (x + 0.5) * inv
-            dx_c = u - 0.5
-
-            # 1. 圆角底 SDF（换算为像素距离以平滑边缘）
-            sd_bg = _sd_round_box(dx_c, dy_c, box_half, box_half, box_radius) * size
-            bg_alpha = _smooth_alpha(sd_bg)
-            if bg_alpha <= 0.001:
-                buf[idx] = 0
-                buf[idx + 1] = 0
-                buf[idx + 2] = 0
-                buf[idx + 3] = 0
-                idx += 4
-                continue
-
-            # 对角科技蓝渐变 + 左上柔和径向高光
-            gt = _clamp01(0.45 * u + 0.55 * v)
-            if gt < 0.5:
-                k = gt * 2.0
-                br = BLUE_TOP_LEFT[0] + (BLUE_MID[0] - BLUE_TOP_LEFT[0]) * k
-                bg_c = BLUE_TOP_LEFT[1] + (BLUE_MID[1] - BLUE_TOP_LEFT[1]) * k
-                bb = BLUE_TOP_LEFT[2] + (BLUE_MID[2] - BLUE_TOP_LEFT[2]) * k
-            else:
-                k = (gt - 0.5) * 2.0
-                br = BLUE_MID[0] + (BLUE_BOT_RIGHT[0] - BLUE_MID[0]) * k
-                bg_c = BLUE_MID[1] + (BLUE_BOT_RIGHT[1] - BLUE_MID[1]) * k
-                bb = BLUE_MID[2] + (BLUE_BOT_RIGHT[2] - BLUE_MID[2]) * k
-
-            glow = math.exp(-((u - 0.30) ** 2 + (v - 0.24) ** 2) / 0.16) * 26.0
-            r = min(255.0, br + glow)
-            g = min(255.0, bg_c + glow)
-            b = min(255.0, bb + glow * 0.6)
-            a = bg_alpha
-
-            # 内描边高光（仅在 64px 以上呈现细腻玻璃边缘）
-            if size >= 48:
-                rim_sd = abs(sd_bg + 1.2) - 0.75
-                rim_a = _smooth_alpha(rim_sd) * 0.18 * bg_alpha
-                if rim_a > 0.002:
-                    r, g, b, a = _blend(r, g, b, a, 255.0, 255.0, 255.0, rim_a)
-
-            # 2. 罗盘参考圆环（浅白半透明）
-            d_ring = (abs(math.hypot(dx_c, dy_c) - ring_r) - ring_w) * size
-            ring_a = _smooth_alpha(d_ring) * 0.30 * bg_alpha
-            if ring_a > 0.002:
-                r, g, b, a = _blend(r, g, b, a, 255.0, 255.0, 255.0, ring_a)
-
-            # 3. 四向精密分划刻度
-            d_tick = min(
-                _dist_segment(u, v, x0, y0, x1, y1) for (x0, y0, x1, y1) in ticks
+def render_rgba(size: int, icon) -> bytes:
+    """Rasterize the supplied filled polygons at 4× for antialiased edges."""
+    width, colors, polygons = icon
+    samples = 4
+    grid = size * samples
+    scale = grid / width
+    canvas = bytearray(grid * grid)
+    for color, polygon in enumerate(polygons, start=1):
+        points = [(x * scale, y * scale) for x, y in polygon]
+        edges = list(zip(points, points[1:] + points[:1]))
+        first = max(0, math.floor(min(y for _, y in points)))
+        last = min(grid, math.ceil(max(y for _, y in points)))
+        for row in range(first, last):
+            y = row + 0.5
+            intersections = sorted(
+                x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+                for (x0, y0), (x1, y1) in edges
+                if min(y0, y1) <= y < max(y0, y1)
             )
-            tick_a = _smooth_alpha((d_tick - tick_w) * size) * 0.72 * bg_alpha
-            if tick_a > 0.002:
-                r, g, b, a = _blend(r, g, b, a, 255.0, 255.0, 255.0, tick_a)
+            for left, right in zip(intersections[::2], intersections[1::2]):
+                lo = max(0, math.ceil(left - 0.5))
+                hi = min(grid, math.ceil(right - 0.5))
+                canvas[row * grid + lo : row * grid + hi] = bytes([color]) * (hi - lo)
 
-            # 4. 精密三角测量标架（纯白圆角三角形）
-            d_tri = min(
-                _dist_segment(u, v, ax, ay, bx, by),
-                _dist_segment(u, v, bx, by, cx, cy),
-                _dist_segment(u, v, cx, cy, ax, ay),
-            )
-            tri_a = _smooth_alpha((d_tri - tri_w) * size) * 0.98 * bg_alpha
-            if tri_a > 0.002:
-                r, g, b, a = _blend(r, g, b, a, 255.0, 255.0, 255.0, tri_a)
-
-            # 5. 中心测站点（纯白实心点 + 微弱暗蓝对比环突出锐利度）
-            d_center = math.hypot(u - dot_cx, v - dot_cy)
-            dot_a = _smooth_alpha((d_center - dot_r) * size) * bg_alpha
-            if dot_a > 0.002:
-                r, g, b, a = _blend(r, g, b, a, 255.0, 255.0, 255.0, dot_a)
-
-            buf[idx] = max(0, min(255, int(round(r))))
-            buf[idx + 1] = max(0, min(255, int(round(g))))
-            buf[idx + 2] = max(0, min(255, int(round(b))))
-            buf[idx + 3] = max(0, min(255, int(round(a * 255.0))))
-            idx += 4
-    return bytes(buf)
+    rgba = bytearray()
+    for row in range(0, grid, samples):
+        rows = [canvas[y * grid : (y + 1) * grid] for y in range(row, row + samples)]
+        for col in range(0, grid, samples):
+            red = green = blue = 0
+            for scanline in rows:
+                for color in scanline[col : col + samples]:
+                    r, g, b = colors[color]
+                    red += r
+                    green += g
+                    blue += b
+            coverage = samples * samples
+            rgba.extend((red // coverage, green // coverage, blue // coverage, 255))
+    return bytes(rgba)
 
 
 def encode_png(size: int, rgba: bytes) -> bytes:
@@ -273,12 +181,15 @@ def validate_ico(path: Path) -> list[int]:
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    icon = load_icon()
     master_size = 512
-    master_rgba = render_rgba(master_size)
+    master_rgba = render_rgba(master_size, icon)
     (OUT_DIR / "app_icon.png").write_bytes(encode_png(master_size, master_rgba))
 
-    frames = {s: render_rgba(s) for s in ALL_SIZES}
-    (OUT_DIR / "app_icon_256.png").write_bytes(encode_png(256, frames[256]))
+    frames = {s: render_rgba(s, icon) for s in ALL_SIZES}
+    preview = encode_png(256, frames[256])
+    (OUT_DIR / "app_icon_256.png").write_bytes(preview)
+    (DOCS_IMAGES / "app_icon_256.png").write_bytes(preview)
 
     ico = OUT_DIR / "app_icon.ico"
     ico.write_bytes(build_ico(frames))
@@ -293,8 +204,7 @@ def main() -> int:
         raise SystemExit(f"缺少尺寸: {sorted(missing)}")
     print("header ok: reserved=0 type=1 planes=1 bpp=32，全部数据区在文件内")
 
-    app_dir = OUT_DIR.parents[2]
-    android_res = app_dir / "android" / "app" / "src" / "main" / "res"
+    android_res = APP_DIR / "android" / "app" / "src" / "main" / "res"
     densities = {
         "mipmap-mdpi": 48,
         "mipmap-hdpi": 72,
@@ -306,7 +216,7 @@ def main() -> int:
         for folder, sz in densities.items():
             target = android_res / folder / "ic_launcher.png"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(encode_png(sz, render_rgba(sz)))
+            target.write_bytes(encode_png(sz, render_rgba(sz, icon)))
             print(f"mipmap: {folder}/ic_launcher.png {sz}x{sz}")
     else:
         print(f"skip android: {android_res} 不存在")

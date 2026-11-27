@@ -12,6 +12,8 @@ import 'widgets/liquid_glass.dart';
 import 'widgets/measurement_units_button.dart';
 import 'widgets/overlays.dart';
 import 'widgets/page_actions.dart';
+import 'widgets/smart_import.dart';
+import 'widgets/snapshot_diff_sheet.dart';
 import 'widgets/tutorial_panel.dart';
 import 'widgets/workspace_commands.dart';
 import 'widgets/workspace_sidebar_control.dart';
@@ -262,6 +264,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
 
   static String _headerActionLabel(BuildContext context, String id) =>
       switch (id) {
+        'import' => context.tr('数据导入'),
         'export' => context.tr('导出'),
         'point_names' => context.tr('自定义点名'),
         'sample' => context.tr('载入教材算例'),
@@ -270,6 +273,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       };
 
   static IconData _headerActionIcon(String id) => switch (id) {
+        'import' => Icons.file_download_outlined,
         'export' => Icons.ios_share,
         'point_names' => Icons.edit_note_rounded,
         'sample' => Icons.auto_fix_high_outlined,
@@ -329,6 +333,30 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     );
   }
 
+  Widget _buildHeaderImportButton(BuildContext context) {
+    final pageActions = _pageActions;
+    return SizedBox(
+      width: 40,
+      height: 48,
+      child: IconButton(
+        key: const ValueKey('header-import-btn'),
+        tooltip: context.tr('数据导入'),
+        padding: EdgeInsets.zero,
+        iconSize: 19,
+        style: IconButton.styleFrom(
+          minimumSize: const Size(40, 48),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          padding: EdgeInsets.zero,
+        ),
+        onPressed: () => showSmartImportFlow(
+          context,
+          targetPageId: pageActions?.pageId,
+        ),
+        icon: const Icon(Icons.file_download_outlined, size: 19),
+      ),
+    );
+  }
+
   List<Widget> _buildPinnedHeaderButtons(
     BuildContext context,
   ) {
@@ -338,8 +366,12 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final pageActions = _pageActions;
     final sampleCb = pageActions?.onLoadSample ?? _tutorial?.onLoadSample;
     final buttons = <Widget>[];
+    var hasImport = false;
     for (final id in pinnedIds.take(3)) {
       switch (id) {
+        case 'import':
+          hasImport = true;
+          buttons.add(_buildHeaderImportButton(context));
         case 'export':
           final buildTable = pageActions?.buildTable;
           if (buildTable == null) continue;
@@ -365,6 +397,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                             ExportFormat.png => Icons.image_outlined,
                             ExportFormat.csv => Icons.table_chart_outlined,
                             ExportFormat.txt => Icons.description_outlined,
+                            ExportFormat.dxf => Icons.layers_outlined,
                           },
                           size: 16,
                         ),
@@ -424,6 +457,9 @@ class _DetailScaffoldState extends State<DetailScaffold> {
           );
       }
     }
+    if (!hasImport) {
+      buttons.insert(0, _buildHeaderImportButton(context));
+    }
     return buttons;
   }
 
@@ -458,7 +494,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
             ),
             const SizedBox(height: Insets.s),
             SizedBox(
-              height: 224,
+              height: 280,
               child: ReorderableListView.builder(
                 buildDefaultDragHandles: false,
                 primary: false,
@@ -587,8 +623,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final android = WorkspaceHost.isAndroid(context);
     final settings = SettingsScope.maybeOf(context);
     final pageActions = _pageActions;
+    final drafts = DraftScope.maybeRead(context);
     final sampleCb = pageActions?.onLoadSample ?? _tutorial?.onLoadSample;
     final available = <String>[
+      'import',
       if (pageActions?.buildTable != null) 'export',
       if (pageActions?.onPointNames != null) 'point_names',
       if (sampleCb != null) 'sample',
@@ -650,8 +688,29 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               ),
               const Divider(height: Insets.m),
             ],
-            if (unpinned.isNotEmpty || actions.isNotEmpty || canReturn)
+            if (unpinned.isNotEmpty ||
+                actions.isNotEmpty ||
+                canReturn ||
+                drafts != null)
               _groupHeader(sheetContext, '工具与辅助操作'),
+            if (drafts != null) ...[
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                key: const ValueKey('more-action-save-snapshot'),
+                leading: const Icon(Icons.bookmark_add_outlined),
+                title: Text(sheetContext.tr('保存版本快照')),
+                onTap: () => choose('save_snapshot'),
+              ),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                key: const ValueKey('more-action-snapshot-diff'),
+                leading: const Icon(Icons.compare_arrows_rounded),
+                title: Text(sheetContext.tr('版本快照对比')),
+                onTap: () => choose('snapshot_diff'),
+              ),
+            ],
             if (canReturn)
               ListTile(
                 dense: true,
@@ -685,6 +744,17 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         await Navigator.maybePop(context);
       case 'customize_pinned':
         await _showPinnedActionsPicker(context);
+      case 'import':
+        await showSmartImportFlow(
+          context,
+          targetPageId: pageActions?.pageId,
+        );
+      case 'save_snapshot':
+        final pageId = pageActions?.pageId ?? widget.title;
+        await PageActions.runSaveSnapshot(context, pageId: pageId);
+      case 'snapshot_diff':
+        final pageId = pageActions?.pageId ?? widget.title;
+        await showSnapshotDiffSheet(context, pageId);
       case 'export':
         final format = await workspacePanel<ExportFormat>(
           context,
@@ -854,7 +924,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               if (primary != null)
                 SizedBox(width: 40, height: 42, child: primary),
               for (final button in pinnedButtons)
-                SizedBox(width: 36, height: 42, child: button),
+                if (button is SizedBox)
+                  button
+                else
+                  SizedBox(width: 36, height: 42, child: button),
               SizedBox(
                 width: 40,
                 height: 42,

@@ -1,4 +1,5 @@
 pub mod dxf_parser;
+pub mod dxf_writer;
 pub mod spatial_index;
 pub mod tin_earthwork;
 
@@ -7,6 +8,7 @@ use std::os::raw::c_char;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use dxf_parser::{parse_ascii_dxf, summarize_dxf};
+use dxf_writer::{generate_layered_dxf, DxfPointSpec, DxfPolylineSpec};
 use spatial_index::find_nearest_point_2d;
 use tin_earthwork::{compute_tin_volume, TinPoint};
 
@@ -36,10 +38,10 @@ pub struct FfiEarthworkResult {
     pub plan_area: f64,
 }
 
-/// 返回当前 Rust FFI 内核的 ABI 版本号（当前为 `5`）。
+/// 返回当前 Rust FFI 内核的 ABI 版本号（当前为 `6`）。
 #[no_mangle]
 pub extern "C" fn survey_rust_abi_version() -> u32 {
-    5
+    6
 }
 
 /// 对交错排列的 `(dx, dy, length)` 导线边长行分配坐标闭合差。
@@ -398,10 +400,10 @@ pub unsafe extern "C" fn survey_dxf_parse_json(source: *const c_char) -> *mut c_
     .unwrap_or(std::ptr::null_mut())
 }
 
-/// 释放由 `survey_dxf_parse_json` 分配并返回的 C 字符串。
+/// 释放由 `survey_dxf_parse_json` 或 `survey_dxf_generate` 分配并返回的 C 字符串。
 ///
 /// # Safety
-/// `value` 必须为空指针，或由 `survey_dxf_parse_json` 返回且尚未释放的指针。
+/// `value` 必须为空指针，或由本库分配并返回且尚未释放的指针。
 #[no_mangle]
 pub unsafe extern "C" fn survey_string_free(value: *mut c_char) {
     let _ = catch_unwind(AssertUnwindSafe(|| {
@@ -409,6 +411,103 @@ pub unsafe extern "C" fn survey_string_free(value: *mut c_char) {
             drop(unsafe { std::ffi::CString::from_raw(value) });
         }
     }));
+}
+
+/// 根据 JSON 描述的点集与多段线生成分层 ASCII DXF 文本（返回指针需由 `survey_string_free` 释放）。
+///
+/// 输入 JSON 结构：
+/// `{"points": [{"name": "P1", "x": 100.0, "y": 200.0, "z": 10.0, "layer": "POINTS"}], "polylines": [{"vertices": [[100.0, 200.0]], "closed": false, "layer": "TRAVERSE"}]}`。
+///
+/// # Safety
+/// `payload_utf8` 必须为空指针或以 NUL 结尾的有效 UTF-8 C 字符串指针。
+#[no_mangle]
+pub unsafe extern "C" fn survey_dxf_generate(payload_utf8: *const c_char) -> *mut c_char {
+    use serde_json::Value;
+    use std::ffi::CString;
+
+    catch_unwind(AssertUnwindSafe(|| {
+        if payload_utf8.is_null() {
+            return std::ptr::null_mut();
+        }
+        let Ok(raw) = unsafe { CStr::from_ptr(payload_utf8) }.to_str() else {
+            return std::ptr::null_mut();
+        };
+        let Ok(root) = serde_json::from_str::<Value>(raw) else {
+            return std::ptr::null_mut();
+        };
+
+        let mut points = Vec::new();
+        if let Some(arr) = root.get("points").and_then(|v| v.as_array()) {
+            for item in arr {
+                let Some(x) = item.get("x").and_then(|v| v.as_f64()) else {
+                    continue;
+                };
+                let Some(y) = item.get("y").and_then(|v| v.as_f64()) else {
+                    continue;
+                };
+                let z = item.get("z").and_then(|v| v.as_f64());
+                let name = item
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let layer = item
+                    .get("layer")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("POINTS")
+                    .to_string();
+                points.push(DxfPointSpec {
+                    name,
+                    x,
+                    y,
+                    z,
+                    layer,
+                });
+            }
+        }
+
+        let mut polylines = Vec::new();
+        if let Some(arr) = root.get("polylines").and_then(|v| v.as_array()) {
+            for item in arr {
+                let closed = item
+                    .get("closed")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let layer = item
+                    .get("layer")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("TRAVERSE")
+                    .to_string();
+                let mut vertices = Vec::new();
+                if let Some(verts) = item.get("vertices").and_then(|v| v.as_array()) {
+                    for v in verts {
+                        if let Some(pair) = v.as_array() {
+                            if pair.len() >= 2 {
+                                if let (Some(vx), Some(vy)) =
+                                    (pair[0].as_f64(), pair[1].as_f64())
+                                {
+                                    vertices.push((vx, vy));
+                                }
+                            }
+                        }
+                    }
+                }
+                if !vertices.is_empty() {
+                    polylines.push(DxfPolylineSpec {
+                        vertices,
+                        closed,
+                        layer,
+                    });
+                }
+            }
+        }
+
+        let dxf = generate_layered_dxf(&points, &polylines);
+        CString::new(dxf)
+            .map(CString::into_raw)
+            .unwrap_or(std::ptr::null_mut())
+    }))
+    .unwrap_or(std::ptr::null_mut())
 }
 
 #[cfg(test)]

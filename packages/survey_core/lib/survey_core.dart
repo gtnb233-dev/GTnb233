@@ -11,6 +11,7 @@ export 'src/geodesy.dart';
 export 'src/formulas.dart';
 export 'src/intersection.dart';
 export 'src/leveling.dart';
+export 'src/nmea.dart';
 export 'src/precision.dart';
 export 'src/projection.dart';
 export 'src/traverse.dart';

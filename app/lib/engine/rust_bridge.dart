@@ -108,6 +108,45 @@ class TinEarthworkResult {
   final double planArea;
 }
 
+/// DXF 导出点位（工程测量坐标：`x` 为北坐标、`y` 为东坐标、`z` 为高程）。
+class DxfExportPoint {
+  const DxfExportPoint({
+    required this.name,
+    required this.x,
+    required this.y,
+    this.z,
+    this.layer = 'POINTS',
+  });
+
+  final String name;
+  final double x;
+  final double y;
+  final double? z;
+  final String layer;
+}
+
+/// DXF 导出二维多段线（工程测量坐标：顶点 `(x_north, y_east)`）。
+class DxfExportPolyline {
+  const DxfExportPolyline({
+    required this.vertices,
+    this.closed = false,
+    this.layer = 'TRAVERSE',
+  });
+
+  final List<(double x, double y)> vertices;
+  final bool closed;
+  final String layer;
+}
+
+/// 静态门面封装，便于直接调用 Rust/Dart 混合 DXF 生成器。
+abstract final class RustBridge {
+  static String exportDxf({
+    required List<DxfExportPoint> points,
+    List<DxfExportPolyline> polylines = const [],
+  }) =>
+      SurveyHybridEngine.instance.exportDxf(points: points, polylines: polylines);
+}
+
 /// 平面最近邻测点匹配结果。
 class NearestPointMatch {
   const NearestPointMatch({required this.index, required this.distance});
@@ -189,6 +228,7 @@ class SurveyHybridEngine {
   _TinCall? _tin;
   _NearestCall? _nearest;
   _ParseDxfCall? _parseDxf;
+  _ParseDxfCall? _generateDxf;
   void Function(ffi.Pointer<Utf8>)? _freeDxf;
   _LevelingCall? _levelingCheck;
   _TraverseCall? _distributeTraverse;
@@ -347,6 +387,10 @@ class SurveyHybridEngine {
           _levelingCheck = lib.lookupFunction<_LevelingNative, _LevelingCall>(
               'survey_leveling_check');
         }
+        if (ver >= 6) {
+          _generateDxf = lib.lookupFunction<_ParseDxfCall, _ParseDxfCall>(
+              'survey_dxf_generate');
+        }
         if (ver >= 4) {
           _distributeTraverse =
               lib.lookupFunction<_TraverseNative, _TraverseCall>(
@@ -359,6 +403,7 @@ class SurveyHybridEngine {
       _tin = null;
       _nearest = null;
       _parseDxf = null;
+      _generateDxf = null;
       _freeDxf = null;
       _levelingCheck = null;
       _distributeTraverse = null;
@@ -638,5 +683,137 @@ class SurveyHybridEngine {
       }
     }
     return NearestPointMatch(index: bestIdx, distance: math.sqrt(bestD2));
+  }
+
+  /// 生成分层 ASCII DXF 文本（优先调用 Rust `survey_dxf_generate`，不可用时回退纯 Dart）。
+  ///
+  /// 工程测量坐标约定：`x` 为北坐标（N）、`y` 为东坐标（E），写入 DXF 时自动交换为
+  /// CAD 横轴东坐标（组码 10 = `y`）与纵轴北坐标（组码 20 = `x`）。
+  String exportDxf({
+    required List<DxfExportPoint> points,
+    List<DxfExportPolyline> polylines = const [],
+  }) {
+    final generate = _generateDxf;
+    final free = _freeDxf;
+    if (generate != null && free != null) {
+      final payload = jsonEncode({
+        'points': [
+          for (final p in points)
+            if (p.x.isFinite && p.y.isFinite)
+              {
+                'name': p.name,
+                'x': p.x,
+                'y': p.y,
+                if (p.z != null && p.z!.isFinite) 'z': p.z,
+                'layer': p.layer,
+              },
+        ],
+        'polylines': [
+          for (final pl in polylines)
+            if (pl.vertices.isNotEmpty)
+              {
+                'vertices': [
+                  for (final (vx, vy) in pl.vertices)
+                    if (vx.isFinite && vy.isFinite) [vx, vy],
+                ],
+                'closed': pl.closed,
+                'layer': pl.layer,
+              },
+        ],
+      });
+      if (!payload.contains('\u0000')) {
+        final source = payload.toNativeUtf8();
+        var result = ffi.nullptr.cast<Utf8>();
+        try {
+          result = generate(source);
+          if (result != ffi.nullptr) {
+            return result.toDartString();
+          }
+        } finally {
+          if (result != ffi.nullptr) free(result);
+          malloc.free(source);
+        }
+      }
+    }
+
+    return _exportDxfFallback(points: points, polylines: polylines);
+  }
+
+  static String _exportDxfFallback({
+    required List<DxfExportPoint> points,
+    required List<DxfExportPolyline> polylines,
+  }) {
+    final layers = <String>{
+      'POINTS',
+      'ELEVATIONS',
+      'TRAVERSE',
+      'LEVELING',
+      'CURVES',
+      for (final p in points)
+        p.layer.trim().isEmpty ? '0' : p.layer.trim(),
+      for (final pl in polylines)
+        pl.layer.trim().isEmpty ? '0' : pl.layer.trim(),
+    };
+    int layerColor(String layer) => switch (layer) {
+          'POINTS' => 7,
+          'ELEVATIONS' => 3,
+          'TRAVERSE' => 1,
+          'LEVELING' => 5,
+          'CURVES' => 4,
+          _ => 7,
+        };
+
+    final sb = StringBuffer()
+      ..write('0\nSECTION\n2\nHEADER\n9\n\$ACADVER\n1\nAC1009\n0\nENDSEC\n')
+      ..write('0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n${layers.length}\n');
+    for (final layer in layers) {
+      sb.write(
+        '0\nLAYER\n2\n$layer\n70\n0\n62\n${layerColor(layer)}\n6\nCONTINUOUS\n',
+      );
+    }
+    sb.write('0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n');
+
+    for (final p in points) {
+      if (!p.x.isFinite || !p.y.isFinite) continue;
+      final z = (p.z != null && p.z!.isFinite) ? p.z! : 0.0;
+      final layer = p.layer.trim().isEmpty ? '0' : p.layer.trim();
+      sb.write(
+        '0\nPOINT\n8\n$layer\n10\n${p.y.toStringAsFixed(6)}\n'
+        '20\n${p.x.toStringAsFixed(6)}\n30\n${z.toStringAsFixed(6)}\n',
+      );
+      if (p.name.trim().isNotEmpty) {
+        sb.write(
+          '0\nTEXT\n8\n$layer\n10\n${(p.y + 0.5).toStringAsFixed(6)}\n'
+          '20\n${(p.x + 0.5).toStringAsFixed(6)}\n30\n${z.toStringAsFixed(6)}\n'
+          '40\n1.5\n1\n${p.name.trim()}\n',
+        );
+      }
+      if (p.z != null && p.z!.isFinite) {
+        sb.write(
+          '0\nTEXT\n8\nELEVATIONS\n10\n${(p.y + 0.5).toStringAsFixed(6)}\n'
+          '20\n${(p.x - 1.2).toStringAsFixed(6)}\n30\n${z.toStringAsFixed(6)}\n'
+          '40\n1.2\n1\n${z.toStringAsFixed(3)}\n',
+        );
+      }
+    }
+
+    for (final pl in polylines) {
+      final valid = [
+        for (final (vx, vy) in pl.vertices)
+          if (vx.isFinite && vy.isFinite) (vx, vy),
+      ];
+      if (valid.isEmpty) continue;
+      final layer = pl.layer.trim().isEmpty ? '0' : pl.layer.trim();
+      final flag = pl.closed ? 1 : 0;
+      sb.write(
+        '0\nLWPOLYLINE\n8\n$layer\n90\n${valid.length}\n70\n$flag\n',
+      );
+      for (final (vx, vy) in valid) {
+        sb.write('10\n${vy.toStringAsFixed(6)}\n20\n${vx.toStringAsFixed(6)}\n');
+      }
+    }
+
+    sb.write('0\nENDSEC\n0\nEOF\n');
+    return sb.toString();
   }
 }

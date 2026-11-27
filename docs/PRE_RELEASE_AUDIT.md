@@ -1,8 +1,14 @@
 # Survey Pro Pre-Release Audit Report
 
-**Target:** Survey Pro v1.0.0.
+**Baseline:** Survey Pro v1.0.0, with v1.1.0 changes recorded below.
 
 **Audit scope:** Dead code, bundled fonts, Rust FFI, native channels and permissions, dependency licenses, and dependency scan status.
+
+## v1.1.0 follow-up
+
+- Android requests Bluetooth connection permission when the user selects a paired GNSS receiver. Legacy Bluetooth permission is limited to Android 11 and earlier. The release manifest requires neither Bluetooth scanning nor Internet access.
+- Live sampling accepts a recent GGA sentence from the selected receiver. Both platforms support explicit clipboard input. Sampling never inserts simulated coordinates into field data.
+- The Rust DXF writer has a layer and coordinate-order regression. The Dart and Flutter suites include GGA parsing, invalid input, import preview, resection handoff and draft snapshot coverage.
 
 ---
 

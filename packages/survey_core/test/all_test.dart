@@ -245,5 +245,48 @@ void main() {
         runner.closeTo(101.0, 1e-12),
       );
     });
+
+    runner.test('NMEA \$GPGGA / \$GNGGA 解析、校验和及模拟生成闭环', () {
+      final sim = buildSimulatedGpgga(
+        latDeg: 31.230416,
+        lonDeg: 121.473701,
+        altitudeM: 12.35,
+        satellites: 11,
+        hdop: 0.8,
+      );
+      final parsed = parseGpgga(sim);
+      runner.expect(parsed, runner.isNotNull);
+      runner.expect(parsed!.latDeg, runner.closeTo(31.230416, 1e-6));
+      runner.expect(parsed.lonDeg, runner.closeTo(121.473701, 1e-6));
+      runner.expect(parsed.altitudeM, runner.closeTo(12.35, 1e-3));
+      runner.expect(parsed.satellites, 11);
+      runner.expect(parsed.hdop, runner.closeTo(0.8, 1e-6));
+      runner.expect(parsed.fixQuality, 4);
+
+      // 南纬西经与 $GNGGA
+      final swSim = buildSimulatedGpgga(latDeg: -33.8688, lonDeg: -70.6693);
+      final gngga = swSim.replaceFirst(r'$GPGGA', r'$GNGGA');
+      // 校验和因 GNGGA 与 GPGGA 不同而改变，去掉校验和或重算应分别被拒绝/接受
+      runner.expect(parseGpgga(gngga), runner.isNull);
+      final noChecksum = gngga.substring(0, gngga.indexOf('*'));
+      final parsedSw = parseGpgga(noChecksum);
+      runner.expect(parsedSw, runner.isNotNull);
+      runner.expect(parsedSw!.latDeg, runner.closeTo(-33.8688, 1e-6));
+      runner.expect(parsedSw.lonDeg, runner.closeTo(-70.6693, 1e-6));
+
+      // 错误校验和返回 null
+      runner.expect(
+        parseGpgga(r'$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*00'),
+        runner.isNull,
+      );
+      // 标准示例校验和正确
+      final std = parseGpgga(
+        r'$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47',
+      );
+      runner.expect(std, runner.isNotNull);
+      runner.expect(std!.latDeg, runner.closeTo(48 + 7.038 / 60.0, 1e-9));
+      runner.expect(std.lonDeg, runner.closeTo(11 + 31.0 / 60.0, 1e-9));
+      runner.expect(std.geoidSepM, runner.closeTo(46.9, 1e-9));
+    });
   });
 }

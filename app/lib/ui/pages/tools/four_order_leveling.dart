@@ -17,6 +17,7 @@ import '../../../state/live_plot_controller.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
 import '../../widgets/draft_mixin.dart';
+import '../../widgets/gnss_chip.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/point_names_dialog.dart';
 import '../../widgets/tutorial_panel.dart';
@@ -892,6 +893,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       ExportFormat.xlsx => _l(context, '手簿 Excel', 'handbook Excel'),
       ExportFormat.csv => 'CSV',
       ExportFormat.txt => 'TXT',
+      ExportFormat.dxf => 'DXF',
     };
     SurveyToast.success(
       context,
@@ -2312,6 +2314,14 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
               ),
             ],
           ],
+        ),
+        const SizedBox(height: Insets.s),
+        GnssSampleChip(
+          heightOnly: true,
+          onSample: (_, __, h) {
+            _startHeight.text = fmt(h, 3);
+            _calc();
+          },
         ),
         if (_error != null)
           Padding(

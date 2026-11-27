@@ -3,10 +3,13 @@ import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
 import '../../../l10n/survey_strings.dart';
+import '../../../nav/tools.dart';
+import '../../../state/drafts.dart';
 import '../../../state/live_plot_controller.dart';
 import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
+import '../../tool_router.dart';
 import '../../widgets/draft_mixin.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
@@ -152,6 +155,20 @@ class _ResectionPageState extends State<ResectionPage>
     _calculate();
   }
 
+  Future<void> _sendToStakeout(Point2 p, AppSettings settings) async {
+    final unit = settings.lengthUnit;
+    final digits = unit.displayDigits(settings.coordDigits);
+    final store = DraftScope.read(context);
+    store.putAll('batch_stakeout', <String, String>{
+      'sx': fmt(unit.fromMeters(p.x), digits),
+      'sy': fmt(unit.fromMeters(p.y), digits),
+    });
+    await store.flushPage('batch_stakeout');
+    if (!mounted) return;
+    final stakeoutTool = kTools.firstWhere((t) => t.id == 'batch_stakeout');
+    await openTool(context, stakeoutTool);
+  }
+
   SheetTable _table() {
     final p = _position;
     return SheetTable(
@@ -223,6 +240,16 @@ class _ResectionPageState extends State<ResectionPage>
                       value: fmt(unit.fromMeters(p.y), settings.coordDigits),
                       unit: unit.symbol),
                 ]),
+                const SizedBox(height: Insets.s),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonalIcon(
+                    key: const ValueKey('resection-send-to-stakeout'),
+                    onPressed: () => _sendToStakeout(p, settings),
+                    icon: const Icon(Icons.my_location_outlined, size: 18),
+                    label: Text(context.tr('设为当前放样测站')),
+                  ),
+                ),
               ],
             ),
       children: [

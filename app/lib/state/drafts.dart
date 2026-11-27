@@ -4,6 +4,54 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 已保存的草稿版本快照（用于「平差前 / 复测版」对比与一键回退）。
+class DraftSnapshot {
+  const DraftSnapshot({
+    required this.id,
+    required this.label,
+    required this.createdAt,
+    required this.fields,
+  });
+
+  final String id;
+  final String label;
+  final DateTime createdAt;
+  final Map<String, String> fields;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'label': label,
+        'createdAt': createdAt.toIso8601String(),
+        'fields': fields,
+      };
+
+  static DraftSnapshot? fromJson(dynamic raw) {
+    if (raw is! Map) return null;
+    final id = raw['id']?.toString();
+    final label = raw['label']?.toString();
+    final createdRaw = raw['createdAt']?.toString();
+    final createdAt =
+        createdRaw == null ? null : DateTime.tryParse(createdRaw);
+    final fieldsRaw = raw['fields'];
+    if (id == null ||
+        id.isEmpty ||
+        label == null ||
+        createdAt == null ||
+        fieldsRaw is! Map) {
+      return null;
+    }
+    return DraftSnapshot(
+      id: id,
+      label: label,
+      createdAt: createdAt,
+      fields: Map<String, String>.unmodifiable(<String, String>{
+        for (final e in fieldsRaw.entries)
+          e.key.toString(): e.value.toString(),
+      }),
+    );
+  }
+}
+
 /// 计算页的输入草稿：输入即落盘（防抖 400ms），重开页面自动回填。
 ///
 /// 存储结构：`draft.<pageId>` = JSON 字符串（字段名 → 文本）。
@@ -16,10 +64,13 @@ class DraftStore extends ChangeNotifier {
   static const String _prefix = 'draft.';
   static const String _stampPrefix = 'draft_at.';
   static const String _projectPrefix = 'draft_project.';
+  static const String _snapshotPrefix = 'draft_snapshots.';
 
   final Map<String, Map<String, String>> _cache = {};
   final Map<String, DateTime> _savedAt = {};
   final Map<String, String> _projects = {};
+  final Map<String, List<DraftSnapshot>> _snapshots = {};
+  final Map<String, int> _restoreRevisions = {};
   final Map<String, Timer> _timers = {};
   bool _loaded = false;
   Future<void> _writes = Future<void>.value();
@@ -49,6 +100,23 @@ class DraftStore extends ChangeNotifier {
         if (parsed != null) _savedAt[pageId] = parsed;
         final proj = p.getString('$_projectPrefix$pageId');
         if (proj != null && proj.isNotEmpty) _projects[pageId] = proj;
+      } else if (key.startsWith(_snapshotPrefix)) {
+        final pageId = key.substring(_snapshotPrefix.length);
+        final raw = p.getString(key);
+        if (raw == null) continue;
+        try {
+          final decoded = json.decode(raw);
+          if (decoded is List) {
+            final list = <DraftSnapshot>[];
+            for (final item in decoded) {
+              final snap = DraftSnapshot.fromJson(item);
+              if (snap != null) list.add(snap);
+            }
+            if (list.isNotEmpty) _snapshots[pageId] = list;
+          }
+        } catch (_) {
+          // 忽略损坏的快照列表。
+        }
       }
     }
     _loaded = true;
@@ -62,6 +130,73 @@ class DraftStore extends ChangeNotifier {
   String? value(String pageId, String field) => _cache[pageId]?[field];
 
   DateTime? savedAt(String pageId) => _savedAt[pageId];
+
+  int restoreRevision(String pageId) => _restoreRevisions[pageId] ?? 0;
+
+  /// 读取某页已保存的版本快照列表（按时间倒序）。
+  List<DraftSnapshot> snapshotsOf(String pageId) =>
+      List.unmodifiable(_snapshots[pageId] ?? const <DraftSnapshot>[]);
+
+  /// 保存当前草稿为命名快照并持久化到 SharedPreferences。
+  Future<DraftSnapshot> saveSnapshot(String pageId, String label) async {
+    await flushPage(pageId, notify: false);
+    final now = DateTime.now();
+    final trimmed = label.trim();
+    final snapshot = DraftSnapshot(
+      id: '${now.microsecondsSinceEpoch}',
+      label: trimmed.isEmpty ? 'Snapshot' : trimmed,
+      createdAt: now,
+      fields: Map<String, String>.unmodifiable(
+        Map<String, String>.from(_cache[pageId] ?? const <String, String>{}),
+      ),
+    );
+    final list = _snapshots.putIfAbsent(pageId, () => <DraftSnapshot>[]);
+    list.insert(0, snapshot);
+    notifyListeners();
+    await _persistSnapshots(pageId);
+    return snapshot;
+  }
+
+  /// 删除指定版本快照。
+  Future<void> deleteSnapshot(String pageId, String snapshotId) async {
+    final list = _snapshots[pageId];
+    if (list == null) return;
+    final before = list.length;
+    list.removeWhere((s) => s.id == snapshotId);
+    if (list.length == before) return;
+    if (list.isEmpty) _snapshots.remove(pageId);
+    notifyListeners();
+    await _persistSnapshots(pageId);
+  }
+
+  /// 恢复指定版本快照到当前草稿并立即落盘。
+  Future<bool> restoreSnapshot(String pageId, String snapshotId) async {
+    final list = _snapshots[pageId];
+    if (list == null) return false;
+    DraftSnapshot? target;
+    for (final s in list) {
+      if (s.id == snapshotId) {
+        target = s;
+        break;
+      }
+    }
+    if (target == null) return false;
+    _timers.remove(pageId)?.cancel();
+    _cache[pageId] = Map<String, String>.from(target.fields);
+    _restoreRevisions[pageId] = (_restoreRevisions[pageId] ?? 0) + 1;
+    await _flush(pageId, notify: true);
+    return true;
+  }
+
+  Future<void> _persistSnapshots(String pageId) async {
+    final list = _snapshots[pageId];
+    if (list == null || list.isEmpty) {
+      await _enqueue((p) => p.remove('$_snapshotPrefix$pageId'));
+      return;
+    }
+    final encoded = json.encode([for (final s in list) s.toJson()]);
+    await _enqueue((p) => p.setString('$_snapshotPrefix$pageId', encoded));
+  }
 
   String? projectOf(String pageId) => _projects[pageId];
 

@@ -15,6 +15,7 @@ import '../../../state/settings.dart';
 import '../../../theme/tokens.dart';
 import '../../page_scaffold.dart';
 import '../../widgets/draft_mixin.dart';
+import '../../widgets/gnss_chip.dart';
 import '../../widgets/page_actions.dart';
 import '../../widgets/tutorial_panel.dart';
 import '../../widgets/widgets.dart';
@@ -837,6 +838,13 @@ class _PolarPageState extends State<PolarPage> with DraftMixin<PolarPage> {
                 ),
               ],
             ),
+            GnssSampleChip(
+              onSample: (x, y, _) {
+                _x.text = fmt(u.fromMeters(x), digits);
+                _y.text = fmt(u.fromMeters(y), digits);
+                _calc();
+              },
+            ),
           ],
         ),
         InputCard(
@@ -1353,6 +1361,13 @@ class _StakeoutPageState extends State<StakeoutPage>
                   onPressed: () => _pickStakeoutControlPoint('b'),
                 ),
               ],
+            ),
+            GnssSampleChip(
+              onSample: (x, y, _) {
+                _sx.text = fmt(u.fromMeters(x), digits);
+                _sy.text = fmt(u.fromMeters(y), digits);
+                _calc();
+              },
             ),
           ],
         ),

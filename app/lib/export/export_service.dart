@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../engine/rust_bridge.dart';
 import '../platform/native_bridge_contract.dart';
 import '../l10n/survey_strings.dart';
 import 'survey_form_image.dart';
@@ -11,6 +12,7 @@ import 'xlsx_writer.dart';
 enum ExportFormat {
   xlsx('Excel 表格', 'xlsx'),
   png('工程表图片', 'png'),
+  dxf('DXF 图件', 'dxf'),
   csv('CSV 文本', 'csv'),
   txt('TXT 文本', 'txt');
 
@@ -240,6 +242,8 @@ class ExportService {
             contentUri: saved.contentUri,
             displayPath: saved.displayPath,
           );
+        case ExportFormat.dxf:
+          await file.writeAsString(toDxf(table), flush: true);
         case ExportFormat.csv:
           await file.writeAsString('\uFEFF${toCsv(table)}', flush: true);
         case ExportFormat.txt:
@@ -454,6 +458,51 @@ class ExportService {
       }
     }
     return sb.toString();
+  }
+
+  /// 将 [SheetTable] 中的坐标列提取为分层 ASCII DXF 文本（`POINTS` / `ELEVATIONS` / `TRAVERSE`）。
+  static String toDxf(SheetTable table) {
+    final points = <DxfExportPoint>[];
+    if (table.rows.length >= 2) {
+      final header = table.rows.first.map((c) => c.trim().toUpperCase()).toList();
+      int findCol(List<String> keys) {
+        for (var i = 0; i < header.length; i++) {
+          final h = header[i];
+          if (keys.any((k) => h == k || h.contains(k))) return i;
+        }
+        return -1;
+      }
+
+      final nameCol = findCol(['点名', '点号', 'NAME', 'ID', 'STATION', '测站']);
+      final xCol = findCol(['X(N)', 'NORTH', '北坐标', 'X']);
+      final yCol = findCol(['Y(E)', 'EAST', '东坐标', 'Y']);
+      final zCol = findCol(['Z', 'H', '高程', 'ELEV']);
+
+      if (xCol >= 0 && yCol >= 0) {
+        for (var r = 1; r < table.rows.length; r++) {
+          final row = table.rows[r];
+          if (xCol >= row.length || yCol >= row.length) continue;
+          final x = double.tryParse(row[xCol].trim());
+          final y = double.tryParse(row[yCol].trim());
+          if (x == null || y == null || !x.isFinite || !y.isFinite) continue;
+          final z = (zCol >= 0 && zCol < row.length)
+              ? double.tryParse(row[zCol].trim())
+              : null;
+          final name = (nameCol >= 0 && nameCol < row.length)
+              ? row[nameCol].trim()
+              : 'P$r';
+          points.add(DxfExportPoint(name: name, x: x, y: y, z: z));
+        }
+      }
+    }
+    final polylines = <DxfExportPolyline>[
+      if (points.length >= 2)
+        DxfExportPolyline(
+          vertices: [for (final p in points) (p.x, p.y)],
+          layer: 'TRAVERSE',
+        ),
+    ];
+    return RustBridge.exportDxf(points: points, polylines: polylines);
   }
 
   /// 生成南方 CASS 格式坐标文本（`点号,,Y,X,H`，无表头，UTF-8）。
