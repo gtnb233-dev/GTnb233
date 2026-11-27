@@ -1,10 +1,11 @@
 <div align="center">
   <img src="docs/screenshots/app_icon_256.png" width="88" height="88" alt="工程测量工具箱图标" />
-  <h1>工程测量工具箱 · Survey Pro</h1>
-  <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
+  <h1>Survey Pro · 工程测量工具箱</h1>
+  <p>面向工程测量外业、内业平差与测绘实训的开源工具箱，支持 Windows 和 Android，所有测量计算均在本机离线完成。</p>
+  <p>内置 19 项测量工具，覆盖四等水准、导线平差、坐标转换、放样和 TIN 土方。可用 LivePlot 查看点位与路线，导出 Excel、CSV、TXT 和 PNG 成果。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-windows-x64.zip"><strong>下载 Windows</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-windows-x64.zip"><strong>Windows x64 便携版</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-arm64-v8a.apk"><strong>Android ARM64</strong></a> ·
     <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.0.0">查看 v1.0.0 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
