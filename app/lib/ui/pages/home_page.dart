@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../../theme/workspace_layout.dart';
 import '../page_scaffold.dart';
 import '../tool_router.dart';
+import '../widgets/command_palette.dart';
 import '../widgets/outline_symbol.dart';
 import '../widgets/widgets.dart';
 import '../widgets/workspace_commands.dart';
@@ -61,17 +62,25 @@ class HomePage extends StatelessWidget {
       topReserve: underFloatingHeader && compact ? 54 : 0,
       overlayReserve: android ? null : QuickCommandBar.bottomClearance(context),
       trailing: [
-        if (compact || android)
+        if (android && compact)
+          IconButton(
+            key: const ValueKey('android-portrait-home-search'),
+            tooltip: context.tr('搜索工具与公式'),
+            onPressed: () => showCommandPalette(context),
+            icon: const OutlineSymbol(Icons.search_rounded),
+          )
+        else if (compact || android)
           IconButton(
             tooltip: 'LivePlot',
             onPressed: () => showWorkspacePlot(context),
             icon: const OutlineSymbol(Icons.polyline_outlined),
           ),
-        IconButton(
-          tooltip: context.tr('更多'),
-          onPressed: onOpenSettings,
-          icon: const OutlineSymbol(Icons.more_horiz),
-        ),
+        if (!android || !compact)
+          IconButton(
+            tooltip: context.tr('更多'),
+            onPressed: onOpenSettings,
+            icon: const OutlineSymbol(Icons.more_horiz),
+          ),
       ],
       children: [
         SurfaceCard(

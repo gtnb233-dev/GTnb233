@@ -122,6 +122,7 @@ Future<void> openWorkspacePage(
   final route = WorkspacePageRoute<void>(
     settings: RouteSettings(name: name, arguments: argument),
     builder: builder,
+    wideMotion: !workspaceUsesCompactLayout(context),
   );
   if (shallow && navigator.canPop()) {
     await navigator.pushAndRemoveUntil(route, (route) => route.isFirst);

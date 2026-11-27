@@ -18,6 +18,7 @@ import 'package:survey_pro/ui/pages/tools/coord_tools.dart';
 import 'package:survey_pro/ui/tool_router.dart';
 import 'package:survey_pro/ui/widgets/page_actions.dart';
 import 'package:survey_pro/ui/widgets/results.dart';
+import 'package:survey_pro/ui/workspace_page_route.dart';
 
 import 'support/app_scope.dart';
 
@@ -43,22 +44,31 @@ void main() {
     unawaited(openTool(home, toolById(id)!));
   }
 
-  testWidgets(
-      'wide tools switch in one frame and evict least recently used state',
+  testWidgets('wide tool routes animate entry, cached switches and exit',
       (tester) async {
     await pumpAndroid(tester, const Size(915, 412));
     selectTool(tester, 'inverse');
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
     final inverse = find.byType(InversePage);
     final original = tester.state(inverse);
-    final route = ModalRoute.of(tester.element(inverse));
-    expect(route!.animation!.isCompleted, isTrue);
+    final route = ModalRoute.of(tester.element(inverse))!;
+    expect(route, isA<WorkspaceToolRoute>());
+    expect(route.transitionDuration, const Duration(milliseconds: 200));
+    expect(route.animation!.value, inExclusiveRange(0.0, 1.0));
+    await tester.pumpAndSettle();
 
     selectTool(tester, 'traverse');
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
     final traverse = find.byType(TraversePage);
     expect(traverse, findsOneWidget);
+    expect(inverse, findsOneWidget);
     expect(ModalRoute.of(tester.element(traverse)), same(route));
+    final switchOpacity =
+        find.ancestor(of: traverse, matching: find.byType(Opacity)).first;
+    expect(tester.widget<Opacity>(switchOpacity).opacity,
+        inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
 
     selectTool(tester, 'inverse');
@@ -70,13 +80,18 @@ void main() {
     }
     expect(find.byType(TraversePage, skipOffstage: false), findsNothing);
     expect(find.byType(InversePage, skipOffstage: false), findsOneWidget);
-    await tester.binding.handlePopRoute();
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(route.animation!.status, AnimationStatus.reverse);
+    expect(route.animation!.value, inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
     expect(find.byType(HomePage), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('portrait mounts the tool only after the route entrance',
+  testWidgets(
+      'portrait uses a 260ms transition and supports animated and interactive Back',
       (tester) async {
     await pumpAndroid(tester, const Size(390, 844));
     selectTool(tester, 'inverse');
@@ -85,6 +100,33 @@ void main() {
     expect(find.byType(InversePage), findsNothing);
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
+    final nav = find.byKey(const ValueKey('android-portrait-bottom-nav'));
+    final route = ModalRoute.of(tester.element(find.byType(InversePage)))!;
+    expect(route.transitionDuration, const Duration(milliseconds: 260));
+    expect(nav, findsNothing);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(route.animation!.value, inExclusiveRange(0.0, 1.0));
+    await tester.pumpAndSettle();
+    expect(nav, findsOneWidget);
+
+    selectTool(tester, 'inverse');
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(const Offset(5, 370));
+    await gesture.moveBy(const Offset(32, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(90, 0));
+    await tester.pump();
+    final header = find.byKey(const ValueKey('workspace-detail-header'));
+    expect(tester.getTopLeft(header).dx, inExclusiveRange(40.0, 180.0));
+    expect(tester.getTopLeft(nav).dx, lessThan(0.0));
+    await gesture.moveBy(const Offset(150, 0));
+    await tester.pump(const Duration(milliseconds: 120));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(InversePage), findsNothing);
+    expect(nav, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -188,51 +230,63 @@ void main() {
   });
 
   testWidgets(
-      'unit capsule updates the page and global units and precision live',
+      'unit capsule cycles both modes directly and gives haptic feedback',
       (tester) async {
     final settings = await pumpAndroid(tester, const Size(390, 844));
+    final haptics = <Object?>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate') haptics.add(call.arguments);
+      return null;
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
     selectTool(tester, 'inverse');
     await tester.pumpAndSettle();
-    final button = find.byKey(const ValueKey('measurement-units-button'));
-    final panel = find.byKey(const ValueKey('measurement-units-panel'));
-    Future<void> tapLabel(String label) async {
-      final target = find.descendant(of: panel, matching: find.text(label));
-      await tester.ensureVisible(target);
-      await tester.tap(target);
+    final capsule = find.byKey(const ValueKey('measurement-units-button'));
+    final length = find.byKey(const ValueKey('measurement-length-segment'));
+    final angle = find.byKey(const ValueKey('measurement-angle-segment'));
+    Finder label(String symbol) =>
+        find.descendant(of: capsule, matching: find.text(symbol));
+    final route = ModalRoute.of(tester.element(find.byType(InversePage)));
+    Future<void> cycle(Finder segment, String expected) async {
+      await tester.tap(segment);
       await tester.pumpAndSettle();
+      expect(label(expected), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
+      expect(
+          ModalRoute.of(tester.element(find.byType(InversePage))), same(route));
+      expect(find.byKey(const ValueKey('survey-toast')), findsOneWidget);
     }
 
-    expect(find.text('m · DMS'), findsOneWidget);
-    await tester.tap(button);
-    await tester.pumpAndSettle();
-    await tapLabel('十进制度');
-    expect(settings.angleMode, AngleInputMode.decimalDegrees);
-    await tapLabel('厘米 (cm)');
-    expect(settings.lengthUnit, LengthUnit.centimeter);
-    expect(find.text('cm · DD'), findsOneWidget);
-    await tapLabel('弧度');
-    expect(settings.angleMode, AngleInputMode.radians);
-    await tapLabel('毫米 (mm)');
-    expect(settings.lengthUnit, LengthUnit.millimeter);
-    expect(find.text('mm · RAD'), findsOneWidget);
     final coordinate = settings.coordDigits;
     final seconds = settings.angleSecDigits;
-    for (final label in ['增加 坐标小数位', '增加 角度秒小数位']) {
-      final target = find.byTooltip(label);
-      await tester.ensureVisible(target);
-      await tester.tap(target);
-      await tester.pumpAndSettle();
+    expect(label('m'), findsOneWidget);
+    expect(label('DMS'), findsOneWidget);
+    for (final unit in [
+      LengthUnit.centimeter,
+      LengthUnit.millimeter,
+      LengthUnit.meter
+    ]) {
+      await cycle(length, unit.symbol);
+      expect(settings.lengthUnit, unit);
     }
-    expect(settings.coordDigits, coordinate + 1);
-    expect(settings.angleSecDigits, seconds + 1);
-    await tapLabel('度分秒');
-    await tapLabel('米 (m)');
-    expect(settings.angleMode, AngleInputMode.dmsCompact);
-    expect(settings.lengthUnit, LengthUnit.meter);
-    await tester.tap(find.byTooltip('关闭'));
+    for (final mode in [
+      AngleInputMode.decimalDegrees,
+      AngleInputMode.radians,
+      AngleInputMode.dmsCompact
+    ]) {
+      await cycle(angle, mode.symbol);
+      expect(settings.angleMode, mode);
+    }
+    expect(haptics, List.filled(6, 'HapticFeedbackType.selectionClick'));
+    expect(settings.coordDigits, coordinate);
+    expect(settings.angleSecDigits, seconds);
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
-    expect(find.byType(InversePage), findsOneWidget);
-    expect(find.text('m · DMS'), findsOneWidget);
+    expect(find.byKey(const ValueKey('survey-toast')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -21,6 +21,7 @@ import 'package:survey_pro/ui/pages/tools/projection_tools.dart';
 import 'package:survey_pro/ui/pages/tools/quadrant_tools.dart';
 import 'package:survey_pro/ui/pages/tools_page.dart';
 import 'package:survey_pro/ui/widgets/widgets.dart';
+import 'package:survey_pro/ui/widgets/sliding_bottom_nav.dart';
 import 'package:survey_pro/ui/widgets/workspace_commands.dart';
 
 /// 小屏 + 大字号下的版式体检。
@@ -361,6 +362,8 @@ void main() {
     const rootHeader = ValueKey('workspace-root-header');
     const detailHeader = ValueKey('workspace-detail-header');
     final foreground = find.byKey(const ValueKey('push-aside-foreground'));
+    expect(find.byKey(const ValueKey('android-portrait-bottom-nav')),
+        findsNothing);
     final drawerSwipe = await tester.startGesture(const Offset(5, 345));
     await drawerSwipe.moveBy(const Offset(28, 0));
     await tester.pump();
@@ -537,6 +540,7 @@ void main() {
     const Size(915, 412),
     const Size(1024, 640),
     const Size(390, 844),
+    const Size(800, 1280),
   ]) {
     testWidgets(
         'Android ${size.width}×${size.height} uses only the page header and no command dock',
@@ -563,10 +567,14 @@ void main() {
       final detailHeader =
           find.byKey(const ValueKey('workspace-detail-header'));
       final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+      final bottomNav =
+          find.byKey(const ValueKey('android-portrait-bottom-nav'));
       final wide = size.width > size.height;
       expect(desktopBar, findsNothing);
       expect(dock, findsNothing);
-      expect(rootHeader, wide ? findsNothing : findsOneWidget);
+      expect(rootHeader, findsNothing);
+      expect(bottomNav, wide ? findsNothing : findsOneWidget);
+      expect(find.byType(Drawer, skipOffstage: false), findsNothing);
       if (wide) {
         final bounds = tester.getRect(sidebar);
         expect(bounds.top, 24);
@@ -579,11 +587,19 @@ void main() {
                 .left);
         expect(find.byType(Drawer), findsNothing);
       } else {
-        await tester.tap(find.byTooltip('打开工作区菜单'));
-        await tester.pumpAndSettle();
+        expect(sidebar, findsNothing);
+        expect(find.byKey(const ValueKey('android-portrait-home-search')),
+            findsOneWidget);
+        final items =
+            find.descendant(of: bottomNav, matching: find.byType(InkWell));
+        expect(items, findsNWidgets(4));
+        for (var index = 0; index < 4; index++) {
+          expect(tester.getSize(items.at(index)).shortestSide,
+              greaterThanOrEqualTo(48));
+        }
       }
       final tool = find.descendant(
-        of: wide ? sidebar : find.byType(Drawer),
+        of: wide ? sidebar : find.byType(HomePage),
         matching: find.text('坐标反算'),
       );
       if (wide && tool.evaluate().isEmpty) {
@@ -607,6 +623,7 @@ void main() {
       expect(find.byType(InversePage), findsOneWidget);
       expect(desktopBar, findsNothing);
       expect(dock, findsNothing);
+      expect(bottomNav, findsNothing);
       expect(rootHeader, findsNothing);
       expect(detailHeader, findsOneWidget);
       expect(
@@ -621,6 +638,52 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+      'Android portrait tablet crossfades the four tabs and slides the indicator',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(800, 1280);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = AppSettings();
+    await settings.setLanguage(AppLanguage.chinese);
+    await tester.pumpWidget(WorkspaceHost(
+      android: true,
+      child: SurveyApp(settings: settings, drafts: DraftStore()),
+    ));
+    await tester.pumpAndSettle();
+
+    final nav = find.byKey(const ValueKey('android-portrait-bottom-nav'));
+    final indicator = find.byKey(SlidingBottomNav.indicatorKey);
+    Finder tab(String title) =>
+        find.descendant(of: nav, matching: find.text(title));
+    final initial = tester.getCenter(indicator).dx;
+    expect(tester.getCenter(nav).dx, closeTo(400, 1));
+    await tester.tap(tab('工具库'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 56));
+    expect(find.byType(HomePage), findsOneWidget);
+    expect(find.byType(ToolsPage), findsOneWidget);
+    final toolOpacity = find
+        .ancestor(of: find.byType(ToolsPage), matching: find.byType(Opacity))
+        .first;
+    expect(tester.widget<Opacity>(toolOpacity).opacity,
+        inExclusiveRange(0.0, 1.0));
+    expect(tester.getCenter(indicator).dx, greaterThan(initial));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomePage), findsNothing);
+    await tester.tap(tab('LivePlot'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceLivePlotPanel), findsOneWidget);
+    await tester.tap(tab('设置'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    await tester.tap(tab('首页'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('320x640 @ 1.3x 字号下中英文外壳均无溢出', (tester) async {
     for (final lang in [AppLanguage.chinese, AppLanguage.english]) {

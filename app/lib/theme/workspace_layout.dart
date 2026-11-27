@@ -6,6 +6,9 @@ import 'package:flutter/widgets.dart';
 import 'tokens.dart';
 
 bool workspaceUsesCompactLayout(BuildContext context) {
+  if (WorkspaceHost.isAndroid(context)) {
+    return MediaQuery.orientationOf(context) == Orientation.portrait;
+  }
   final size = MediaQuery.sizeOf(context);
   final wide = size.width >= kSidebarNavigationMinWidth ||
       (size.width > size.height && size.width >= 640);

@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/material.dart';
 
 import '../theme/workspace_layout.dart';
 import 'widgets/liquid_glass.dart';
@@ -28,13 +27,15 @@ class WorkspaceNavigatorObserver extends NavigatorObserver {
 /// Keep the render tree for a route stable while its glass becomes opaque.
 class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
   WorkspacePageRoute(
-      {required super.builder, super.settings, this.instant = false});
+      {required super.builder, super.settings, this.wideMotion = false});
 
-  final bool instant;
+  final bool wideMotion;
+  static const wideDuration = Duration(milliseconds: 200);
+  static const wideOffset = Offset(.03, 0);
 
   @override
   Duration get transitionDuration =>
-      instant ? Duration.zero : const Duration(milliseconds: 260);
+      wideMotion ? wideDuration : const Duration(milliseconds: 260);
 
   @override
   Widget buildTransitions(
@@ -43,9 +44,6 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    if (instant && !workspaceUsesCompactLayout(context)) {
-      return RepaintBoundary(child: child);
-    }
     final content = AnimatedBuilder(
       animation: Listenable.merge([animation, secondaryAnimation]),
       child: RepaintBoundary(child: child),
@@ -59,20 +57,15 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
       return super
           .buildTransitions(context, animation, secondaryAnimation, content);
     }
-    final routeAnimation = popGestureInProgress
-        ? animation
-        : CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-    return Theme.of(context).pageTransitionsTheme.buildTransitions(
-          this,
-          context,
-          routeAnimation,
-          secondaryAnimation,
-          content,
-        );
+    final eased = animation.drive(CurveTween(curve: Curves.easeOutCubic));
+    return FadeTransition(
+      opacity: eased,
+      child: SlideTransition(
+        position: eased.drive(Tween(begin: wideOffset, end: Offset.zero)),
+        textDirection: Directionality.of(context),
+        child: content,
+      ),
+    );
   }
 }
 
@@ -86,7 +79,7 @@ class WorkspaceToolRoute extends WorkspacePageRoute<void> {
       ValueNotifier<List<_ToolSlot>> slots, (String, Object?) initial)
       : _slots = slots,
         super(
-          instant: true,
+          wideMotion: true,
           settings: RouteSettings(name: initial.$1, arguments: initial.$2),
           builder: (_) => _ToolStack(slots: slots),
         );
@@ -131,24 +124,123 @@ class _ToolStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
         valueListenable: slots,
-        builder: (context, entries, _) => Stack(
-          fit: StackFit.expand,
-          children: [
-            for (final entry in entries)
-              Offstage(
-                key: ValueKey(entry.key),
-                offstage: entry != entries.last,
-                child: TickerMode(
-                  enabled: entry == entries.last,
-                  child: ExcludeFocus(
-                    excluding: entry != entries.last,
-                    child: RepaintBoundary(child: entry.page),
-                  ),
-                ),
-              ),
-          ],
+        builder: (context, entries, _) => WorkspacePageDeck(
+          pages: {for (final entry in entries) entry.key: entry.page},
+          active: entries.last.key,
+          duration: WorkspacePageRoute.wideDuration,
+          enterOffset: WorkspacePageRoute.wideOffset,
         ),
       );
+}
+
+/// Retains visited pages while animating only the incoming and outgoing pages.
+class WorkspacePageDeck extends StatefulWidget {
+  const WorkspacePageDeck({
+    super.key,
+    required this.pages,
+    required this.active,
+    required this.duration,
+    this.enterOffset = Offset.zero,
+  });
+
+  final Map<Object, Widget> pages;
+  final Object active;
+  final Duration duration;
+  final Offset enterOffset;
+
+  @override
+  State<WorkspacePageDeck> createState() => _WorkspacePageDeckState();
+}
+
+class _WorkspacePageDeckState extends State<WorkspacePageDeck>
+    with SingleTickerProviderStateMixin {
+  late final _visited = {widget.active};
+  late final _motion = AnimationController(vsync: this, value: 1);
+  Object? _outgoing;
+
+  @override
+  void didUpdateWidget(covariant WorkspacePageDeck oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _visited.retainAll(widget.pages.keys);
+    _visited.add(widget.active);
+    if (oldWidget.active == widget.active) return;
+    _outgoing = oldWidget.active;
+    _motion.duration = widget.duration;
+    if (widget.duration == Duration.zero ||
+        MediaQuery.disableAnimationsOf(context)) {
+      _motion.value = 1;
+    } else {
+      _motion.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _motion.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enterOffset = Directionality.of(context) == TextDirection.rtl
+        ? -widget.enterOffset
+        : widget.enterOffset;
+    return ListenableBuilder(
+      listenable: _motion,
+      builder: (context, _) {
+        final moving = !_motion.isCompleted;
+        final progress = Curves.easeOutCubic.transform(_motion.value);
+        return GlassBlurSuspensionScope(
+          suspended: moving || GlassBlurSuspensionScope.isSuspended(context),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              for (final key in _visited)
+                if (key != widget.active)
+                  _slot(key,
+                      visible: moving && _outgoing == key,
+                      opacity: 1 - progress,
+                      offset: -enterOffset * progress),
+              _slot(widget.active,
+                  visible: true,
+                  opacity: progress,
+                  offset: enterOffset * (1 - progress)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _slot(Object key,
+      {required bool visible,
+      required double opacity,
+      required Offset offset}) {
+    final active = key == widget.active;
+    return Offstage(
+      key: ValueKey(key),
+      offstage: !visible,
+      child: TickerMode(
+        enabled: active,
+        child: ExcludeFocus(
+          excluding: !active,
+          child: ExcludeSemantics(
+            excluding: !active,
+            child: IgnorePointer(
+              ignoring: !active,
+              child: Opacity(
+                opacity: visible ? opacity : 1,
+                child: FractionalTranslation(
+                  translation: visible ? offset : Offset.zero,
+                  child: RepaintBoundary(child: widget.pages[key]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Restore inputs on first paint and defer heavier derived results until the

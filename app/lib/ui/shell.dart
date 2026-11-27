@@ -13,6 +13,7 @@ import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import '../theme/workspace_layout.dart';
+import 'page_scaffold.dart';
 import 'pages/home_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/tools_page.dart';
@@ -72,6 +73,17 @@ class _AppShellState extends State<AppShell> {
         icon: item.icon,
         selectedIcon: item.activeIcon,
       ),
+  ];
+  static const _androidTabs = [0, 3, 5, 4];
+  static final _androidGlassItems = [
+    _glassItems[0],
+    _glassItems[3],
+    const GlassNavItem(
+      label: 'LivePlot',
+      icon: Icons.polyline_outlined,
+      selectedIcon: Icons.polyline,
+    ),
+    _glassItems[4],
   ];
 
   @override
@@ -154,36 +166,50 @@ class _AppShellState extends State<AppShell> {
           builder: (_) => WorkspacePanelBackground(
             child: ValueListenableBuilder<int>(
               valueListenable: _destination,
-              builder: (context, index, _) => _rootFrame(
-                  context,
-                  Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      IndexedStack(
-                        index: index,
-                        children: [
-                          HomePage(
-                              onNavigate: _go,
-                              onOpenSettings: () => _go(4),
-                              underFloatingHeader: true),
-                          const CoordPage(),
-                          const FormulaPage(),
-                          const ToolsPage(),
-                          const SettingsPage(),
-                        ],
-                      ),
-                      if (index == 0 && !WorkspaceHost.isAndroid(context))
-                        const Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: QuickCommandBar()),
-                    ],
-                  )),
+              builder: (context, index, _) =>
+                  _rootFrame(context, _rootPages(context, index)),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _rootPages(BuildContext context, int index) {
+    final android = WorkspaceHost.isAndroid(context);
+    final pages = <Widget>[
+      HomePage(
+        onNavigate: _go,
+        onOpenSettings: () => _go(4),
+        underFloatingHeader: !android,
+      ),
+      const CoordPage(),
+      const FormulaPage(),
+      const ToolsPage(),
+      const SettingsPage(),
+      if (android)
+        const PageScaffold(
+          title: '实时坐标图',
+          children: [WorkspaceLivePlotPanel()],
+        ),
+    ];
+    if (android) {
+      return WorkspacePageDeck(
+        pages: {for (final (index, page) in pages.indexed) index: page},
+        active: index,
+        duration: workspaceUsesCompactLayout(context)
+            ? const Duration(milliseconds: 180)
+            : Duration.zero,
+      );
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        IndexedStack(index: index, children: pages),
+        if (index == 0)
+          const Positioned(
+              left: 0, right: 0, bottom: 0, child: QuickCommandBar()),
+      ],
     );
   }
 
@@ -206,12 +232,38 @@ class _AppShellState extends State<AppShell> {
       );
 
   Widget _rootFrame(BuildContext context, Widget pages) {
-    final settings = SettingsScope.of(context);
     final compact = workspaceUsesCompactLayout(context);
+    if (WorkspaceHost.isAndroid(context)) {
+      return Scaffold(
+        body: pages,
+        bottomNavigationBar: compact
+            ? SafeArea(
+                top: false,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  heightFactor: 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: RepaintBoundary(
+                      child: GlassNavBar(
+                        key: const ValueKey('android-portrait-bottom-nav'),
+                        index: _androidTabs.indexOf(_index).clamp(0, 3),
+                        items: _androidGlassItems,
+                        onSelect: (tab) => _go(_androidTabs[tab]),
+                        blurSigma: 0,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null,
+      );
+    }
+    final settings = SettingsScope.of(context);
     final scheme = Theme.of(context).colorScheme;
     final floatingNav = settings.floatingGlassNav;
     // Remove redundant 5-tab bottom bar on narrow Home (where QuickCommandBar lives).
-    final bottom = (compact && _index != 0 && !WorkspaceHost.isAndroid(context))
+    final bottom = (compact && _index != 0)
         ? floatingNav
             ? SafeArea(
                 top: false,
