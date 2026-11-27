@@ -114,43 +114,47 @@ class _ResultTileState extends State<ResultTile> {
             Flexible(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 160),
-                  transitionBuilder: (child, anim) =>
-                      FadeTransition(opacity: anim, child: child),
-                  child: Text(
-                    widget.value,
-                    key: ValueKey<String>(widget.value),
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(
-                      fontSize: widget.dense ? 15 : 18,
-                      fontWeight: FontWeight.w600,
-                      color: valueColor,
-                      fontFamily: kSurveyMono,
-                      fontFamilyFallback: const ['Noto Sans SC'],
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      letterSpacing: -0.2,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      transitionBuilder: (child, anim) =>
+                          FadeTransition(opacity: anim, child: child),
+                      child: Text(
+                        widget.value,
+                        key: ValueKey<String>(widget.value),
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: widget.dense ? 15 : 18,
+                          fontWeight: FontWeight.w600,
+                          color: valueColor,
+                          fontFamily: kSurveyMono,
+                          fontFamilyFallback: const ['Noto Sans SC'],
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          letterSpacing: -0.2,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (widget.unit != null) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        context.tr(widget.unit!),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-            if (widget.unit != null) ...[
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(top: 3),
-                child: Text(
-                  context.tr(widget.unit!),
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
             if (widget.copyable)
               AnimatedOpacity(
                 opacity: _hovered ? 0.72 : 0.0,
@@ -203,15 +207,17 @@ class ResultGrid extends StatelessWidget {
         final rows = <Widget>[];
         for (var i = 0; i < items.length; i += 2) {
           rows.add(
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: items[i]),
-                if (i + 1 < items.length)
-                  Expanded(child: items[i + 1])
-                else
-                  const Spacer(),
-              ],
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: items[i]),
+                  if (i + 1 < items.length)
+                    Expanded(child: items[i + 1])
+                  else
+                    const Spacer(),
+                ],
+              ),
             ),
           );
         }
@@ -402,6 +408,7 @@ class _MetricTileState extends State<MetricTile> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (widget.accent != null) ...[
                   Container(
@@ -445,42 +452,41 @@ class _MetricTileState extends State<MetricTile> {
               ],
             ),
             const SizedBox(height: Insets.s),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      widget.value,
-                      maxLines: 1,
-                      softWrap: false,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    widget.value,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: widget.accent ?? scheme.onSurface,
+                      letterSpacing: -0.3,
+                      fontFamily: kSurveyMono,
+                      fontFamilyFallback: const ['Noto Sans SC'],
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (widget.unit != null) ...[
+                    const SizedBox(width: Insets.xs),
+                    Text(
+                      context.tr(widget.unit!),
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: widget.accent ?? scheme.onSurface,
-                        letterSpacing: -0.3,
-                        fontFamily: kSurveyMono,
-                        fontFamilyFallback: const ['Noto Sans SC'],
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                ),
-                if (widget.unit != null) ...[
-                  const SizedBox(width: Insets.xs),
-                  Text(
-                    context.tr(widget.unit!),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
             if (widget.caption != null) ...[
               const SizedBox(height: Insets.s),

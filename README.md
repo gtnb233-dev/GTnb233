@@ -35,7 +35,7 @@
 - **全局 `LivePlot` 实时动态坐标图**
   严格工程坐标系（`X↑北 / Y→东`），随输入实时绘制点位、连线、闭合差与高程纵断面，支持 60fps 缩放平移、点选查坐标及宽屏右侧分屏联动。
 - **Apple HIG 液态玻璃 + 响应式界面**
-  支持浅色、深色和跟随系统三态主题。Windows 与 Android 横屏共用可折叠侧栏和单层测量页头。Windows 使用系统原生窗口控件，窄窗使用侧栏图标轨。Android 手机和平板竖屏采用四项液态玻璃底栏，进入工具后可跟手侧滑返回。测量页可在顶栏直接切换长度与角度单位。
+  支持浅色、深色与跟随系统三态主题，界面字号按系统设置在 0.85×–1.35× 内缩放。左上圆钮展开或隐藏侧栏。宽屏展开时并排显示，Android 竖屏与窄窗使用覆盖式侧栏。Android 竖屏可在「设置 → 外观与导航」开启液态玻璃底栏，测量页支持跟手侧滑返回与顶栏单位直切。
 - **防丢草稿与全离线多格式导出**
   输入自动防抖保存草稿并支持 Undo/Redo；成果支持导出 **2.5x 高清图片（Android 自动入相册）**、**含导线略图的 `.xlsx` 表格**、**UTF-8 BOM `.csv`** 及 **`.txt` 文本报告**，且界面与导出文件均支持全球多语言无残留切换。
 
@@ -51,17 +51,17 @@
 
 **Windows 宽屏 · 导线平差与 LivePlot**
 
-左侧为可折叠导航，可搜索工具和编辑常用工具。导线平差的单层页头集成草稿状态、单位直切与更多操作，右侧 LivePlot 分屏显示导线点位与连线。
+左侧导航提供坐标预设、全局搜索与常用工具。导线平差的页头与侧栏顶部控件对齐，集成草稿状态、单位直切和更多操作。右侧 LivePlot 分屏显示导线点位与连线。
 
 <img src="docs/screenshots/v1.0.0/windows-traverse-liveplot.png" width="980" alt="Windows 宽屏导线平差，左侧为导航，中央为导线录入，右侧为 LivePlot 分屏" />
 
 **Android 竖屏 · 首页与四等水准测量**
 
-首页提供搜索、草稿和常用工具入口，底部为「首页 / 工具库 / LivePlot / 设置」四项液态玻璃导航。四等水准测量页展示双面尺手簿和逐站检核结果。
+首页顶部并排展示「继续上次」与「工具库」。左上圆钮打开侧栏，竖屏默认使用全宽页面。四等水准测量页展示双面尺手簿与逐站检核。
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/v1.0.0/android-portrait-home.png" width="280" alt="Android 竖屏首页，底部有首页、工具库、LivePlot 和设置四项液态玻璃导航" /><br />竖屏首页</td>
+    <td align="center"><img src="docs/screenshots/v1.0.0/android-portrait-home.png" width="280" alt="Android 竖屏首页，顶部并排展示继续上次与工具库卡片" /><br />竖屏首页</td>
     <td align="center"><img src="docs/screenshots/v1.0.0/android-leveling4.png" width="280" alt="Android 四等水准测量页，显示四站双面尺手簿、视距检核和闭合差" /><br />四等水准测量</td>
   </tr>
 </table>

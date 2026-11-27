@@ -73,7 +73,7 @@ class PushAsideDrawerState extends State<PushAsideDrawer>
       },
       child: LayoutBuilder(builder: (context, constraints) {
         final width =
-            math.min(272.0, constraints.maxWidth * .78).clamp(1.0, 272.0);
+            math.min(320.0, constraints.maxWidth * 0.80).clamp(1.0, 320.0);
         void drag(DragUpdateDetails details) {
           if (!current || !widget.enabled) return;
           _progress.value =

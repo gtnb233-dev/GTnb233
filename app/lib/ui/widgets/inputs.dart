@@ -457,58 +457,68 @@ class _NumberFieldState extends State<NumberField> {
 
     Widget? suffix;
     if (showClear || (effectiveUnit != null && effectiveUnit.isNotEmpty)) {
-      suffix = Padding(
-        padding: const EdgeInsets.only(right: 8, left: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showClear)
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () {
-                  widget.controller.clear();
-                  widget.onChanged?.call('');
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: scheme.onSurfaceVariant,
+      suffix = Align(
+        alignment: Alignment.center,
+        widthFactor: 1.0,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 8, left: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (showClear)
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    widget.controller.clear();
+                    widget.onChanged?.call('');
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-            if (effectiveUnit != null && effectiveUnit.isNotEmpty) ...[
-              if (showClear) const SizedBox(width: 2),
-              _InlineBadge(
-                label: effectiveUnit,
-                accent: widget.lengthUnit != null &&
-                    widget.lengthUnit != LengthUnit.meter,
-              ),
+              if (effectiveUnit != null && effectiveUnit.isNotEmpty) ...[
+                if (showClear) const SizedBox(width: 2),
+                _InlineBadge(
+                  label: effectiveUnit,
+                  accent: widget.lengthUnit != null &&
+                      widget.lengthUnit != LengthUnit.meter,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       );
     }
 
     Widget? prefix;
     if (widget.prefixTag != null && widget.prefixTag!.isNotEmpty) {
-      prefix = Padding(
-        padding: const EdgeInsets.only(left: 10, right: 6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: scheme.primary.withValues(alpha: 0.11),
-            borderRadius: BorderRadius.circular(Radii.pill),
-          ),
-          child: Text(
-            widget.prefixTag!,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: scheme.primary,
-              fontFamily: kSurveyMono,
-              fontFamilyFallback: const ['Noto Sans SC'],
+      prefix = Align(
+        alignment: Alignment.center,
+        widthFactor: 1.0,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 10, right: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.11),
+              borderRadius: BorderRadius.circular(Radii.pill),
+            ),
+            child: Text(
+              widget.prefixTag!,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                leadingDistribution: TextLeadingDistribution.even,
+                color: scheme.primary,
+                fontFamily: kSurveyMono,
+                fontFamilyFallback: const ['Noto Sans SC'],
+              ),
             ),
           ),
         ),
@@ -526,6 +536,7 @@ class _NumberFieldState extends State<NumberField> {
       focusNode: _focus,
       enabled: widget.enabled,
       autofocus: widget.autofocus,
+      textAlignVertical: TextAlignVertical.center,
       keyboardType: TextInputType.numberWithOptions(
         decimal: true,
         signed: widget.allowNegative,
@@ -588,6 +599,7 @@ class TextValueField extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       maxLines: maxLines,
+      textAlignVertical: TextAlignVertical.center,
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       onChanged: onChanged,
       decoration: InputDecoration(
@@ -810,6 +822,7 @@ class _DataTextFieldState extends State<DataTextField> {
                     scrollController: _textScroll,
                     maxLines: widget.maxLines,
                     minLines: widget.minLines,
+                    textAlignVertical: TextAlignVertical.center,
                     style: const TextStyle(
                       fontSize: 13.5,
                       height: 1.4,
@@ -828,6 +841,7 @@ class _DataTextFieldState extends State<DataTextField> {
               controller: widget.controller,
               maxLines: widget.maxLines,
               minLines: widget.minLines,
+              textAlignVertical: TextAlignVertical.center,
               style: const TextStyle(
                 fontSize: 13.5,
                 height: 1.4,
@@ -1498,6 +1512,7 @@ class AngleFieldState extends State<AngleField> {
                 autocorrect: false,
                 enableSuggestions: false,
                 textAlign: textAlign,
+                textAlignVertical: TextAlignVertical.center,
                 textInputAction: textInputAction,
                 style: TextStyle(
                   fontSize: 15.5,
@@ -1538,6 +1553,7 @@ class AngleFieldState extends State<AngleField> {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,
+                leadingDistribution: TextLeadingDistribution.even,
                 color: cellFocused ? scheme.primary : scheme.onSurfaceVariant,
               ),
             ),
@@ -1559,6 +1575,7 @@ class AngleFieldState extends State<AngleField> {
         AnimatedContainer(
           duration: Motion.quick,
           curve: Motion.ease,
+          constraints: const BoxConstraints(minHeight: 44),
           decoration: BoxDecoration(
             color:
                 widget.enabled ? fillColor : fillColor.withValues(alpha: 0.55),
@@ -1573,7 +1590,10 @@ class AngleFieldState extends State<AngleField> {
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(children: cells),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: cells,
+          ),
         ),
         if (_formatError != null) ...[
           const SizedBox(height: 5),
@@ -1706,6 +1726,7 @@ class AngleFieldState extends State<AngleField> {
               controller: _radCtrl,
               focusNode: _radFocus,
               enabled: widget.enabled,
+              textAlignVertical: TextAlignVertical.center,
               keyboardType: const TextInputType.numberWithOptions(
                   decimal: true, signed: true),
               decoration: InputDecoration(
@@ -1745,6 +1766,7 @@ class _InlineBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
+          leadingDistribution: TextLeadingDistribution.even,
           color: accent ? scheme.primary : scheme.onSurfaceVariant,
           fontFamily: kSurveyMono,
           fontFamilyFallback: const ['Noto Sans SC'],
@@ -1799,11 +1821,18 @@ class InputCard extends StatelessWidget {
                 bottom: (step != null || icon != null) ? Insets.s : Insets.m,
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   if (step != null) ...[
                     Container(
-                      width: 21,
-                      height: 21,
+                      constraints: const BoxConstraints(
+                        minWidth: 21,
+                        minHeight: 21,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: scheme.primary,
@@ -1814,6 +1843,7 @@ class InputCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
+                          leadingDistribution: TextLeadingDistribution.even,
                           color: scheme.onPrimary,
                           fontFamily: kSurveyMono,
                           fontFamilyFallback: const ['Noto Sans SC'],

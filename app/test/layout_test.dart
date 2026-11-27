@@ -248,7 +248,7 @@ void main() {
       expect(dock, findsNothing);
     }
 
-    checkShell(272);
+    checkShell(280);
     await tester.tap(find.byKey(const ValueKey('sidebar-search-btn')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -259,7 +259,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(InversePage), findsOneWidget);
     expect(header, findsOneWidget);
-    checkShell(272);
+    checkShell(280);
 
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();

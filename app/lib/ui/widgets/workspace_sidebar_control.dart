@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../l10n/survey_strings.dart';
+import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
 
 class WorkspaceSidebarScope extends InheritedWidget {
@@ -31,10 +32,30 @@ class WorkspaceSidebarControl extends StatelessWidget {
   final VoidCallback onToggle;
 
   @override
-  Widget build(BuildContext context) => WorkspaceGlassButton(
-        key: const ValueKey('sidebar-toggle-btn'),
-        icon: open ? Icons.menu_open_rounded : Icons.menu_rounded,
-        label: context.tr(open ? '收起侧边栏' : '展开侧边栏'),
-        onPressed: onToggle,
+  Widget build(BuildContext context) => SizedBox.square(
+        dimension: kTopBarButtonSize,
+        child: IconButton(
+          key: const ValueKey('sidebar-toggle-btn'),
+          tooltip: context.tr(open ? '收起侧边栏' : '展开侧边栏'),
+          onPressed: onToggle,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(
+            width: kTopBarButtonSize,
+            height: kTopBarButtonSize,
+          ),
+          icon: LiquidGlassSurface(
+            width: kTopBarButtonSize,
+            height: kTopBarButtonSize,
+            borderRadius: BorderRadius.circular(kTopBarButtonSize / 2),
+            elevated: false,
+            blurSigma: 12,
+            child: Center(
+              child: Icon(
+                open ? Icons.menu_open_rounded : Icons.menu_rounded,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
       );
 }

@@ -64,59 +64,102 @@ class PageScaffold extends StatelessWidget {
                   ? const BouncingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics())
                   : null,
-              padding: EdgeInsets.fromLTRB(pad, Insets.l, pad, Insets.xl),
+              padding:
+                  EdgeInsets.fromLTRB(pad, kTopBarTopInset, pad, Insets.xl),
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (sidebar != null) ...[
-                            if (sidebar.open && sidebar.overlay)
-                              const SizedBox(width: 48)
-                            else
-                              WorkspaceSidebarControl(
-                                  open: sidebar.open,
-                                  onToggle: sidebar.onToggle),
-                            const SizedBox(width: Insets.s),
-                          ],
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  context.tr(title),
-                                  style: TextStyle(
-                                    fontSize:
-                                        constraints.maxWidth >= 900 ? 32 : 28,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.7,
-                                    color: scheme.onSurface,
-                                    height: 1.15,
-                                  ),
+                      ConstrainedBox(
+                        constraints:
+                            const BoxConstraints(minHeight: kTopBarHeight),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (sidebar != null) ...[
+                              SizedBox(
+                                height: kTopBarHeight,
+                                child: Center(
+                                  child: sidebar.open && sidebar.overlay
+                                      ? const SizedBox(width: kTopBarButtonSize)
+                                      : WorkspaceSidebarControl(
+                                          open: sidebar.open,
+                                          onToggle: sidebar.onToggle,
+                                        ),
                                 ),
-                                if (caption != null) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    context.tr(caption!),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: scheme.onSurfaceVariant,
-                                      height: 1.35,
+                              ),
+                              const SizedBox(width: Insets.s),
+                            ],
+                            Expanded(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                    minHeight: kTopBarHeight),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.tr(title),
+                                      textHeightBehavior:
+                                          kSurveyTextHeightBehavior,
+                                      style: TextStyle(
+                                        fontSize: constraints.maxWidth >= 900
+                                            ? 32
+                                            : 28,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.7,
+                                        color: scheme.onSurface,
+                                        height: 1.15,
+                                      ),
+                                    ),
+                                    if (caption != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        context.tr(caption!),
+                                        textHeightBehavior:
+                                            kSurveyTextHeightBehavior,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: scheme.onSurfaceVariant,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (trailing != null) ...[
+                              const SizedBox(width: Insets.s),
+                              SizedBox(
+                                height: kTopBarHeight,
+                                child: Center(
+                                  child: IconButtonTheme(
+                                    data: IconButtonThemeData(
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size.square(
+                                          kTopBarButtonSize,
+                                        ),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: _spaced(trailing!),
                                     ),
                                   ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          if (trailing != null) ...[
-                            const SizedBox(width: Insets.s),
-                            ..._spaced(trailing!),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                       if (toolbar != null) ...[
                         const SizedBox(height: Insets.m),
@@ -693,27 +736,58 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final draftBadge = _buildDraftBadge(context);
     final sidebar = WorkspaceSidebarScope.maybeOf(context);
     final heading = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (sidebar != null) ...[
-          if (sidebar.open && sidebar.overlay)
-            const SizedBox(width: 48)
-          else
-            WorkspaceSidebarControl(
-                open: sidebar.open, onToggle: sidebar.onToggle),
+          SizedBox(
+            height: kTopBarHeight,
+            child: Center(
+              child: sidebar.open && sidebar.overlay
+                  ? const SizedBox(width: kTopBarButtonSize)
+                  : WorkspaceSidebarControl(
+                      open: sidebar.open, onToggle: sidebar.onToggle),
+            ),
+          ),
           const SizedBox(width: 7),
         ] else if (canPop) ...[
-          WorkspaceGlassButton(
-            icon: Icons.arrow_back_ios_new_rounded,
-            label: context.tr('返回'),
-            onPressed: () => Navigator.maybePop(context),
+          SizedBox(
+            height: kTopBarHeight,
+            child: Center(
+              child: SizedBox.square(
+                dimension: kTopBarButtonSize,
+                child: IconButton(
+                  tooltip: context.tr('返回'),
+                  onPressed: () => Navigator.maybePop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: kTopBarButtonSize,
+                    height: kTopBarButtonSize,
+                  ),
+                  icon: LiquidGlassSurface(
+                    width: kTopBarButtonSize,
+                    height: kTopBarButtonSize,
+                    borderRadius:
+                        BorderRadius.circular(kTopBarButtonSize / 2),
+                    elevated: false,
+                    blurSigma: 12,
+                    child: const Center(
+                      child: Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 7),
         ],
         Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: kTopBarHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Row(
                 children: [
                   Flexible(
@@ -747,6 +821,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 ),
             ],
           ),
+        ),
         ),
       ],
     );
@@ -802,13 +877,17 @@ class _DetailScaffoldState extends State<DetailScaffold> {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.fromLTRB(12, kTopBarTopInset, 12, 6),
           child: stacked
               ? Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    heading,
+                    ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(minHeight: kTopBarHeight),
+                      child: heading,
+                    ),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       reverse: true,
@@ -816,12 +895,19 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                     ),
                   ],
                 )
-              : Row(
-                  children: [
-                    Expanded(child: heading),
-                    const SizedBox(width: 4),
-                    controls,
-                  ],
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: kTopBarHeight),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: heading),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        height: kTopBarHeight,
+                        child: Center(child: controls),
+                      ),
+                    ],
+                  ),
                 ),
         ),
       ),
@@ -850,7 +936,12 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final hasLeading = canPop || WorkspaceSidebarScope.maybeOf(context) != null;
     final stackedHeader =
         constraints.maxWidth - controlsWidth - (hasLeading ? 79 : 24) < 110;
-    final headerHeight = stackedHeader ? 108.0 : 62.0;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final scaleExtra = math.max(0.0, (textScale - 1.0) * 40.0);
+    final headerHeight = (stackedHeader
+            ? 112.0
+            : kTopBarTopInset + kTopBarHeight + 6.0) +
+        scaleExtra;
     final twoPane = !workspaceUsesCompactLayout(context) &&
         (widget.sideVisual != null || widget.reserveSideVisual) &&
         constraints.maxWidth >= 560;

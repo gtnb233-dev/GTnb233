@@ -15,6 +15,7 @@ import 'state/settings.dart';
 import 'theme/app_theme.dart';
 import 'theme/compact_workspace_theme.dart';
 import 'theme/monet.dart';
+import 'theme/tokens.dart';
 import 'theme/ui_style.dart';
 import 'ui/shell.dart';
 import 'ui/widgets/workspace_commands.dart';
@@ -237,17 +238,20 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
               localizationsDelegates: SurveyStrings.delegates,
               home: const AppShell(),
               builder: (context, child) {
-                // 统一限制系统字体缩放上限，避免超大字号把测量结果挤坏版式。
+                // 统一限制系统字体缩放范围（0.85x–1.35x），兼顾高/低 DPI 与字号缩放，同时避免极端字号挤坏版式。
                 final mq = MediaQuery.of(context);
                 return MediaQuery(
                   data: mq.copyWith(
                     textScaler: mq.textScaler.clamp(
-                      minScaleFactor: 0.9,
-                      maxScaleFactor: 1.3,
+                      minScaleFactor: 0.85,
+                      maxScaleFactor: 1.35,
                     ),
                   ),
-                  child: WorkspaceCommandsEnabled(
-                      child: child ?? const SizedBox.shrink()),
+                  child: DefaultTextHeightBehavior(
+                    textHeightBehavior: kSurveyTextHeightBehavior,
+                    child: WorkspaceCommandsEnabled(
+                        child: child ?? const SizedBox.shrink()),
+                  ),
                 );
               },
             ),

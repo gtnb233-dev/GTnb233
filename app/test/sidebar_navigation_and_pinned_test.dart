@@ -222,7 +222,7 @@ void main() {
     expect(tester.getSize(content).width, 390);
     await tester.tap(toggle);
     await tester.pumpAndSettle();
-    expect(tester.getSize(sidebar).width, 272);
+    expect(tester.getSize(sidebar).width, 280);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(sidebar, findsNothing);

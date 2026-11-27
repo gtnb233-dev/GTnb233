@@ -6,11 +6,10 @@
 
 ## 1. Windows 与 Android 壳层红线
 
-- **取消重复壳层**：Windows 和 Android 禁止渲染 Flutter 自绘全局标题栏与底部悬浮指令台。Windows 使用系统原生标题栏及窗口控件。
-- **Android 横屏常驻分栏**：以 `Orientation.landscape` 判定，使用 `Row + Expanded` 布局实现可折叠侧边栏与主工作区常驻分栏。
-- **Android 竖屏底栏**：以 `Orientation.portrait` 判定，覆盖手机和平板。竖屏隐藏左侧栏与 Push-Aside 抽屉。一级页面底部居中展示 Liquid Glass 导航胶囊，仅包含首页、工具库、LivePlot、设置。每项触控热区至少 48dp，搜索入口放在主页或工具库。
-- **Android 竖屏二级页**：进入工具页后隐藏一级底栏，保留单层悬浮液态玻璃顶栏与 260ms Cupertino 跟手边缘右滑返回。
-- **Windows 常驻侧栏**：沿用 Android 横屏的分栏、侧栏搜索和自定义常用工具。在任何窗口方向保留左侧栏，宽度不足 720dp 时暂用 56dp 图标轨，拉宽后恢复用户的折叠设置。禁止切换到 Android 竖屏底部导航。宽屏 LivePlot 分屏从侧栏打开。
+- **窗口与主工作区**：Windows 使用系统原生标题栏及窗口控件。Windows 和 Android 的工作区使用单层页头，侧栏关闭时占宽 0dp。
+- **统一侧栏**：Windows 与 Android 横竖屏从页面左上圆钮展开或隐藏侧栏。宽屏展开时使用 280dp 分栏，手机竖屏和窄窗使用覆盖式侧栏。点击 Survey Pro 返回首页，顶部提供全局搜索与坐标预设气泡，底部固定「新建测量」与「设置」。
+- **首页入口**：顶部「继续上次」与「工具库」使用两张等高卡片。宽屏 LivePlot 分屏从首页操作区打开。
+- **Android 竖屏底栏**：手机和平板默认隐藏底栏。开启「设置 → 外观与导航」中的竖屏选项后，一级页面显示四项 Liquid Glass 底栏。工具页支持系统返回、260ms Cupertino 跟手右滑和「更多操作 → 返回」。
 
 ---
 
@@ -54,3 +53,12 @@
   1. `flutter analyze --no-version-check`
   2. `flutter test --no-version-check`
   3. `flutter build apk --debug --no-version-check`
+
+---
+
+## 6. 视觉光学对齐红线（Optical Alignment Guardrails）
+
+- **中英混排与等宽数字垂直居中**：全局通过 `DefaultTextHeightBehavior(textHeightBehavior: kSurveyTextHeightBehavior)`（`applyHeightToFirstAscent: false`、`applyHeightToLastDescent: false`、`leadingDistribution: TextLeadingDistribution.even`）与 `TextTheme` / `monoNumber` 的 `TextLeadingDistribution.even` 消除 CJK、Latin 与等宽数字的基线上下偏移；禁止在按钮、胶囊、列表行内使用硬编码顶部/底部不对称补丁偏置文字。
+- **顶栏水平中线对齐**：测量页与主工作区悬浮顶栏统一使用冻结常量 `kTopBarTopInset = 12`、`kTopBarHeight = 44`、`kTopBarButtonSize = 40`；同一水平行内按钮、标题、状态圆点与单位胶囊中心 Y 偏差须 `<= 1.0px`。
+- **侧栏图标槽与底部操作栏对齐**：侧栏导航项与快捷入口图标统一包裹在 `kSidebarIconSlotWidth = 24`（`24dp`）居中槽位内；侧栏底部「新建测量」与「设置」操作按钮保持中心 Y 与底边齐平。
+- **加宽侧栏与弹性字号缩放**：桌面/横屏展开侧栏宽度保持 `276–288dp`（冻结基线 `kSidebarExpandedWidth = 280`），竖屏抽屉宽度取 `80–82%`（上限 `320dp`）；系统 DPI 与字体缩放遵循 `0.85x–1.35x` 区间，标签与按钮采用弹性 `minHeight` 搭配 `maxLines: 1` + `TextOverflow.ellipsis`，并保持首页/工具卡片与输入框上下左右内边距对称对齐。

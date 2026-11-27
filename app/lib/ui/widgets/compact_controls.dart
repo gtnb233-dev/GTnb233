@@ -59,15 +59,22 @@ class SurveySegmentedControl<T> extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 42),
             child: Center(
               widthFactor: 1,
-              child: DefaultTextStyle.merge(
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected.contains(segment.value)
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                  color: scheme.onSurface,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: DefaultTextStyle.merge(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected.contains(segment.value)
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    leadingDistribution: TextLeadingDistribution.even,
+                    color: scheme.onSurface,
+                  ),
+                  child: segment.label ?? segment.icon ?? const SizedBox(),
                 ),
-                child: segment.label ?? segment.icon ?? const SizedBox(),
               ),
             ),
           ),

@@ -224,6 +224,7 @@ class _GaugeFrame extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
@@ -233,6 +234,7 @@ class _GaugeFrame extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
+                    leadingDistribution: TextLeadingDistribution.even,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -240,25 +242,31 @@ class _GaugeFrame extends StatelessWidget {
               const SizedBox(width: Insets.s),
               Text(
                 valueText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
+                  leadingDistribution: TextLeadingDistribution.even,
                   color: scheme.onSurface,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(Radii.pill),
                 ),
                 child: Text(
                   context.tr(statusText),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
+                    leadingDistribution: TextLeadingDistribution.even,
                     color: statusColor,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -368,6 +376,7 @@ class _StepChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final content = Container(
+      constraints: const BoxConstraints(minHeight: 26),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.11),
@@ -376,19 +385,25 @@ class _StepChip extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
-          Text(
-            step.detail == null
-                ? context.tr(step.label)
-                : '${context.tr(step.label)} · ${context.tr(step.detail!)}',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: step.status == PipelineStatus.pending
-                  ? scheme.onSurfaceVariant
-                  : color,
+          Flexible(
+            child: Text(
+              step.detail == null
+                  ? context.tr(step.label)
+                  : '${context.tr(step.label)} · ${context.tr(step.detail!)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                leadingDistribution: TextLeadingDistribution.even,
+                color: step.status == PipelineStatus.pending
+                    ? scheme.onSurfaceVariant
+                    : color,
+              ),
             ),
           ),
         ],

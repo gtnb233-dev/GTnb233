@@ -340,7 +340,8 @@ class _WorkspaceColumnsState extends State<_WorkspaceColumns>
   @override
   Widget build(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
-          final panelWidth = (constraints.maxWidth - 56).clamp(0.0, 272.0);
+          final panelWidth =
+              (constraints.maxWidth - 56).clamp(0.0, kSidebarExpandedWidth);
           final safeTop = MediaQuery.paddingOf(context).top;
           return AnimatedBuilder(
             animation: _motion,
@@ -406,9 +407,14 @@ class _WorkspaceColumnsState extends State<_WorkspaceColumns>
                     if (visible && overlay && widget.open)
                       PositionedDirectional(
                         start: panelWidth * progress + 8,
-                        top: safeTop + 12,
-                        child: WorkspaceSidebarControl(
-                            open: true, onToggle: widget.close),
+                        top: safeTop + kTopBarTopInset,
+                        child: SizedBox(
+                          height: kTopBarHeight,
+                          child: Center(
+                            child: WorkspaceSidebarControl(
+                                open: true, onToggle: widget.close),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -487,43 +493,58 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
         right: false,
         left: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, kTopBarTopInset, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: TextButton(
-                        key: const ValueKey('sidebar-brand-home'),
-                        onPressed: () => widget.onPage(0),
-                        style: TextButton.styleFrom(
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: kTopBarHeight),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton(
+                          key: const ValueKey('sidebar-brand-home'),
+                          onPressed: () => widget.onPage(0),
+                          style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
-                            foregroundColor: colors.onSurface),
-                        child: const Text('Survey Pro',
+                            minimumSize: const Size(0, kTopBarButtonSize),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: colors.onSurface,
+                          ),
+                          child: const Text(
+                            'Survey Pro',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            textHeightBehavior: kSurveyTextHeightBehavior,
                             style: TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.w600)),
+                                fontSize: 22, fontWeight: FontWeight.w600),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox.square(
-                    dimension: 44,
-                    child: IconButton.filledTonal(
-                      key: const ValueKey('sidebar-search-btn'),
-                      tooltip: context.tr('搜索工具与公式'),
-                      onPressed: () {
-                        widget.beforeOpeningDraft();
-                        showCommandPalette(scope());
-                      },
-                      icon: const OutlineSymbol(Icons.search_rounded, size: 20),
+                    const SizedBox(width: 8),
+                    SizedBox.square(
+                      dimension: kTopBarButtonSize,
+                      child: IconButton.filledTonal(
+                        key: const ValueKey('sidebar-search-btn'),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: kTopBarButtonSize,
+                          height: kTopBarButtonSize,
+                        ),
+                        tooltip: context.tr('搜索工具与公式'),
+                        onPressed: () {
+                          widget.beforeOpeningDraft();
+                          showCommandPalette(scope());
+                        },
+                        icon: const OutlineSymbol(Icons.search_rounded, size: 20),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 8),
               PopupMenuButton<WorkspaceCoordinatePreset>(
@@ -558,33 +579,48 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                       ),
                     ),
                 ],
-                child: SizedBox(
-                  height: 48,
-                  child: Row(
-                    children: [
-                      const OutlineSymbol(Icons.public, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(context.tr('坐标系预设'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: colors.onSurfaceVariant)),
-                            Text(context.tr(preset.label),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 15, fontWeight: FontWeight.w600)),
-                          ],
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: kSidebarIconSlotWidth,
+                          child: Center(
+                            child: OutlineSymbol(Icons.public, size: 20),
+                          ),
                         ),
-                      ),
-                      const OutlineSymbol(Icons.expand_more_rounded, size: 18),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(context.tr('坐标系预设'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textHeightBehavior: kSurveyTextHeightBehavior,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: colors.onSurfaceVariant)),
+                              Text(context.tr(preset.label),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textHeightBehavior: kSurveyTextHeightBehavior,
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        const OutlineSymbol(Icons.expand_more_rounded,
+                            size: 18),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -667,6 +703,7 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
               ),
               const SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: FilledButton.icon(
@@ -676,7 +713,9 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                         showWorkspaceCreate(scope());
                       },
                       style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 48),
+                          minimumSize: const Size(0, 44),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           shape: const StadiumBorder()),
                       icon: const Icon(Icons.add_rounded, size: 20),
                       label: const LocalText('新建测量',
@@ -688,6 +727,7 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                     dimension: 44,
                     child: IconButton.filledTonal(
                       key: const ValueKey('sidebar-settings'),
+                      padding: EdgeInsets.zero,
                       tooltip: context.tr('设置'),
                       isSelected: route == null && widget.index == 4,
                       onPressed: () => widget.onPage(4),
@@ -861,17 +901,24 @@ class _SidebarEntry extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: SizedBox(
-              height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  OutlineSymbol(icon, color: foreground, size: 19),
-                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: kSidebarIconSlotWidth,
+                    child: Center(
+                      child: OutlineSymbol(icon, color: foreground, size: 19),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                       child: Text(title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          textHeightBehavior: kSurveyTextHeightBehavior,
                           style: TextStyle(
                               color: foreground,
                               fontSize: quiet ? 14 : 16,

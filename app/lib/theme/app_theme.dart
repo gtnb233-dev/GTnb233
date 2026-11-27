@@ -22,6 +22,30 @@ const List<String> _kIosFontFallback = [
   'Noto Sans CJK SC',
 ];
 
+/// 为所有 TextTheme 槽位统一启用 even 行距分布，确保中英文与等宽数字垂直光学居中。
+TextTheme _withEvenLeading(TextTheme text) {
+  TextStyle? even(TextStyle? style) =>
+      style?.copyWith(leadingDistribution: TextLeadingDistribution.even);
+
+  return text.copyWith(
+    displayLarge: even(text.displayLarge),
+    displayMedium: even(text.displayMedium),
+    displaySmall: even(text.displaySmall),
+    headlineLarge: even(text.headlineLarge),
+    headlineMedium: even(text.headlineMedium),
+    headlineSmall: even(text.headlineSmall),
+    titleLarge: even(text.titleLarge),
+    titleMedium: even(text.titleMedium),
+    titleSmall: even(text.titleSmall),
+    bodyLarge: even(text.bodyLarge),
+    bodyMedium: even(text.bodyMedium),
+    bodySmall: even(text.bodySmall),
+    labelLarge: even(text.labelLarge),
+    labelMedium: even(text.labelMedium),
+    labelSmall: even(text.labelSmall),
+  );
+}
+
 /// 构造主题。
 ///
 /// [seed] 是种子色：默认是 Survey Pro 钴蓝（#0066FF）；开了莫奈取色后由调用方传入
@@ -112,12 +136,13 @@ ThemeData buildAppTheme(
     ),
   );
 
-  final text = base.textTheme;
+  final text = _withEvenLeading(base.textTheme);
   final titleStyle = (text.headlineSmall ?? const TextStyle()).copyWith(
     fontSize: 28,
     fontWeight: FontWeight.w500,
     letterSpacing: -0.2,
     color: scheme.onSurface,
+    leadingDistribution: TextLeadingDistribution.even,
   );
   final iosSwitchGreen = IosColors.green(brightness);
 

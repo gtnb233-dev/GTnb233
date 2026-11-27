@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 
 const double kSidebarNavigationMinWidth = 720;
+const double kTopBarTopInset = 12;
+const double kTopBarHeight = 44;
+const double kTopBarButtonSize = 40;
+const double kSidebarExpandedWidth = 280;
+const double kSidebarIconSlotWidth = 24;
+const TextHeightBehavior kSurveyTextHeightBehavior = TextHeightBehavior(
+  applyHeightToFirstAscent: false,
+  applyHeightToLastDescent: false,
+  leadingDistribution: TextLeadingDistribution.even,
+);
 
 /// Survey Pro 设计系统的 4dp 间距网格。
 abstract final class Insets {
@@ -139,5 +149,6 @@ TextStyle monoNumber(
     color: color ?? theme.colorScheme.onSurface,
     fontFeatures: const [FontFeature.tabularFigures()],
     letterSpacing: -0.2,
+    leadingDistribution: TextLeadingDistribution.even,
   );
 }

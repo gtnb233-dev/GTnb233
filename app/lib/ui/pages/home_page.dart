@@ -4,6 +4,7 @@ import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
+import '../../theme/tokens.dart';
 import '../page_scaffold.dart';
 import '../tool_router.dart';
 import '../widgets/outline_symbol.dart';
@@ -156,27 +157,34 @@ class _HomeDestinationCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textHeightBehavior: kSurveyTextHeightBehavior,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
+              textHeightBehavior: kSurveyTextHeightBehavior,
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           if (detail != null)
             Text(detail!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                textHeightBehavior: kSurveyTextHeightBehavior,
                 style: theme.textTheme.bodySmall),
           const Spacer(),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Flexible(
                   child: Text(action,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      textHeightBehavior: kSurveyTextHeightBehavior,
                       style: theme.textTheme.labelLarge
                           ?.copyWith(color: theme.colorScheme.primary))),
               const SizedBox(width: 3),

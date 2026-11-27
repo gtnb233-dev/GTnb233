@@ -273,10 +273,10 @@ void main() {
     await tester.tap(toggle);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 75));
-    expect(tester.getSize(space).width, inExclusiveRange(0.0, 272.0));
+    expect(tester.getSize(space).width, inExclusiveRange(0.0, 280.0));
     await tester.pumpAndSettle();
-    expect(tester.getSize(sidebar).width, 272);
-    expect(tester.getSize(content).width, fullWidth - 272);
+    expect(tester.getSize(sidebar).width, 280);
+    expect(tester.getSize(content).width, fullWidth - 280);
     await tester.tap(toggle);
     await tester.pumpAndSettle();
     expect(sidebar, findsNothing);
