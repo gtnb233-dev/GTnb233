@@ -52,13 +52,14 @@ class PageScaffold extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final compact = workspaceUsesCompactLayout(context);
+    final android = WorkspaceHost.isAndroid(context);
     final bottomReserve = overlayReserve ?? glassNavBottomReserve(context);
     return Scaffold(
       // 不能留 transparent：一旦外层没有不透明底色，窗口黑底会透出来。
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: fab,
       body: SafeArea(
-        bottom: false,
+        bottom: android,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final pad = constraints.maxWidth >= 900 ? Insets.xxl : Insets.l;
@@ -73,7 +74,9 @@ class PageScaffold extends StatelessWidget {
                 pad,
                 Insets.l + topReserve,
                 pad,
-                overlayReserve ?? Insets.xxxl + bottomReserve,
+                android
+                    ? Insets.xl
+                    : overlayReserve ?? Insets.xxxl + bottomReserve,
               ),
               child: Center(
                 child: ConstrainedBox(
@@ -206,6 +209,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
   final GlobalKey _rightKey = GlobalKey();
 
   Future<void> _showCompactActions() async {
+    final android = WorkspaceHost.isAndroid(context);
     final actions = widget.actions
             ?.where((action) => !identical(action, widget.mobilePrimaryAction))
             .toList() ??
@@ -218,21 +222,27 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         children: [
           if (actions.isNotEmpty)
             Wrap(spacing: 8, runSpacing: 8, children: actions),
-          if (widget.toolbar != null)
+          if (android && widget.toolbar != null) ...[
+            if (actions.isNotEmpty) const SizedBox(height: Insets.m),
+            widget.toolbar!,
+          ],
+          if (!android && widget.toolbar != null)
             Builder(
                 builder: (context) => ListTile(
                       leading: const Icon(Icons.tune_rounded),
                       title: const LocalText('页面工具栏'),
                       onTap: () => Navigator.pop(context, 'toolbar'),
                     )),
-          Builder(
-              builder: (context) => ListTile(
-                    leading: const Icon(Icons.search_rounded),
-                    title: const LocalText('快速跳转'),
-                    onTap: () => Navigator.pop(context, 'search'),
-                  )),
+          if (!android)
+            Builder(
+                builder: (context) => ListTile(
+                      leading: const Icon(Icons.search_rounded),
+                      title: const LocalText('快速跳转'),
+                      onTap: () => Navigator.pop(context, 'search'),
+                    )),
         ],
       ),
+      useBottomSheet: android,
     );
     if (!mounted) return;
     if (command == 'search') await showCommandPalette(context);
@@ -355,16 +365,19 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final compact = workspaceUsesCompactLayout(context);
+    final android = WorkspaceHost.isAndroid(context);
     final size = MediaQuery.sizeOf(context);
     final canPop = Navigator.canPop(context);
-    final showCommandBar = (widget.commandBar || canPop) &&
+    final showCommandBar = !android &&
+        (widget.commandBar || canPop) &&
         WorkspaceCommandsEnabled.of(context) &&
         size.height >= 320 &&
         MediaQuery.viewInsetsOf(context).bottom == 0;
     final bottomReserve =
         showCommandBar ? QuickCommandBar.bottomClearance(context) : Insets.xxl;
-    final twoPane =
-        !compact && widget.sideVisual != null && constraints.maxWidth >= 880;
+    final twoPane = !compact &&
+        widget.sideVisual != null &&
+        constraints.maxWidth >= (android ? 560 : 880);
     final effectiveMaxWidth = twoPane ? widget.wideMaxWidth : widget.maxWidth;
     final resultsInRightPane = twoPane && widget.resultsBesideInputs;
     final tutorial = widget.children.whereType<PageTutorial>().firstOrNull;
@@ -473,12 +486,13 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (widget.toolbar != null) ...[
+            if (!android && widget.toolbar != null) ...[
               widget.toolbar!,
               const SizedBox(height: Insets.m),
             ],
             if (twoPane) ...[
               Row(
+                key: const ValueKey('workspace-detail-split'),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
@@ -561,8 +575,8 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       extendBody: showCommandBar && widget.bottomBar == null,
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        bottom: false,
-        child: compact
+        bottom: android && widget.bottomBar == null,
+        child: (compact || android)
             ? CustomScrollView(
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
@@ -623,7 +637,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                   ),
                 ),
     );
-    if (compact || constraints.maxWidth < 1140 || widget.desktopRail == null) {
+    if (android ||
+        compact ||
+        constraints.maxWidth < 1140 ||
+        widget.desktopRail == null) {
       return WorkspacePanelBackground(child: detail);
     }
     return Scaffold(

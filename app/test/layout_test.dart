@@ -8,6 +8,7 @@ import 'package:survey_pro/main.dart';
 import 'package:survey_pro/state/drafts.dart';
 import 'package:survey_pro/state/settings.dart';
 import 'package:survey_pro/theme/app_theme.dart';
+import 'package:survey_pro/theme/workspace_layout.dart';
 import 'package:survey_pro/ui/pages/home_page.dart';
 import 'package:survey_pro/ui/pages/settings_page.dart';
 import 'package:survey_pro/ui/pages/tools/batch_tools.dart';
@@ -528,6 +529,93 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('workspace-liveplot-split')),
           findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final size in [
+    const Size(915, 412),
+    const Size(1024, 640),
+    const Size(390, 844),
+  ]) {
+    testWidgets(
+        'Android ${size.width}×${size.height} uses only the page header and no command dock',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 16);
+      tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 16);
+      addTearDown(tester.view.reset);
+      final settings = AppSettings();
+      await settings.setLanguage(AppLanguage.chinese);
+      await settings.setPinnedToolIds(['inverse']);
+      await settings.setSidebarCollapsed(false);
+      await tester.pumpWidget(WorkspaceHost(
+        android: true,
+        child: SurveyApp(settings: settings, drafts: DraftStore()),
+      ));
+      await tester.pumpAndSettle();
+
+      final desktopBar = find.byKey(const ValueKey('desktop-top-bar'));
+      final dock = find.byType(QuickCommandBar);
+      final rootHeader = find.byKey(const ValueKey('workspace-root-header'));
+      final detailHeader =
+          find.byKey(const ValueKey('workspace-detail-header'));
+      final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+      final wide = size.width > size.height;
+      expect(desktopBar, findsNothing);
+      expect(dock, findsNothing);
+      expect(rootHeader, wide ? findsNothing : findsOneWidget);
+      if (wide) {
+        final bounds = tester.getRect(sidebar);
+        expect(bounds.top, 24);
+        expect(
+            bounds.right,
+            tester
+                .getRect(
+                  find.byKey(const ValueKey('workspace-content')),
+                )
+                .left);
+        expect(find.byType(Drawer), findsNothing);
+      } else {
+        await tester.tap(find.byTooltip('打开工作区菜单'));
+        await tester.pumpAndSettle();
+      }
+      final tool = find.descendant(
+        of: wide ? sidebar : find.byType(Drawer),
+        matching: find.text('坐标反算'),
+      );
+      if (wide && tool.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(
+          tool,
+          90,
+          scrollable: find
+              .descendant(
+                of: sidebar,
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+      }
+      await tester.ensureVisible(tool);
+      await tester.tap(tool);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InversePage), findsOneWidget);
+      expect(desktopBar, findsNothing);
+      expect(dock, findsNothing);
+      expect(rootHeader, findsNothing);
+      expect(detailHeader, findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('detail-action-capsule')), findsOneWidget);
+      expect(find.byKey(const ValueKey('workspace-detail-split')),
+          wide ? findsOneWidget : findsNothing);
+      expect(find.byTooltip('导出表格'), findsNothing);
+      await tester.tap(find.byTooltip('更多操作'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byTooltip('导出表格'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

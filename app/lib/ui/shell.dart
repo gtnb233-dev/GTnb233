@@ -173,7 +173,7 @@ class _AppShellState extends State<AppShell> {
                           const SettingsPage(),
                         ],
                       ),
-                      if (index == 0)
+                      if (index == 0 && !WorkspaceHost.isAndroid(context))
                         const Positioned(
                             left: 0,
                             right: 0,
@@ -212,7 +212,7 @@ class _AppShellState extends State<AppShell> {
     final scheme = Theme.of(context).colorScheme;
     final floatingNav = settings.floatingGlassNav;
     // Remove redundant 5-tab bottom bar on narrow Home (where QuickCommandBar lives).
-    final bottom = (compact && _index != 0)
+    final bottom = (compact && _index != 0 && !WorkspaceHost.isAndroid(context))
         ? floatingNav
             ? SafeArea(
                 top: false,
@@ -390,11 +390,12 @@ class _AppShellState extends State<AppShell> {
     final settings = SettingsScope.of(context);
     final livePlot = LivePlotScope.maybeOf(context);
     final wide = !workspaceUsesCompactLayout(context);
+    final android = WorkspaceHost.isAndroid(context);
     final theme = Theme.of(context);
     final hasNativeCaption =
         !kIsWeb && theme.platform == TargetPlatform.windows;
     final width = MediaQuery.sizeOf(context).width;
-    final splitOpen = wide && (livePlot?.splitOpen ?? false);
+    final splitOpen = wide && !android && (livePlot?.splitOpen ?? false);
     final compactSplit = splitOpen && width < 880;
     final sidebarCollapsed = settings.sidebarCollapsed || compactSplit;
     final plotWidth = (width * .29).clamp(184.0, 348.0);
@@ -419,82 +420,89 @@ class _AppShellState extends State<AppShell> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            body: Column(
-              children: [
-                if (wide || hasNativeCaption)
-                  SafeArea(
-                    bottom: false,
-                    child: _DesktopTopBar(
-                      splitOpen: splitOpen,
-                      onToggleLivePlot: !wide
-                          ? null
-                          : livePlot == null
-                              ? () => showWorkspacePlot(_workspaceContext)
-                              : livePlot.toggleSplit,
-                      canGoBack: _canGoBack,
-                      canGoForward: _canGoForward,
-                      onBack: _goBack,
-                      onForward: _goForward,
-                      isMaximized: _isMaximized,
-                      onToggleMaximize: _toggleMaximize,
-                    ),
-                  ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (wide)
-                        SizedBox(
-                          key: const ValueKey('workspace-sidebar'),
-                          width: sidebarCollapsed ? 56 : 240,
-                          child: RepaintBoundary(
-                            child: sidebarCollapsed
-                                ? _IconRail(
-                                    index: _index,
-                                    activeRouteName:
-                                        _navObserver.topRoute?.settings.name,
-                                    onSearch: () =>
-                                        showCommandPalette(_workspaceContext),
-                                    onHome: () => _go(0),
-                                    onTools: () => _go(3),
-                                    onLeveling4: () => _openSidebarTool(
-                                        toolById('leveling4')!),
-                                    onTraverse: () =>
-                                        _openSidebarTool(toolById('traverse')!),
-                                    onHistory: () =>
-                                        showDraftHistory(_workspaceContext),
-                                    onSettings: () => _go(4),
-                                    onToggleSidebar: toggleSidebar,
-                                  )
-                                : _projectsPanel(settings,
-                                    drawer: false,
-                                    onToggleSidebar: toggleSidebar),
-                          ),
-                        ),
-                      Expanded(
-                        key: const ValueKey('workspace-content'),
-                        child: _workspacePages(),
+            body: SafeArea(
+              top: android && wide,
+              bottom: false,
+              left: android && wide,
+              right: android && wide,
+              child: Column(
+                children: [
+                  if (!android && (wide || hasNativeCaption))
+                    SafeArea(
+                      bottom: false,
+                      child: _DesktopTopBar(
+                        splitOpen: splitOpen,
+                        onToggleLivePlot: !wide
+                            ? null
+                            : livePlot == null
+                                ? () => showWorkspacePlot(_workspaceContext)
+                                : livePlot.toggleSplit,
+                        canGoBack: _canGoBack,
+                        canGoForward: _canGoForward,
+                        onBack: _goBack,
+                        onForward: _goForward,
+                        isMaximized: _isMaximized,
+                        onToggleMaximize: _toggleMaximize,
                       ),
-                      if (splitOpen)
-                        SizedBox(
-                          key: const ValueKey('workspace-liveplot-split'),
-                          width: plotWidth,
-                          child: RepaintBoundary(
-                            child: ColoredBox(
-                              color: theme.colorScheme.surface,
-                              child: Padding(
-                                padding: const EdgeInsets.all(Insets.m),
-                                child: WorkspaceLivePlotPanel(
-                                  expandCanvas: true,
-                                  onClose: () => livePlot!.setSplitOpen(false),
+                    ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (wide)
+                          SizedBox(
+                            key: const ValueKey('workspace-sidebar'),
+                            width: sidebarCollapsed ? 56 : 240,
+                            child: RepaintBoundary(
+                              child: sidebarCollapsed
+                                  ? _IconRail(
+                                      index: _index,
+                                      activeRouteName:
+                                          _navObserver.topRoute?.settings.name,
+                                      onSearch: () =>
+                                          showCommandPalette(_workspaceContext),
+                                      onHome: () => _go(0),
+                                      onTools: () => _go(3),
+                                      onLeveling4: () => _openSidebarTool(
+                                          toolById('leveling4')!),
+                                      onTraverse: () => _openSidebarTool(
+                                          toolById('traverse')!),
+                                      onHistory: () =>
+                                          showDraftHistory(_workspaceContext),
+                                      onSettings: () => _go(4),
+                                      onToggleSidebar: toggleSidebar,
+                                    )
+                                  : _projectsPanel(settings,
+                                      drawer: false,
+                                      onToggleSidebar: toggleSidebar),
+                            ),
+                          ),
+                        Expanded(
+                          key: const ValueKey('workspace-content'),
+                          child: _workspacePages(),
+                        ),
+                        if (splitOpen)
+                          SizedBox(
+                            key: const ValueKey('workspace-liveplot-split'),
+                            width: plotWidth,
+                            child: RepaintBoundary(
+                              child: ColoredBox(
+                                color: theme.colorScheme.surface,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(Insets.m),
+                                  child: WorkspaceLivePlotPanel(
+                                    expandCanvas: true,
+                                    onClose: () =>
+                                        livePlot!.setSplitOpen(false),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -973,6 +981,22 @@ class _ProjectsPanelState extends State<_ProjectsPanel> {
                   primary: false,
                   padding: EdgeInsets.zero,
                   children: [
+                    if (WorkspaceHost.isAndroid(context) && !widget.drawer) ...[
+                      _SidebarEntry(
+                        title: context.tr('首页'),
+                        icon: Icons.dashboard_outlined,
+                        onTap: () => widget.onPage(0),
+                        selected:
+                            widget.activeRouteName == null && widget.index == 0,
+                      ),
+                      _SidebarEntry(
+                        title: context.tr('工具库'),
+                        icon: Icons.widgets_outlined,
+                        onTap: () => widget.onPage(3),
+                        selected:
+                            widget.activeRouteName == null && widget.index == 3,
+                      ),
+                    ],
                     Padding(
                       padding: const EdgeInsets.fromLTRB(8, 0, 2, 2),
                       child: Row(

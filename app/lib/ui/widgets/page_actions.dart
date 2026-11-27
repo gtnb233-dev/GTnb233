@@ -8,6 +8,7 @@ import '../../l10n/survey_strings.dart';
 import '../../state/drafts.dart';
 import '../../state/settings.dart';
 import '../../theme/tokens.dart';
+import '../../theme/workspace_layout.dart';
 import 'liquid_glass.dart';
 import 'compact_controls.dart';
 import 'overlays.dart';
@@ -156,6 +157,19 @@ class _PageActionsState extends State<PageActions> {
       ],
     );
 
+    final android = WorkspaceHost.isAndroid(context);
+    Future<void> changeAngleMode(AngleInputMode mode) async {
+      await settings.setAngleMode(mode);
+      if (widget.onAngleModeChanged != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onAngleModeChanged?.call();
+        });
+      }
+      if (!context.mounted) return;
+      SurveyToast.info(
+          context, context.tr('角度格式已切换为 {unit}', {'unit': mode.symbol}));
+    }
+
     final actionChips = <Widget>[
       if (widget.onUndo != null)
         SurveyTooltip(
@@ -265,23 +279,25 @@ class _PageActionsState extends State<PageActions> {
             ),
           ),
         ),
-      if (widget.showAngleSelector)
+      if (widget.showAngleSelector && android)
+        SurveySegmentedControl<AngleInputMode>(
+          segments: [
+            for (final mode in AngleInputMode.values)
+              ButtonSegment(value: mode, label: Text(mode.symbol)),
+          ],
+          showSelectedIcon: false,
+          selected: {settings.angleMode},
+          onSelectionChanged: (values) => changeAngleMode(values.single),
+        )
+      else if (widget.showAngleSelector)
         SurveyTooltip(
           message: '点击切换角度输入格式（度分秒 / 十进制度 / 弧度）',
           child: InkWell(
             borderRadius: BorderRadius.circular(Radii.field),
             onTap: () async {
               final modes = AngleInputMode.values;
-              final next = modes[(settings.angleMode.index + 1) % modes.length];
-              await SettingsScope.read(context).setAngleMode(next);
-              if (widget.onAngleModeChanged != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) widget.onAngleModeChanged?.call();
-                });
-              }
-              if (!context.mounted) return;
-              SurveyToast.info(context,
-                  context.tr('角度格式已切换为 {unit}', {'unit': next.symbol}));
+              await changeAngleMode(
+                  modes[(settings.angleMode.index + 1) % modes.length]);
             },
             child: LiquidGlassSurface(
               borderRadius: BorderRadius.circular(Radii.field),

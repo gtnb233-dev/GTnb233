@@ -38,6 +38,7 @@ class HomePage extends StatelessWidget {
     final tools =
         settings.pinnedTools.map(toolById).whereType<ToolDef>().toList();
     final compact = workspaceUsesCompactLayout(context);
+    final android = WorkspaceHost.isAndroid(context);
     Widget toolTile(ToolDef tool) => ListTile(
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -51,9 +52,9 @@ class HomePage extends StatelessWidget {
     return PageScaffold(
       title: '工程测量',
       topReserve: underFloatingHeader && compact ? 54 : 0,
-      overlayReserve: QuickCommandBar.bottomClearance(context),
+      overlayReserve: android ? null : QuickCommandBar.bottomClearance(context),
       trailing: [
-        if (compact)
+        if (compact || android)
           IconButton(
             tooltip: 'LivePlot',
             onPressed: () => showWorkspacePlot(context),
