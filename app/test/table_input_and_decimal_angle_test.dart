@@ -223,6 +223,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(addBtns.at(0)); // + 行
       await tester.pumpAndSettle();
+      await tester.ensureVisible(addBtns.at(1));
+      await tester.pumpAndSettle();
       await tester.tap(addBtns.at(1)); // + 列
       await tester.pumpAndSettle();
       expect(find.text('R4'), findsOneWidget);

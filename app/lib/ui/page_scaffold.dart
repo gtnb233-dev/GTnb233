@@ -76,7 +76,9 @@ class PageScaffold extends StatelessWidget {
                         constraints:
                             const BoxConstraints(minHeight: kTopBarHeight),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: caption == null
+                              ? CrossAxisAlignment.center
+                              : CrossAxisAlignment.start,
                           children: [
                             if (sidebar != null) ...[
                               SizedBox(
@@ -113,6 +115,8 @@ class PageScaffold extends StatelessWidget {
                                         letterSpacing: -0.7,
                                         color: scheme.onSurface,
                                         height: 1.15,
+                                        leadingDistribution:
+                                            TextLeadingDistribution.even,
                                       ),
                                     ),
                                     if (caption != null) ...[
@@ -759,6 +763,11 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                   tooltip: context.tr('返回'),
                   onPressed: () => Navigator.maybePop(context),
                   padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(kTopBarButtonSize),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: EdgeInsets.zero,
+                  ),
                   constraints: const BoxConstraints.tightFor(
                     width: kTopBarButtonSize,
                     height: kTopBarButtonSize,
@@ -768,7 +777,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                     height: kTopBarButtonSize,
                     borderRadius:
                         BorderRadius.circular(kTopBarButtonSize / 2),
-                    elevated: false,
+                    elevated: true,
                     blurSigma: 12,
                     child: const Center(
                       child: Icon(Icons.arrow_back_ios_new_rounded, size: 18),
@@ -837,7 +846,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         LiquidGlassSurface(
           key: const ValueKey('detail-action-capsule'),
           borderRadius: BorderRadius.circular(24),
-          elevated: false,
+          elevated: true,
           blurSigma: 12,
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -863,53 +872,39 @@ class _DetailScaffoldState extends State<DetailScaffold> {
     );
     return SizedBox(
       height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              theme.scaffoldBackgroundColor,
-              theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
-              theme.scaffoldBackgroundColor.withValues(alpha: 0),
-            ],
-            stops: const [0.0, 0.62, 1.0],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, kTopBarTopInset, 12, 6),
-          child: stacked
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, kTopBarTopInset, 12, 6),
+        child: stacked
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(minHeight: kTopBarHeight),
+                    child: heading,
+                  ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    reverse: true,
+                    child: controls,
+                  ),
+                ],
+              )
+            : ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: kTopBarHeight),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(minHeight: kTopBarHeight),
-                      child: heading,
-                    ),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      reverse: true,
-                      child: controls,
+                    Expanded(child: heading),
+                    const SizedBox(width: 4),
+                    SizedBox(
+                      height: kTopBarHeight,
+                      child: Center(child: controls),
                     ),
                   ],
-                )
-              : ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: kTopBarHeight),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: heading),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                        height: kTopBarHeight,
-                        child: Center(child: controls),
-                      ),
-                    ],
-                  ),
                 ),
-        ),
+              ),
       ),
     );
   }
@@ -1047,32 +1042,69 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           bottom: widget.bottomBar == null,
-          child: CustomScrollView(
-            physics: android
-                ? const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics())
-                : null,
-            controller: _scrollCtrl,
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _CompactHeaderDelegate(
-                  height: headerHeight,
-                  child: KeyedSubtree(
-                    key: const ValueKey('workspace-detail-header'),
-                    child: _toolHeader(context,
-                        canPop: canPop,
-                        stacked: stackedHeader,
-                        tight: tight,
-                        pinnedButtons: pinnedButtons,
-                        height: headerHeight),
+          child: Stack(
+            children: [
+              CustomScrollView(
+                physics: android
+                    ? const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics())
+                    : null,
+                controller: _scrollCtrl,
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      Insets.l,
+                      headerHeight + Insets.s,
+                      Insets.l,
+                      Insets.xxl,
+                    ),
+                    sliver: SliverToBoxAdapter(child: content),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: headerHeight + 28,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          theme.scaffoldBackgroundColor
+                              .withValues(alpha: 0.96),
+                          theme.scaffoldBackgroundColor
+                              .withValues(alpha: 0.92),
+                          theme.scaffoldBackgroundColor.withValues(alpha: 0),
+                        ],
+                        stops: [
+                          0.0,
+                          headerHeight / (headerHeight + 28),
+                          1.0,
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                    Insets.l, Insets.s, Insets.l, Insets.xxl),
-                sliver: SliverToBoxAdapter(child: content),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: KeyedSubtree(
+                  key: const ValueKey('workspace-detail-header'),
+                  child: _toolHeader(
+                    context,
+                    canPop: canPop,
+                    stacked: stackedHeader,
+                    tight: tight,
+                    pinnedButtons: pinnedButtons,
+                    height: headerHeight,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1096,28 +1128,6 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       ),
     );
   }
-}
-
-class _CompactHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _CompactHeaderDelegate({required this.height, required this.child});
-
-  final double height;
-  final Widget child;
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-          BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      child;
-
-  @override
-  bool shouldRebuild(_CompactHeaderDelegate oldDelegate) =>
-      height != oldDelegate.height || child != oldDelegate.child;
 }
 
 List<Widget> _spaced(List<Widget> items) {

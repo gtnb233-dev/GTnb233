@@ -39,6 +39,11 @@ class WorkspaceSidebarControl extends StatelessWidget {
           tooltip: context.tr(open ? '收起侧边栏' : '展开侧边栏'),
           onPressed: onToggle,
           padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            minimumSize: const Size.square(kTopBarButtonSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+          ),
           constraints: const BoxConstraints.tightFor(
             width: kTopBarButtonSize,
             height: kTopBarButtonSize,
@@ -47,7 +52,7 @@ class WorkspaceSidebarControl extends StatelessWidget {
             width: kTopBarButtonSize,
             height: kTopBarButtonSize,
             borderRadius: BorderRadius.circular(kTopBarButtonSize / 2),
-            elevated: false,
+            elevated: true,
             blurSigma: 12,
             child: Center(
               child: Icon(

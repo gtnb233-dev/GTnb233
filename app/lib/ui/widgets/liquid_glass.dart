@@ -62,6 +62,81 @@ class LiquidGlassSurface extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
 
+    Widget content = child;
+    if (padding != null) {
+      content = Padding(padding: padding!, child: content);
+    }
+
+    if (blurSigma > 0) {
+      final suspendBlur = (!kIsWeb && Platform.isAndroid) ||
+          GlassBlurSuspensionScope.isSuspended(context);
+      final translucent = !suspendBlur;
+      final glassAlpha = isDark
+          ? (translucent ? 0.74 : 0.92)
+          : (translucent ? 0.72 : 0.92);
+      final glassFill = tintColor != null
+          ? tintColor!.withValues(alpha: glassAlpha)
+          : (isDark
+              ? Color.fromRGBO(36, 36, 40, glassAlpha)
+              : Color.fromRGBO(255, 255, 255, glassAlpha));
+      final innerBox = DecoratedBox(
+        decoration: BoxDecoration(
+          color: glassFill,
+          borderRadius: borderRadius,
+          border: isDark
+              ? Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    width: 1.0,
+                  ),
+                )
+              : Border.all(
+                  color: const Color.fromRGBO(255, 255, 255, 0.92),
+                  width: 1.0,
+                ),
+        ),
+        child: content,
+      );
+      if (translucent) {
+        content = ClipRRect(
+          borderRadius: borderRadius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+            child: innerBox,
+          ),
+        );
+      } else {
+        content = innerBox;
+      }
+
+      return Container(
+        width: width,
+        height: height,
+        margin: margin,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: borderRadius,
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.10)
+                : const Color.fromRGBO(0, 0, 0, 0.06),
+            width: 1.0,
+          ),
+          boxShadow: elevated && !isDark
+              ? const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.06),
+                    blurRadius: 12,
+                    offset: Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: content,
+      );
+    }
+
     final fill = tintColor ??
         (isDark
             ? (interactiveHighlight
@@ -69,43 +144,12 @@ class LiquidGlassSurface extends StatelessWidget {
                 : IosColors.darkCard)
             : (interactiveHighlight ? IosColors.lightFill : Colors.white));
 
-    Widget content = child;
-    if (padding != null) {
-      content = Padding(padding: padding!, child: content);
-    }
-
-    final suspendBlur = (!kIsWeb && Platform.isAndroid) ||
-        GlassBlurSuspensionScope.isSuspended(context);
-    final translucent = blurSigma > 0 && !suspendBlur;
-    final resolvedFill = (!translucent && blurSigma > 0)
-        ? fill.withValues(alpha: isDark ? 0.94 : 0.96)
-        : fill;
-    if (translucent) {
-      content = ClipRRect(
-        borderRadius: borderRadius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: fill.withValues(alpha: isDark ? .76 : .84),
-              borderRadius: borderRadius,
-              border: Border(
-                top: BorderSide(
-                    color: Colors.white.withValues(alpha: isDark ? .12 : .84)),
-              ),
-            ),
-            child: content,
-          ),
-        ),
-      );
-    }
-
     return Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: translucent ? Colors.transparent : resolvedFill,
+        color: fill,
         borderRadius: borderRadius,
         border: Border.all(
           color: IosColors.separator(brightness),

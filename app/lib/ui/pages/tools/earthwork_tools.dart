@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/compact_controls.dart';
 import '../../workspace_page_route.dart';
-import '../../tool_router.dart';
 import 'package:survey_core/survey_core.dart';
 
 import '../../../export/export_service.dart';
@@ -649,6 +648,7 @@ class _EarthworkPageState extends State<EarthworkPage>
     '+0.05  -0.22  -0.48\n'
     '-0.60  -0.75  -0.31',
   );
+  final TinWorkspaceController _tin = TinWorkspaceController();
   int _mode = 0;
   SectionVolumeResult? _sec;
   GridVolumeResult? _grid;
@@ -670,6 +670,9 @@ class _EarthworkPageState extends State<EarthworkPage>
         'spacings': _spacings,
         'cell': _cell,
         'heights': _heights,
+        'tinPoints': _tin.points,
+        'tinTriangles': _tin.triangles,
+        'tinHeight': _tin.height,
       };
 
   @override
@@ -678,17 +681,23 @@ class _EarthworkPageState extends State<EarthworkPage>
         'spacings': _spacingsDefault,
         'cell': '10',
         'heights': _heightsDefault,
+        'tinPoints': TinWorkspaceController.pointsDefault,
+        'tinTriangles': TinWorkspaceController.trianglesDefault,
+        'tinHeight': TinWorkspaceController.heightDefault,
       };
 
   void _loadSample() {
     if (_mode == 0) {
       _areas.text = _areasDefault;
       _spacings.text = _spacingsDefault;
+      _calc();
     } else if (_mode == 1) {
       _cell.text = '10';
       _heights.text = _heightsDefault;
+      _calc();
+    } else {
+      _tin.loadSample(context);
     }
-    _calc();
   }
 
   /// 导出：按当前模式给断面表或方格网逐格明细。
@@ -753,11 +762,16 @@ class _EarthworkPageState extends State<EarthworkPage>
     for (final c in [_areas, _spacings, _cell, _heights]) {
       c.dispose();
     }
+    _tin.dispose();
     super.dispose();
   }
 
   void _calc({bool notify = false}) {
-    if (!mounted || _mode == 2) return;
+    if (!mounted) return;
+    if (_mode == 2) {
+      _tin.calculate(context, notify: notify);
+      return;
+    }
     final u = SettingsScope.read(context).lengthUnit;
     final kLen = u.toMeters(1);
     final kArea = kLen * kLen;
@@ -1003,7 +1017,9 @@ class _EarthworkPageState extends State<EarthworkPage>
                   ),
                 ],
               )
-            : null;
+            : (_mode == 2)
+                ? TinWorkspaceSidePanel(controller: _tin)
+                : null;
 
     final Widget? bottomSection = (_mode == 0 && _sec != null)
         ? Column(
@@ -1087,12 +1103,6 @@ class _EarthworkPageState extends State<EarthworkPage>
               )
             : null;
 
-    final openTin = IconButton(
-      tooltip: context.tr('TIN 三角网土方'),
-      onPressed: () => openWorkspacePage(context,
-          name: 'tool/earthwork/tin', builder: (_) => const TinWorkspacePage()),
-      icon: const Icon(Icons.terrain_outlined, size: 19),
-    );
     return DetailScaffold(
       title: _el(context, '土方计算', 'Earthwork Volume'),
       subtitle: _el(
@@ -1103,7 +1113,7 @@ class _EarthworkPageState extends State<EarthworkPage>
       toolbar: PageActions(
         pageId: draftPageId,
         confirmClear: true,
-        buildTable: _mode == 2 ? null : _exportTable,
+        buildTable: _mode == 2 ? () => _tin.exportTable(context) : _exportTable,
         showUnitSelector: true,
         onUnitChanged: _calc,
         onUndo: canUndo ? undoDraft : null,
@@ -1121,12 +1131,13 @@ class _EarthworkPageState extends State<EarthworkPage>
       children: [
         PageTutorial(
           id: _mode == 2 ? 'tin' : 'earthwork',
-          onLoadSample: _mode == 2 ? null : _loadSample,
+          onLoadSample: _loadSample,
           liveCalcBuilder: (ctx) => [
             if (_mode == 0 && sec != null)
               'V = Σ[(Aᵢ + Aᵢ₊₁) ÷ 2 × Dᵢ] = ${fmt(sec.total, 3)} m³',
             if (_mode == 1 && grid != null)
               'ΔV = ${fmt(grid.cut, 3)} − ${fmt(grid.fill, 3)} = ${fmt(grid.net, 3)} m³',
+            if (_mode == 2) ..._tin.liveCalcSummary(),
           ],
         ),
         Row(
@@ -1161,10 +1172,9 @@ class _EarthworkPageState extends State<EarthworkPage>
           ],
         ),
         const SizedBox(height: Insets.m),
-        if (_mode == 2) ...[
-          Align(alignment: Alignment.centerRight, child: openTin),
-          const TinWorkspaceView(embedded: true),
-        ] else if (_mode == 0)
+        if (_mode == 2)
+          TinWorkspaceInputs(controller: _tin, showTutorial: false)
+        else if (_mode == 0)
           InputCard(
             step: 1,
             icon: Icons.layers_outlined,
