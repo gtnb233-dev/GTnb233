@@ -5,7 +5,7 @@
 library;
 
 /// 语义版本号，如 `1.0.2`（不含 build number）。
-const String kAppVersion = '2.1.4';
+const String kAppVersion = '1.0.0';
 
 /// 侧栏页脚用的短标签。
 const String kAppVersionLabel = 'v$kAppVersion';

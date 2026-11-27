@@ -2,7 +2,7 @@
 ///
 /// 本机 Termux 环境里 `package:test` 无法运行（其 AOT 前端快照路径依赖
 /// Android APEX，`dart test` 会报 `Frontend server AOT snapshot does not exist`），
-/// 因此核心算法改用这个零依赖 harness：`dart run test/all_test.dart`。
+/// 可通过独立入口使用这个零依赖 harness：`dart run tool/run_core_checks.dart`。
 library;
 
 int _passed = 0;

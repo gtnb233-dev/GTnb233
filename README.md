@@ -3,27 +3,27 @@
   <h1>工程测量工具箱 · Survey Pro</h1>
   <p>面向工程测量现场和教学算例的离线工具箱，支持 Windows 和 Android。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-windows-x64.zip"><strong>下载 Windows</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.1.1">查看 v2.1.1 发布说明</a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-windows-x64.zip"><strong>下载 Windows</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-arm64-v8a.apk"><strong>下载 Android</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.0.0">查看 v1.0.0 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
 ## 下载与安装
 
-当前正式版为 **v2.1.1**。
+当前正式版为 **v1.0.0**。
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
-| **Windows x64 便携版** | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-windows-x64.zip) |
-| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-android-arm64-v8a.apk) |
-| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-android-universal.apk) |
-| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-android-armeabi-v7a.apk) |
-| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/survey_pro-2.1.1-android-x86_64.apk) |
+| **Windows x64 便携版** | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/survey_pro-1.0.0-android-x86_64.apk) |
 
 - **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留同目录的 `data/` 和 `flutter_windows.dll`。
-- **Android**：需要 Android 7.0 或更高版本。可用官方 v2.1.1 APK 覆盖升级此前正式版。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v2.1.1/SHA256SUMS.txt)
+- **Android**：需要 Android 7.0 或更高版本。覆盖安装时选择与原安装包相同的架构。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0.0/SHA256SUMS.txt)
 
 ## 核心亮点
 
@@ -33,8 +33,8 @@
   重计算模块（DXF 解析、TIN 三角网土方、2D 空间索引）由 `rust/survey_rust_core`（Dart FFI）驱动，并配备等价回退机制；角度底层全程 `f64` 弧度无损计算，支持 `DMS / DD / RAD` 随时切换。
 - **全局 `LivePlot` 实时动态坐标图**
   严格工程坐标系（`X↑北 / Y→东`），随输入实时绘制点位、连线、闭合差与高程纵断面，支持 60fps 缩放平移、点选查坐标及宽屏右侧分屏联动。
-- **Apple HIG 液态玻璃 + 840dp 响应式双模界面**
-  浅色/深色/跟随系统三态无缝切换；Windows 桌面与 Android 平板横屏采用一体化顶栏与双列可折叠侧栏，Android 手机竖屏自动切换为侧推式抽屉与单层悬浮顶栏（支持跟手侧滑返回）。
+- **Apple HIG 液态玻璃 + 响应式界面**
+  支持浅色、深色和跟随系统三态主题。Windows 与 Android 横屏采用可折叠侧栏分栏。Android 手机和平板竖屏使用四项悬浮底栏，测量工具页支持跟手侧滑返回和顶栏单位直切。
 - **防丢草稿与全离线多格式导出**
   输入自动防抖保存草稿并支持 Undo/Redo；成果支持导出 **2.5x 高清图片（Android 自动入相册）**、**含导线略图的 `.xlsx` 表格**、**UTF-8 BOM `.csv`** 及 **`.txt` 文本报告**，且界面与导出文件均支持全球多语言无残留切换。
 
@@ -46,7 +46,7 @@
 
 ## v2.0.5 液态玻璃导航
 
-Android 和 Windows 窄窗口默认使用悬浮玻璃底栏。横滑时高亮胶囊随手指移动，松手后打开对应页面。点击入口也能直接切页。
+下图展示早期版本的悬浮玻璃底栏。横滑时高亮胶囊随手指移动，松手后打开对应页面。
 
 <img src="docs/screenshots/v2.0.5/liquid-bottom-nav.png" width="585" alt="液态玻璃底栏，浅色静止状态和深色拖动状态" />
 
@@ -107,7 +107,7 @@ flutter test
 
 - **Windows** 运行 `flutter build windows --release`。使用 Zig 的 Windows x64 构建可从仓库根目录运行 `powershell -File tools/build_windows_zig.ps1`，需要 Zig、Python 3 和 Flutter 3.35.5，产物位于 `app/build/zig-windows/dist/survey_pro/`。
 - **Android** 运行 `flutter build apk --release`。加入 `--split-per-abi` 可生成各架构 APK，产物位于 `app/build/app/outputs/flutter-apk/`。本地未配置发布密钥时使用调试签名。本地 APK 与官方 APK 的签名不同，因此需要使用独立的测试设备或测试环境安装。
-- **测量核心** 在 `packages/survey_core/` 运行 `dart pub get` 和 `dart run test/all_test.dart`。
+- **测量核心** 在 `packages/survey_core/` 运行 `dart pub get` 和 `dart test`。Termux 也可使用独立入口 `dart run tool/run_core_checks.dart`。
 
 Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在仓库根目录运行以下命令。
 
@@ -121,6 +121,5 @@ Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在
 
 ## 版本与反馈
 
-- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v2.1.1)
-- [历史版本](https://github.com/gtnb233-dev/GTnb233/releases) · [v1.2.0-beta.3](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.2.0-beta.3)
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.0.0)
 - [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。
