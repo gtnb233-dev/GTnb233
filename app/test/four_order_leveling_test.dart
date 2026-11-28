@@ -33,6 +33,28 @@ Future<void> _pump(
 const int _fieldsPerRow = 9;
 
 void main() {
+  testWidgets(
+      '4 m station switches between the default and strict limits and restores its draft',
+      (tester) async {
+    final store = DraftStore();
+    store.put('leveling4', 'r0_backUpper', '1611');
+    await _pump(tester, const FourOrderLevelingPage(), drafts: store);
+    final issue =
+        find.byKey(const ValueKey('leveling4-issue-0'), skipOffstage: false);
+    expect(issue, findsNothing);
+    await tester.ensureVisible(find.text('3 m'));
+    await tester.tap(find.text('3 m'));
+    await tester.pumpAndSettle();
+    expect(issue, findsOneWidget);
+    expect(store.read('leveling4')['stationLimit'], '3.0');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pump(tester, const FourOrderLevelingPage(), drafts: store);
+    expect(issue, findsOneWidget);
+    await tester.ensureVisible(find.text('5 m'));
+    await tester.tap(find.text('5 m'));
+    await tester.pumpAndSettle();
+    expect(issue, findsNothing);
+  });
   testWidgets('规范算例：闭合环 Σh=+8 mm、限差 ±12.6 mm、合格且末点闭合', (tester) async {
     await _pump(tester, const FourOrderLevelingPage());
     expect(tester.takeException(), isNull);
@@ -103,8 +125,10 @@ void main() {
     expect(tester.takeException(), isNull);
 
     // 行数恢复成 2：先按行 Key 数，再数输入格
-    expect(find.byKey(const ValueKey<String>('leveling4-row-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('leveling4-row-1')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('leveling4-row-0')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('leveling4-row-1')), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('leveling4-row-2')), findsNothing);
     final textFields = find.byType(TextField).evaluate().length;
     expect(textFields, 2 * _fieldsPerRow + 2,

@@ -70,14 +70,13 @@ double? _parseDmToDeg(String raw, String hemi, bool isLat) {
 }
 
 String _formatDegToDm(double deg, {required bool isLat}) {
-  final absDeg = deg.abs();
-  final d = absDeg.floor();
-  final m = (absDeg - d) * 60.0;
-  final dWidth = isLat ? 2 : 3;
-  final dStr = d.toString().padLeft(dWidth, '0');
-  final mInt = m.floor().toString().padLeft(2, '0');
-  final mFrac = (m - m.floor()).toStringAsFixed(6).substring(1); // .xxxxxx
-  return '$dStr$mInt$mFrac';
+  const scale = 1000000;
+  final microMinutes = (deg.abs() * 60 * scale).round();
+  final wholeMinutes = microMinutes ~/ scale;
+  final degrees = (wholeMinutes ~/ 60).toString().padLeft(isLat ? 2 : 3, '0');
+  final minutes = (wholeMinutes % 60).toString().padLeft(2, '0');
+  final fraction = (microMinutes % scale).toString().padLeft(6, '0');
+  return '$degrees$minutes.$fraction';
 }
 
 /// 解析 `$GPGGA` 或 `$GNGGA` 语句。

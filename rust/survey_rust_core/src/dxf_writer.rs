@@ -1,4 +1,4 @@
-//! 分层 ASCII DXF 生成器（AC1009 标准格式）。
+//! 分层 ASCII DXF 生成器（AutoCAD R14 / AC1014）。
 //!
 //! 工程测量坐标约定：输入 `x` 为北坐标（N）、`y` 为东坐标（E）、`z` 为高程（H）；
 //! 写入 DXF 时自动交换为 CAD 平面横轴东坐标（10 组码 = y）与纵轴北坐标（20 组码 = x）。
@@ -8,6 +8,7 @@ use std::fmt::Write as _;
 
 /// 标准工程测量图层集合。
 pub const STANDARD_LAYERS: &[&str] = &[
+    "0",
     "POINTS",
     "ELEVATIONS",
     "TRAVERSE",
@@ -33,12 +34,16 @@ pub struct DxfPolylineSpec {
     pub layer: String,
 }
 
-fn sanitize_layer(layer: &str) -> &str {
-    let trimmed = layer.trim();
-    if trimmed.is_empty() {
-        "0"
+fn single_line(value: &str) -> String {
+    value.replace(['\r', '\n', '\0'], "").trim().to_owned()
+}
+
+fn sanitize_layer(layer: &str) -> String {
+    let name = single_line(layer);
+    if name.is_empty() {
+        "0".to_owned()
     } else {
-        trimmed
+        name
     }
 }
 
@@ -55,7 +60,7 @@ fn layer_color(layer: &str) -> u16 {
 
 /// 生成包含 `HEADER`、`TABLES`（`LAYER` 表）与 `ENTITIES` 段的完整 ASCII DXF 文本。
 pub fn generate_layered_dxf(points: &[DxfPointSpec], polylines: &[DxfPolylineSpec]) -> String {
-    let mut layers: BTreeSet<&str> = STANDARD_LAYERS.iter().copied().collect();
+    let mut layers: BTreeSet<String> = STANDARD_LAYERS.iter().map(|s| (*s).to_owned()).collect();
     for p in points {
         layers.insert(sanitize_layer(&p.layer));
     }
@@ -65,18 +70,18 @@ pub fn generate_layered_dxf(points: &[DxfPointSpec], polylines: &[DxfPolylineSpe
 
     let mut out = String::with_capacity(1024 + points.len() * 128 + polylines.len() * 128);
     // HEADER
-    out.push_str("0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n");
+    out.push_str("0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1014\n0\nENDSEC\n");
 
     // TABLES -> LAYER
     let _ = writeln!(
         out,
-        "0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n{}",
+        "0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n5\n2\n100\nAcDbSymbolTable\n70\n{}",
         layers.len()
     );
     for layer in &layers {
         let _ = writeln!(
             out,
-            "0\nLAYER\n2\n{}\n70\n0\n62\n{}\n6\nCONTINUOUS",
+            "0\nLAYER\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n2\n{}\n70\n0\n62\n{}\n6\nCONTINUOUS",
             layer,
             layer_color(layer)
         );
@@ -95,24 +100,25 @@ pub fn generate_layered_dxf(points: &[DxfPointSpec], polylines: &[DxfPolylineSpe
         // 工程测量 (X=北, Y=东) -> CAD (10=东=Y, 20=北=X)
         let _ = writeln!(
             out,
-            "0\nPOINT\n8\n{}\n10\n{:.6}\n20\n{:.6}\n30\n{:.6}",
+            "0\nPOINT\n100\nAcDbEntity\n8\n{}\n100\nAcDbPoint\n10\n{:.6}\n20\n{:.6}\n30\n{:.6}",
             layer, p.y, p.x, z
         );
-        if !p.name.trim().is_empty() {
+        let name = single_line(&p.name);
+        if !name.is_empty() {
             let _ = writeln!(
                 out,
-                "0\nTEXT\n8\n{}\n10\n{:.6}\n20\n{:.6}\n30\n{:.6}\n40\n1.5\n1\n{}",
+                "0\nTEXT\n100\nAcDbEntity\n8\n{}\n100\nAcDbText\n10\n{:.6}\n20\n{:.6}\n30\n{:.6}\n40\n1.5\n1\n{}\n100\nAcDbText",
                 layer,
                 p.y + 0.5,
                 p.x + 0.5,
                 z,
-                p.name.trim()
+                name
             );
         }
         if let Some(zv) = p.z.filter(|v| v.is_finite()) {
             let _ = writeln!(
                 out,
-                "0\nTEXT\n8\nELEVATIONS\n10\n{:.6}\n20\n{:.6}\n30\n{:.6}\n40\n1.2\n1\n{:.3}",
+                "0\nTEXT\n100\nAcDbEntity\n8\nELEVATIONS\n100\nAcDbText\n10\n{:.6}\n20\n{:.6}\n30\n{:.6}\n40\n1.2\n1\n{:.3}\n100\nAcDbText",
                 p.y + 0.5,
                 p.x - 1.2,
                 zv,
@@ -135,7 +141,7 @@ pub fn generate_layered_dxf(points: &[DxfPointSpec], polylines: &[DxfPolylineSpe
         let flag = if pl.closed { 1 } else { 0 };
         let _ = writeln!(
             out,
-            "0\nLWPOLYLINE\n8\n{}\n90\n{}\n70\n{}",
+            "0\nLWPOLYLINE\n100\nAcDbEntity\n8\n{}\n100\nAcDbPolyline\n90\n{}\n70\n{}",
             layer,
             valid.len(),
             flag
@@ -154,6 +160,23 @@ pub fn generate_layered_dxf(points: &[DxfPointSpec], polylines: &[DxfPolylineSpe
 mod tests {
     use super::*;
     use crate::dxf_parser::{parse_ascii_dxf, DxfEntity};
+
+    #[test]
+    fn r14_labels_and_layer_references_are_single_line() {
+        let dxf = generate_layered_dxf(
+            &[DxfPointSpec { name: " P\r\n1 ".into(), x: 3., y: 4., z: None, layer: "A\nB".into() }],
+            &[DxfPolylineSpec { vertices: vec![(3., 4.), (5., 6.)], closed: false, layer: "A\rB".into() }],
+        );
+        assert!(dxf.contains("9\n$ACADVER\n1\nAC1014\n"));
+        assert!(dxf.contains("1\nP1\n"));
+        assert!(!dxf.contains('\r'));
+        assert_eq!(dxf.matches("2\nAB\n").count(), 1);
+        assert_eq!(dxf.matches("8\nAB\n").count(), 3);
+        assert!(dxf.contains("100\nAcDbPolyline\n90\n2\n"));
+        let lines: Vec<_> = dxf.lines().collect();
+        assert_eq!(lines.len() % 2, 0);
+        assert!(lines.chunks_exact(2).all(|pair| pair[0].parse::<u16>().is_ok()));
+    }
 
     #[test]
     fn generates_layered_dxf_and_swaps_xy() {

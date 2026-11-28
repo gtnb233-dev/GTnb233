@@ -232,6 +232,10 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       : _grade.lengthCoefficient;
   bool _alternateRods = true;
   double _sightLimit = 80;
+  double _stationLimit = kDoubleStaffDistanceDiffToleranceM;
+  double get _distanceLimit => _grade == LevelingGrade.fourth
+      ? _stationLimit
+      : kDoubleStaffDistanceDiffToleranceM;
 
   /// 默认后尺 K=4687、前尺 K=4787；可切为对调或同尺 4687。
   _RodKMode _rodMode = _RodKMode.back4687Front4787;
@@ -549,6 +553,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         'pointPrefix': _pointPrefix,
         'pointStep': _pointStep.toString(),
         'sightLimit': _sightLimit.toString(),
+        'stationLimit': _stationLimit.toString(),
         for (var i = 0; i < _rows.length; i++) ...{
           'r${i}_name': _rows[i].name.text,
           for (final f in _rows[i].fields.entries)
@@ -624,6 +629,10 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         ? _alternateRods
         : saved['alternateRods'] == 'true';
     _sightLimit = saved['sightLimit'] == '100.0' ? 100 : 80;
+    _stationLimit = double.tryParse(saved['stationLimit'] ?? '') ==
+            kStrictStationDistanceDiffM
+        ? kStrictStationDistanceDiffM
+        : kDoubleStaffDistanceDiffToleranceM;
     _pointPrefix = saved['pointPrefix']?.trim().isNotEmpty == true
         ? saved['pointPrefix']!
         : 'P';
@@ -726,7 +735,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
     final fourth = _grade == LevelingGrade.fourth;
     final perStation = SurveyHybridEngine.instance.checkLeveling(
       observations,
-      distanceLimit: fourth ? 3 : kDoubleStaffDistanceDiffToleranceM,
+      distanceLimit: _distanceLimit,
       sightLimit: fourth ? _sightLimit : double.infinity,
       heightLimit: fourth ? 5 : double.infinity,
     );
@@ -862,9 +871,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
       byDistance: _byDistance,
       backRodLabel: _backRodLabel,
       frontRodLabel: _frontRodLabel,
-      distanceToleranceM: _grade == LevelingGrade.fourth
-          ? 3
-          : kDoubleStaffDistanceDiffToleranceM,
+      distanceToleranceM: _distanceLimit,
       sightToleranceM: _grade == LevelingGrade.fourth ? _sightLimit : null,
       faceToleranceMm: _grade == LevelingGrade.fourth ? 5 : null,
       translateNote: strings.languageCode == 'zh' ? null : strings.translate,
@@ -1063,9 +1070,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
         tr(
             '测站限差：|d| ≤ {distance} m、|Σd| ≤ {cumulative} m、|K+黑−红| ≤ {constant} mm。',
             {
-              'distance': _grade == LevelingGrade.fourth
-                  ? 3
-                  : kDoubleStaffDistanceDiffToleranceM.toStringAsFixed(0),
+              'distance': _distanceLimit.toStringAsFixed(0),
               'cumulative': kDoubleStaffCumulativeToleranceM.toStringAsFixed(0),
               'constant': kDoubleStaffConstantToleranceMm.toStringAsFixed(0),
             }),
@@ -1554,6 +1559,29 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           Wrap(
             spacing: 8,
             children: [
+              if (_grade == LevelingGrade.fourth)
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const LocalText('单站视距差限差'),
+                  SurveySegmentedControl<double>(
+                    segments: const [
+                      ButtonSegment(
+                          value: kDoubleStaffDistanceDiffToleranceM,
+                          label: LocalText('5 m')),
+                      ButtonSegment(
+                          value: kStrictStationDistanceDiffM,
+                          label: LocalText('3 m')),
+                    ],
+                    selected: {_stationLimit},
+                    onSelectionChanged: (values) {
+                      setState(() {
+                        _stationLimit = values.first;
+                        _ignoredIssues.clear();
+                      });
+                      _persistRowCount();
+                      _calc();
+                    },
+                  ),
+                ]),
               FilterChip(
                   label: LocalText(_electronic ? '电子直读' : '光学三丝'),
                   selected: _electronic,
@@ -1590,14 +1618,13 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
           ),
           const SizedBox(height: Insets.s),
           Text(
-            _l(
-              context,
-              '后尺 K${_backRodLabel.isEmpty ? '' : _backRodLabel} = ${_kBack.toStringAsFixed(0)}，'
-                  '前尺 K${_frontRodLabel.isEmpty ? '' : _frontRodLabel} = ${_kFront.toStringAsFixed(0)}；'
-                  '四等检核 |K+黑−红| ≤ 3 mm、|视距差| ≤ 3 m、|Σd| ≤ 10 m（±7 m 预警）、视线高 > 0.2 m。',
-              'BS K${_backRodLabel.isEmpty ? '' : _backRodLabel} = ${_kBack.toStringAsFixed(0)}, '
-                  'FS K${_frontRodLabel.isEmpty ? '' : _frontRodLabel} = ${_kFront.toStringAsFixed(0)}; '
-                  'Limits: |K+B−R| ≤ 3 mm, |d| ≤ 3 m, |Σd| ≤ 10 m (±7 m warn), sight > 0.2 m.',
+            context.tr(
+              '后尺 {back}，前尺 {front}。|K+黑−红| ≤ 3 mm，|d| ≤ {limit} m，|Σd| ≤ 10 m（±7 m 预警），视线高 > 0.2 m。',
+              {
+                'back': 'K$_backRodLabel = ${_kBack.toStringAsFixed(0)}',
+                'front': 'K$_frontRodLabel = ${_kFront.toStringAsFixed(0)}',
+                'limit': _distanceLimit.toStringAsFixed(0),
+              },
             ),
             style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
           ),

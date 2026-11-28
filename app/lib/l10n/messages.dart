@@ -110,8 +110,8 @@ const englishMessages = <String, String>{
       'BS stadia 1571/1197, FS stadia 1385/998; BS black/red 1384/6071, FS black/red 1211/5998.',
   'K+黑−红 0 / 0，视距差 −1.3 m，高差中数 +173 mm':
       'K+black−red: 0/0. Sight difference −1.3 m. Mean ΔH +173 mm.',
-  '|K+黑−红| ≤ 3 mm，|视距差| ≤ 3 m，|Σd| ≤ 10 m，±7 m 预警。':
-      '|K+black−red| ≤ 3 mm, |sight difference| ≤ 3 m, |Σd| ≤ 10 m. Warning at ±7 m.',
+  '|K+黑−红| ≤ 3 mm，|视距差| 默认 ≤ 5 m，可选 ≤ 3 m，|Σd| ≤ 10 m，±7 m 预警。':
+      '|K+black−red| ≤ 3 mm, |sight difference| ≤ 5 m by default or ≤ 3 m when selected, |Σd| ≤ 10 m. Warning at ±7 m.',
   '打开工作区菜单': 'Open workspace menu',
   '关闭菜单': 'Close menu',
   '新建草稿': 'New draft',

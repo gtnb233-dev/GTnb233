@@ -209,10 +209,7 @@ void main() {
     });
 
     runner.test('圆曲线 α=0、缓和曲线与竖曲线 i1==i2 零变坡边界', () {
-      final cc = circularCurve(alphaDeg: 0, radius: 300, jdStation: 1000);
-      runner.expect(cc.tangent, 0.0);
-      runner.expect(cc.curveLength, 0.0);
-      runner.expect(cc.zyStation, 1000.0);
+      runner.expect(() => circularCurve(alphaDeg: 0, radius: 300, jdStation: 1000), runner.throwsArgumentError);
 
       final cl = clothoidCurve(
         alphaDeg: 40,

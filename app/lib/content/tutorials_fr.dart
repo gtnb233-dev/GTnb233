@@ -357,7 +357,7 @@ const _frenchTutorials = <String, Tutorial>{
       ('d / ΔH', '−1,3 m / +173 mm')
     ],
     notes: [
-      'Portée réglée à 80 m ou 100 m. |d| ≤ 3 m, |Σd| ≤ 10 m avec alerte à 7 m, contrôle de mire à 3 mm et écart des dénivelées corrigées à 5 mm.',
+      'Portée réglée à 80 m ou 100 m. |d| ≤ 5 m par défaut ou ≤ 3 m sur sélection, |Σd| ≤ 10 m avec alerte à 7 m, contrôle de mire à 3 mm et écart des dénivelées corrigées à 5 mm.',
       'Par distance, les options plaine et montagne utilisent ±20√L et ±25√L mm, L étant la longueur en km.'
     ],
   ),

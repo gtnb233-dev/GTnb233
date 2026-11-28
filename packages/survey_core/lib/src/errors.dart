@@ -5,6 +5,12 @@ enum SurveyErrorCode {
   angleTooManyParts,
   angleInvalidFormat,
 
+  // curve.dart
+  curveRadiusInvalid,
+  curveAngleInvalid,
+  curveTransitionInvalid,
+  curveValueNotFinite,
+
   // expression.dart
   formulaParseError,
   formulaInvalidResult,

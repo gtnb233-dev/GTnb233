@@ -3,6 +3,13 @@ import 'form_terms.dart';
 /// Compact labels shared by the tools, charts, and printable survey forms.
 const surveyTerms = <String, (String, String, String, String)>{
   ...surveyFormTerms,
+  '后尺 {back}，前尺 {front}。|K+黑−红| ≤ 3 mm，|d| ≤ {limit} m，|Σd| ≤ 10 m（±7 m 预警），视线高 > 0.2 m。': (
+    'BS {back}, FS {front}. |K+B−R| ≤ 3 mm, |d| ≤ {limit} m, |Σd| ≤ 10 m (warning at ±7 m), sight height > 0.2 m.',
+    'Arrière {back}, avant {front}. |K+N−R| ≤ 3 mm, |d| ≤ {limit} m, |Σd| ≤ 10 m (alerte à ±7 m), hauteur de visée > 0,2 m.',
+    'Ré {back}, vante {front}. |K+preta−vermelha| ≤ 3 mm, |d| ≤ {limit} m, |Σd| ≤ 10 m (aviso a ±7 m), altura de visada > 0,2 m.',
+    'Atrás {back}, adelante {front}. |K+negra−roja| ≤ 3 mm, |d| ≤ {limit} m, |Σd| ≤ 10 m (aviso a ±7 m), altura de visual > 0,2 m.',
+  ),
+  '单站视距差限差': ('Station sight-distance difference limit', 'Écart de portée maximal par station', 'Limite de diferença de visadas por estação', 'Límite de diferencia de visuales por estación'),
   '更多操作': ('More actions', 'Plus d’actions', 'Mais ações', 'Más acciones'),
   '页面工具栏': (
     'Page toolbar',

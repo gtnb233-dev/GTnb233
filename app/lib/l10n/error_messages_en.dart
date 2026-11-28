@@ -6,6 +6,11 @@ const errorEnglishMessages = <String, String>{
       'Invalid angle format: "{text}" (at most three DMS parts)',
   'angleInvalidFormat': 'Invalid angle format: "{text}"',
 
+  'curveRadiusInvalid': 'Curve radius must be finite and greater than zero',
+  'curveAngleInvalid': 'Deflection must be greater than 0° and less than 180°',
+  'curveTransitionInvalid': 'Transition length must be finite and nonnegative',
+  'curveValueNotFinite': 'Curve inputs or results exceed the finite numeric range',
+
   // expression.dart
   'formulaParseError':
       'Unparseable content at character {pos}: "{trailing}"',

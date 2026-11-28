@@ -222,6 +222,7 @@ class SurveyHybridEngine {
   }
 
   static final SurveyHybridEngine instance = SurveyHybridEngine._();
+  SurveyHybridEngine.dartFallback();
 
   ComputeBackend _backend = ComputeBackend.dartFallback;
   int _nativeAbiVersion = 0;
@@ -743,16 +744,22 @@ class SurveyHybridEngine {
     required List<DxfExportPoint> points,
     required List<DxfExportPolyline> polylines,
   }) {
+    final controlChars = RegExp(r'[\r\n\x00]');
+    String singleLine(String value) => value.replaceAll(controlChars, '').trim();
+    String layerName(String layer) {
+      final name = singleLine(layer);
+      return name.isEmpty ? '0' : name;
+    }
+
     final layers = <String>{
+      '0',
       'POINTS',
       'ELEVATIONS',
       'TRAVERSE',
       'LEVELING',
       'CURVES',
-      for (final p in points)
-        p.layer.trim().isEmpty ? '0' : p.layer.trim(),
-      for (final pl in polylines)
-        pl.layer.trim().isEmpty ? '0' : pl.layer.trim(),
+      for (final p in points) layerName(p.layer),
+      for (final pl in polylines) layerName(pl.layer),
     };
     int layerColor(String layer) => switch (layer) {
           'POINTS' => 7,
@@ -764,11 +771,12 @@ class SurveyHybridEngine {
         };
 
     final sb = StringBuffer()
-      ..write('0\nSECTION\n2\nHEADER\n9\n\$ACADVER\n1\nAC1009\n0\nENDSEC\n')
-      ..write('0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n${layers.length}\n');
+      ..write('0\nSECTION\n2\nHEADER\n9\n\$ACADVER\n1\nAC1014\n0\nENDSEC\n')
+      ..write('0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n5\n2\n100\nAcDbSymbolTable\n70\n${layers.length}\n');
     for (final layer in layers) {
       sb.write(
-        '0\nLAYER\n2\n$layer\n70\n0\n62\n${layerColor(layer)}\n6\nCONTINUOUS\n',
+        '0\nLAYER\n100\nAcDbSymbolTableRecord\n100\nAcDbLayerTableRecord\n'
+        '2\n$layer\n70\n0\n62\n${layerColor(layer)}\n6\nCONTINUOUS\n',
       );
     }
     sb.write('0\nENDTAB\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n');
@@ -776,23 +784,24 @@ class SurveyHybridEngine {
     for (final p in points) {
       if (!p.x.isFinite || !p.y.isFinite) continue;
       final z = (p.z != null && p.z!.isFinite) ? p.z! : 0.0;
-      final layer = p.layer.trim().isEmpty ? '0' : p.layer.trim();
+      final layer = layerName(p.layer);
       sb.write(
-        '0\nPOINT\n8\n$layer\n10\n${p.y.toStringAsFixed(6)}\n'
+        '0\nPOINT\n100\nAcDbEntity\n8\n$layer\n100\nAcDbPoint\n10\n${p.y.toStringAsFixed(6)}\n'
         '20\n${p.x.toStringAsFixed(6)}\n30\n${z.toStringAsFixed(6)}\n',
       );
-      if (p.name.trim().isNotEmpty) {
+      final name = singleLine(p.name);
+      if (name.isNotEmpty) {
         sb.write(
-          '0\nTEXT\n8\n$layer\n10\n${(p.y + 0.5).toStringAsFixed(6)}\n'
+          '0\nTEXT\n100\nAcDbEntity\n8\n$layer\n100\nAcDbText\n10\n${(p.y + 0.5).toStringAsFixed(6)}\n'
           '20\n${(p.x + 0.5).toStringAsFixed(6)}\n30\n${z.toStringAsFixed(6)}\n'
-          '40\n1.5\n1\n${p.name.trim()}\n',
+          '40\n1.5\n1\n$name\n100\nAcDbText\n',
         );
       }
       if (p.z != null && p.z!.isFinite) {
         sb.write(
-          '0\nTEXT\n8\nELEVATIONS\n10\n${(p.y + 0.5).toStringAsFixed(6)}\n'
+          '0\nTEXT\n100\nAcDbEntity\n8\nELEVATIONS\n100\nAcDbText\n10\n${(p.y + 0.5).toStringAsFixed(6)}\n'
           '20\n${(p.x - 1.2).toStringAsFixed(6)}\n30\n${z.toStringAsFixed(6)}\n'
-          '40\n1.2\n1\n${z.toStringAsFixed(3)}\n',
+          '40\n1.2\n1\n${z.toStringAsFixed(3)}\n100\nAcDbText\n',
         );
       }
     }
@@ -803,10 +812,10 @@ class SurveyHybridEngine {
           if (vx.isFinite && vy.isFinite) (vx, vy),
       ];
       if (valid.isEmpty) continue;
-      final layer = pl.layer.trim().isEmpty ? '0' : pl.layer.trim();
+      final layer = layerName(pl.layer);
       final flag = pl.closed ? 1 : 0;
       sb.write(
-        '0\nLWPOLYLINE\n8\n$layer\n90\n${valid.length}\n70\n$flag\n',
+        '0\nLWPOLYLINE\n100\nAcDbEntity\n8\n$layer\n100\nAcDbPolyline\n90\n${valid.length}\n70\n$flag\n',
       );
       for (final (vx, vy) in valid) {
         sb.write('10\n${vy.toStringAsFixed(6)}\n20\n${vx.toStringAsFixed(6)}\n');

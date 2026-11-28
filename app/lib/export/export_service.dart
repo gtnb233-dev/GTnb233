@@ -327,7 +327,7 @@ class ExportService {
   static String surveyDxf(List<(double, double, double)?> points) {
     final writer = StringBuffer('0\nSECTION\n2\nHEADER\n9\n'
         r'$ACADVER'
-        '\n1\nAC1009\n0\nENDSEC\n'
+        '\n1\nAC1014\n0\nENDSEC\n'
         '0\nSECTION\n2\nENTITIES\n');
     void coordinates((double, double, double) p, {int offset = 0}) {
       writer.write('${10 + offset}\n${p.$2}\n${20 + offset}\n${p.$1}\n'
@@ -337,10 +337,10 @@ class ExportService {
     (double, double, double)? previous;
     for (final point in points) {
       if (point != null) {
-        writer.write('0\nPOINT\n8\n0\n');
+        writer.write('0\nPOINT\n100\nAcDbEntity\n8\n0\n100\nAcDbPoint\n');
         coordinates(point);
         if (previous != null) {
-          writer.write('0\nLINE\n8\n0\n');
+          writer.write('0\nLINE\n100\nAcDbEntity\n8\n0\n100\nAcDbLine\n');
           coordinates(previous);
           coordinates(point, offset: 1);
         }

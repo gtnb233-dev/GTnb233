@@ -357,7 +357,7 @@ const _englishTutorials = <String, Tutorial>{
       ('d / ΔH', '−1.3 m / +173 mm')
     ],
     notes: [
-      'Fourth-order checks use a selected 80 m or 100 m sight limit, |d| ≤ 3 m, |Σd| ≤ 10 m with a warning at 7 m, a staff check of 3 mm, and a corrected face difference of 5 mm.',
+      'Fourth-order checks use a selected 80 m or 100 m sight limit, |d| ≤ 5 m by default or ≤ 3 m when selected, |Σd| ≤ 10 m with a warning at 7 m, a staff check of 3 mm, and a corrected face difference of 5 mm.',
       'For distance-based route closure, the flat and mountainous options use ±20√L and ±25√L mm respectively, with L in km.'
     ],
   ),

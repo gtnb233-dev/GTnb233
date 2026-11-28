@@ -129,6 +129,7 @@ const double kDoubleStaffConstantToleranceMm = 3.0;
 
 /// 四等水准双面尺的检核阈值：|视距差 d| ≤ 5 m。
 const double kDoubleStaffDistanceDiffToleranceM = 5.0;
+const double kStrictStationDistanceDiffM = 3.0;
 
 /// 四等水准双面尺的检核阈值：|累计视距差 Σd| ≤ 10 m。
 const double kDoubleStaffCumulativeToleranceM = 10.0;
@@ -245,7 +246,7 @@ class DoubleStaffStationResult {
   /// |K+黑−红| ≤ 3 mm（前尺）。
   final bool frontConstantOk;
 
-  /// |视距差| ≤ 5 m。
+  /// 本站视距差是否符合所选限差。
   final bool distanceOk;
 
   /// |Σd| ≤ 10 m。

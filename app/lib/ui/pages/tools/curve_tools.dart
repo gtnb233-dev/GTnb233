@@ -21,6 +21,14 @@ String _cvl(BuildContext context, String zh, String en) =>
 
 double? _num(TextEditingController c) => double.tryParse(c.text.trim());
 
+T? _validCurve<T>(T Function() calculate) {
+  try {
+    return calculate();
+  } on SurveyArgumentError {
+    return null;
+  }
+}
+
 TextEditingController _ctrl(String t) => TextEditingController(text: t);
 
 /// 圆曲线要素与主点里程。
@@ -266,12 +274,13 @@ class _CircularCurvePageState extends State<CircularCurvePage>
       setState(() => _res = null);
       return;
     }
-    final c = circularCurve(
+    final c = _validCurve(() => circularCurve(
       alphaDeg: alpha,
       radius: u.toMeters(rRaw),
       jdStation: u.toMeters(jdRaw),
-    );
+    ));
     setState(() => _res = c);
+    if (c == null) return;
     final yzPt =
         circularCurveOffset(radius: c.radius, arcLength: c.curveLength);
     final qzPt =
@@ -663,8 +672,9 @@ class _CircularCurvePageState extends State<CircularCurvePage>
           if (arcM != null && arcM >= 0)
             Builder(
               builder: (_) {
-                final off =
-                    circularCurveOffset(radius: c.radius, arcLength: arcM);
+                final off = _validCurve(() =>
+                    circularCurveOffset(radius: c.radius, arcLength: arcM));
+                if (off == null) return const SizedBox.shrink();
                 return ResultGrid(
                   items: [
                     ResultTile(
@@ -1009,17 +1019,18 @@ class _ClothoidPageState extends State<ClothoidPage>
         rRaw == null ||
         lsRaw == null ||
         rRaw <= 0 ||
-        lsRaw <= 0) {
+        lsRaw < 0) {
       setState(() => _res = null);
       return;
     }
-    final res = clothoidCurve(
+    final res = _validCurve(() => clothoidCurve(
       alphaDeg: alpha,
       radius: u.toMeters(rRaw),
       transitionLength: u.toMeters(lsRaw),
       jdStation: u.toMeters(_num(_jd) ?? 0),
-    );
+    ));
     setState(() => _res = res);
+    if (res == null) return;
     final alphaRad = res.alphaDeg * math.pi / 180.0;
     final r = res.radius;
     final ls = res.transitionLength;
@@ -2104,7 +2115,8 @@ class _RouteStakePageState extends State<RouteStakePage>
     final r = u.toMeters(_num(_r) ?? 0);
     final ls = u.toMeters(_num(_ls) ?? 0);
     final l = u.toMeters(_num(_l) ?? 0);
-    if (r <= 0 || l < 0 || ls < 0) {
+    if (!r.isFinite || !ls.isFinite || !l.isFinite || r <= 0 || l < 0 || ls < 0 ||
+        !(l / r).isFinite) {
       return (
         off: null,
         deflectDeg: 0,

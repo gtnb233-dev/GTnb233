@@ -1,5 +1,34 @@
 import 'dart:math' as math;
 
+import 'errors.dart';
+
+void _checkHorizontalCurve(
+  double radius, {
+  double? alphaDeg,
+  double? transitionLength,
+}) {
+  if (!radius.isFinite || radius <= 0) {
+    throw SurveyArgumentError.value(
+        radius, 'radius', SurveyErrorCode.curveRadiusInvalid, '曲线半径必须是大于零的有限数');
+  }
+  if (alphaDeg != null && !(alphaDeg > 0 && alphaDeg < 180)) {
+    throw SurveyArgumentError.value(alphaDeg, 'alphaDeg',
+        SurveyErrorCode.curveAngleInvalid, '曲线转角必须在 0° 与 180° 之间');
+  }
+  if (transitionLength != null &&
+      (!transitionLength.isFinite || transitionLength < 0)) {
+    throw SurveyArgumentError.value(transitionLength, 'transitionLength',
+        SurveyErrorCode.curveTransitionInvalid, '缓和曲线长必须是非负有限数');
+  }
+}
+
+void _checkCurveRange(List<double> values) {
+  if (values.any((value) => !value.isFinite)) {
+    throw SurveyArgumentError(
+        SurveyErrorCode.curveValueNotFinite, '曲线参数或计算结果超出有限数值范围');
+  }
+}
+
 /// 圆曲线要素。
 ///
 /// [alphaDeg] 为转角（左右不影响要素），[radius] 为曲线半径（m），
@@ -58,17 +87,20 @@ CircularCurveResult circularCurve({
   required double radius,
   double jdStation = 0,
 }) {
+  _checkHorizontalCurve(radius, alphaDeg: alphaDeg);
   final a = alphaDeg * math.pi / 180.0;
   final half = a / 2;
   final t = radius * math.tan(half);
   final l = radius * a;
-  final e = radius * (1 / math.cos(half) - 1);
-  final c = 2 * radius * math.sin(half);
-  final m = radius * (1 - math.cos(half));
-  final q = 2 * t - l;
+  final c = radius * (2 * math.sin(half));
+  final sinQuarter = math.sin(half / 2);
+  final m = radius * (2 * sinQuarter * sinQuarter);
+  final e = m / math.cos(half);
+  final q = t + (t - l);
   final zy = jdStation - t;
   final qz = zy + l / 2;
   final yz = zy + l;
+  _checkCurveRange([jdStation, t, l, e, c, m, q, zy, qz, yz]);
   return CircularCurveResult(
     alphaDeg: alphaDeg,
     radius: radius,
@@ -103,12 +135,13 @@ CurveOffset circularCurveOffset({
   required double radius,
   required double arcLength,
 }) {
+  _checkHorizontalCurve(radius);
   final phi = arcLength / radius;
-  return CurveOffset(
-    arcLength,
-    radius * math.sin(phi),
-    radius * (1 - math.cos(phi)),
-  );
+  final sinHalf = math.sin(phi / 2);
+  final x = radius * math.sin(phi);
+  final y = radius * (2 * sinHalf * sinHalf);
+  _checkCurveRange([arcLength, x, y]);
+  return CurveOffset(arcLength, x, y);
 }
 
 /// 带缓和曲线的圆曲线（基本型：缓和曲线 + 圆曲线 + 缓和曲线）。
@@ -185,27 +218,52 @@ ClothoidCurveResult clothoidCurve({
   required double transitionLength,
   double jdStation = 0,
 }) {
+  _checkHorizontalCurve(radius,
+      alphaDeg: alphaDeg, transitionLength: transitionLength);
   final a = alphaDeg * math.pi / 180.0;
   final ls = transitionLength;
-  final beta0 = ls / (2 * radius);
-  final p = ls * ls / (24 * radius) - math.pow(ls, 4) / (2688 * math.pow(radius, 3));
-  final m = ls / 2 - math.pow(ls, 3) / (240 * radius * radius);
+  // Use the dimensionless ratio to avoid powers of dimensional lengths.
+  // At ls = 0 both offsets vanish and the stations are those of a circle.
+  final ratio = ls / radius;
+  final ratio2 = ratio * ratio;
+  final betaDeg = (ratio / 2) * (180 / math.pi);
+  final parameter = math.sqrt(radius) * math.sqrt(ls);
+  final p = ls * ratio * (1 / 24 - ratio2 / 2688);
+  final m = ls * (0.5 - ratio2 / 240);
   final t = (radius + p) * math.tan(a / 2) + m;
-  final ly = radius * (a - 2 * beta0);
-  final l = ly + 2 * ls;
-  final e = (radius + p) / math.cos(a / 2) - radius;
-  final q = 2 * t - l;
+  final ly = radius * a - ls;
+  final l = radius * a + ls;
+  final sinQuarter = math.sin(a / 4);
+  final e = (radius * (2 * sinQuarter * sinQuarter) + p) / math.cos(a / 2);
+  final q = t + (t - l);
   final zh = jdStation - t;
   final hy = zh + ls;
   final qz = zh + l / 2;
   final yh = zh + l - ls;
   final hz = zh + l;
+  _checkCurveRange([
+    jdStation,
+    parameter,
+    betaDeg,
+    p,
+    m,
+    t,
+    ly,
+    l,
+    e,
+    q,
+    zh,
+    hy,
+    qz,
+    yh,
+    hz
+  ]);
   return ClothoidCurveResult(
     alphaDeg: alphaDeg,
     radius: radius,
     transitionLength: ls,
-    parameter: math.sqrt(radius * ls),
-    transitionAngleDeg: beta0 * 180 / math.pi,
+    parameter: parameter,
+    transitionAngleDeg: betaDeg,
     shiftP: p,
     tangentOffsetM: m,
     tangent: t,
@@ -228,12 +286,16 @@ CurveOffset clothoidOffset({
   required double transitionLength,
   required double arcLength,
 }) {
-  final ls = transitionLength;
-  final l = arcLength;
-  final x = l - math.pow(l, 5) / (40 * radius * radius * ls * ls);
-  final y = math.pow(l, 3) / (6 * radius * ls) -
-      math.pow(l, 7) / (336 * math.pow(radius, 3) * math.pow(ls, 3));
-  return CurveOffset(l, x, y);
+  _checkHorizontalCurve(radius, transitionLength: transitionLength);
+  if (transitionLength == 0) {
+    return circularCurveOffset(radius: radius, arcLength: arcLength);
+  }
+  final ratio = (arcLength / radius) * (arcLength / transitionLength);
+  final ratio2 = ratio * ratio;
+  final x = arcLength * (1 - ratio2 / 40);
+  final y = arcLength * (ratio * (1 / 6 - ratio2 / 336));
+  _checkCurveRange([arcLength, x, y]);
+  return CurveOffset(arcLength, x, y);
 }
 
 /// 竖曲线要素。坡度以千分数或百分数输入？此处统一用「小数坡度」（如 0.03 表示 3%）。
@@ -323,8 +385,7 @@ double verticalElevationAt({
   required VerticalCurveResult curve,
   required double station,
 }) {
-  final inRange =
-      station >= curve.bvcStation && station <= curve.evcStation;
+  final inRange = station >= curve.bvcStation && station <= curve.evcStation;
   if (!inRange) {
     final delta = station - curve.vpiStation;
     return delta <= 0

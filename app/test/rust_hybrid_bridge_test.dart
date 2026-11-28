@@ -4,6 +4,25 @@ import 'package:survey_pro/engine/rust_bridge.dart';
 void main() {
   group('SurveyHybridEngine', () {
     final engine = SurveyHybridEngine.instance;
+    test(
+        'R14 exports single-line text and matching layer names on both backends',
+        () {
+      for (final writer in [engine, SurveyHybridEngine.dartFallback()]) {
+        final dxf = writer.exportDxf(points: const [
+          DxfExportPoint(name: ' K\r\n1 ', x: 1, y: 2, layer: 'A\nB'),
+        ], polylines: const [
+          DxfExportPolyline(vertices: [(1, 2), (3, 4)], layer: 'A\rB'),
+        ]);
+        expect(dxf, contains('9\n\$ACADVER\n1\nAC1014\n'));
+        expect(dxf, contains('1\nK1\n'));
+        expect(dxf, isNot(contains('\r')));
+        expect('2\nAB\n'.allMatches(dxf), hasLength(1));
+        expect('8\nAB\n'.allMatches(dxf), hasLength(3));
+        expect(dxf, contains('100\nAcDbPolyline\n90\n2\n'));
+        expect(writer.parseDxfEntities(dxf).whereType<DxfLwPolylineRecord>(),
+            hasLength(1));
+      }
+    });
 
     test('parses ASCII DXF POINT, LINE and LWPOLYLINE entities', () {
       const dxf = '''
@@ -82,7 +101,8 @@ EOF
         TinPoint3D(x: 0, y: 10, z: 12),
         TinPoint3D(x: 10, y: 10, z: 8),
       ];
-      final res = engine.computeTinVolume(pts, const [(0, 1, 2), (1, 3, 2)], 10);
+      final res =
+          engine.computeTinVolume(pts, const [(0, 1, 2), (1, 3, 2)], 10);
       expect(res.planArea, closeTo(100.0, 1e-9));
       expect(res.cutVolume, closeTo(133.333333333, 1e-6));
       expect(res.fillVolume, closeTo(0.0, 1e-9));
