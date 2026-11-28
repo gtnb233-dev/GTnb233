@@ -4,6 +4,7 @@
   <p>面向工程测量外业、内业平差与测绘实训的开源工具箱，支持 Windows 和 Android，所有测量计算均在本机离线完成。</p>
   <p>内置 19 项测量工具，覆盖四等水准、导线平差、坐标转换、放样和 TIN 土方。可用 LivePlot 查看点位与路线，导出 DXF、Excel、CSV、TXT 和 PNG 成果。</p>
   <p>
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-windows-x64-setup.exe"><strong>Windows x64 安装版</strong></a> ·
     <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-windows-x64.zip"><strong>Windows x64 便携版</strong></a> ·
     <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-arm64-v8a.apk"><strong>Android ARM64</strong></a> ·
     <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.0">查看 v1.0 发布说明</a> ·
@@ -17,13 +18,14 @@
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
+| **Windows x64 安装版** | Windows 10／11，自动创建桌面快捷方式与卸载入口，推荐 | [下载 EXE](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-windows-x64-setup.exe) |
 | **Windows x64 便携版** | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-windows-x64.zip) |
 | **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-arm64-v8a.apk) |
 | **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-universal.apk) |
 | Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-armeabi-v7a.apk) |
 | Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-x86_64.apk) |
 
-- **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留 ZIP 中的目录结构及同目录的 DLL。
+- **Windows**：安装版双击 `survey_gt-1.0-windows-x64-setup.exe` 即可安装至当前用户目录并生成桌面快捷方式（无需管理员权限）；便携版解压 ZIP 后运行 `survey_pro.exe`，请保留目录结构及同目录的 DLL。
 - **Android**：需要 Android 7.0 或更高版本。从旧版覆盖安装时，请选择与原安装包相同的架构。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/SHA256SUMS.txt)
 
 ## 核心亮点

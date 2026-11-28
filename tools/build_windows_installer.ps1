@@ -2,7 +2,8 @@
 param(
     [string]$Compiler = 'makensis.exe',
     [string]$Payload = (Join-Path $PSScriptRoot '..\app\build\zig-windows\dist\survey_pro'),
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\app\build\installer')
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\app\build\installer'),
+    [string]$FileName = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,7 +24,8 @@ $version = [regex]::Match($versionText, '(?m)^version:\s*(\d+\.\d+\.\d+)').Group
 if (!$version) { throw 'Unable to determine the application version.' }
 $engine = Get-Command $Compiler -ErrorAction Stop
 $icon = Join-Path $root 'app\windows\runner\resources\app_icon.ico'
-$exe = Join-Path $output "survey_pro-$version-windows-x64-setup.exe"
+$installerName = if ($FileName) { $FileName } else { "survey_gt-$version-windows-x64-setup.exe" }
+$exe = Join-Path $output $installerName
 $manifest = Join-Path $output 'survey-pro-uninstall.nsh'
 $payloadFiles = Get-ChildItem -LiteralPath $payloadPath -File -Recurse
 $payloadDirectories = Get-ChildItem -LiteralPath $payloadPath -Directory -Recurse |
@@ -36,7 +38,7 @@ $commands = @(
         'RMDir "$INSTDIR\{0}"' -f $dir.FullName.Substring($payloadPath.Length + 1).Replace('$', '$$')
     }
 )
-Set-Content -LiteralPath $manifest -Value $commands -Encoding UTF8
-& $engine.Source /V2 "/DAPP_VERSION=$version" "/DOUTPUT_FILE=$exe" "/DAPP_ICON=$icon" "/DPAYLOAD_DIR=$payloadPath" "/DUNINSTALL_MANIFEST=$manifest" (Join-Path $PSScriptRoot 'survey_pro.nsi')
+[System.IO.File]::WriteAllLines($manifest, [string[]]$commands, (New-Object System.Text.UTF8Encoding($false)))
+& $engine.Source /V2 /INPUTCHARSET UTF8 "/DAPP_VERSION=$version" "/DOUTPUT_FILE=$exe" "/DAPP_ICON=$icon" "/DPAYLOAD_DIR=$payloadPath" "/DUNINSTALL_MANIFEST=$manifest" (Join-Path $PSScriptRoot 'survey_pro.nsi')
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 Get-Item -LiteralPath $exe | Select-Object FullName, Length
