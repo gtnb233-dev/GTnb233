@@ -2,7 +2,7 @@
 name = "survey_rust_core"
 version = "0.1.0"
 edition = "2021"
-description = "High-performance Rust compute kernel for Survey Pro (DXF parser, TIN earthwork, spatial point index)"
+description = "High-performance Rust compute kernel for Survey GT (DXF parser, TIN earthwork, spatial point index)"
 license = "MIT"
 
 [lib]

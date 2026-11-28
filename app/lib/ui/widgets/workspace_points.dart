@@ -3,6 +3,7 @@ import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 
 import '../../engine/rust_bridge.dart';
+import '../../app_info.dart';
 import '../../l10n/survey_strings.dart';
 import '../../platform/native_bridge_contract.dart';
 import '../../state/control_points.dart';
@@ -106,9 +107,11 @@ class _WorkspacePointPlotState extends State<WorkspacePointPlot> {
   Widget build(BuildContext context) {
     final i = _index;
     final point = i == null ? null : widget.points[i];
-    final digits =
-        context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier?.coordDigits ??
-            3;
+    final digits = context
+            .dependOnInheritedWidgetOfExactType<SettingsScope>()
+            ?.notifier
+            ?.coordDigits ??
+        3;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -117,7 +120,7 @@ class _WorkspacePointPlotState extends State<WorkspacePointPlot> {
           height: math.min(MediaQuery.sizeOf(context).height * .42, 380),
           selectedIndex: i,
           surveyNorthUp: true,
-          exportTitle: 'Survey Pro',
+          exportTitle: kAppName,
           onTap: (p) => setState(() => _index = widget.points.indexOf(p)),
         ),
         if (point != null)
@@ -426,9 +429,11 @@ class _WorkspaceLivePlotPanelState extends State<WorkspaceLivePlotPanel> {
   @override
   Widget build(BuildContext context) {
     final controller = LivePlotScope.of(context);
-    final digits =
-        context.dependOnInheritedWidgetOfExactType<SettingsScope>()?.notifier?.coordDigits ??
-            3;
+    final digits = context
+            .dependOnInheritedWidgetOfExactType<SettingsScope>()
+            ?.notifier
+            ?.coordDigits ??
+        3;
     final scheme = Theme.of(context).colorScheme;
     final snapshot =
         (controller.current != null && !controller.current!.isEmpty)
@@ -537,7 +542,7 @@ class _WorkspaceLivePlotPanelState extends State<WorkspaceLivePlotPanel> {
       showScaleBar: true,
       showToolbar: true,
       unit: snapshot.unit,
-      exportTitle: snapshot.title.isEmpty ? 'Survey Pro' : snapshot.title,
+      exportTitle: snapshot.title.isEmpty ? kAppName : snapshot.title,
       onTap: (p) => setState(() => _selectedIndex = plotPoints.indexOf(p)),
     );
 
@@ -572,7 +577,8 @@ class _WorkspaceLivePlotPanelState extends State<WorkspaceLivePlotPanel> {
             children: [
               ChoiceChip(
                 label: const LocalText('当前草稿'),
-                selected: controller.sourceKind == LivePlotSourceKind.activeDraft,
+                selected:
+                    controller.sourceKind == LivePlotSourceKind.activeDraft,
                 onSelected: (_) => _switchToActiveDraft(controller),
               ),
               const SizedBox(width: Insets.xs),
@@ -584,13 +590,15 @@ class _WorkspaceLivePlotPanelState extends State<WorkspaceLivePlotPanel> {
               ),
               const SizedBox(width: Insets.xs),
               ActionChip(
-                avatar: const OutlineSymbol(Icons.file_upload_outlined, size: 16),
+                avatar:
+                    const OutlineSymbol(Icons.file_upload_outlined, size: 16),
                 label: const LocalText('导入 DXF / CSV'),
                 onPressed: () => _importDxfOrCsv(controller),
               ),
               const SizedBox(width: Insets.xs),
               ActionChip(
-                avatar: const OutlineSymbol(Icons.auto_graph_outlined, size: 16),
+                avatar:
+                    const OutlineSymbol(Icons.auto_graph_outlined, size: 16),
                 label: const LocalText('加载示例'),
                 onPressed: () => _loadSample(controller),
               ),

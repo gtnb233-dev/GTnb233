@@ -4,8 +4,10 @@
 /// `test/version_test.dart` 会读 pubspec.yaml 校验两者一致。
 library;
 
+const String kAppName = 'Survey GT';
+
 /// 语义版本号，如 `1.0.2`（不含 build number）。
-const String kAppVersion = '1.1.0';
+const String kAppVersion = '1.0.0';
 
 /// 侧栏页脚用的短标签。
 const String kAppVersionLabel = 'v$kAppVersion';

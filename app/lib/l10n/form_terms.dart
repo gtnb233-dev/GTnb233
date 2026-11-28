@@ -59,10 +59,10 @@ const surveyFormTerms = <String, (String, String, String, String)>{
     'Elaborado el {date}'
   ),
   '说明：本成果由工程测量工具箱离线解算。': (
-    'Calculated offline in Survey Pro.',
-    'Calculé hors ligne dans Survey Pro.',
-    'Calculado offline no Survey Pro.',
-    'Calculado sin conexión en Survey Pro.',
+    'Calculated offline in Survey GT.',
+    'Calculé hors ligne dans Survey GT.',
+    'Calculado offline no Survey GT.',
+    'Calculado sin conexión en Survey GT.',
   ),
   '计算说明与检核附注：': (
     'Calculation and check notes:',

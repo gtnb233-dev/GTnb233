@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'app_info.dart';
 import 'l10n/survey_strings.dart';
 import 'platform/native_bridge_contract.dart';
 import 'state/control_points.dart';
@@ -84,7 +85,6 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
   /// Android 12+ / Windows 的系统强调色；取不到时为 null。
   Color? _systemAccent;
   bool? _lastWindowDark;
-  String? _lastWindowTitle;
   late (ThemeMode, UiStyle, bool, MonetSeed, AppLanguage) _appearance;
   (ThemeMode, UiStyle, bool, MonetSeed, AppLanguage) get _currentAppearance {
     final settings = widget.settings;
@@ -125,7 +125,7 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     unawaited(NativeWindowBridge.setStartupTheme(_appearance.$1.name));
     _syncAccent();
     _syncWindowBrightness();
-    _syncWindowTitle();
+    unawaited(NativeWindowBridge.setWindowTitle(kAppName));
   }
 
   @override
@@ -152,11 +152,6 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     _syncWindowBrightness();
   }
 
-  @override
-  void didChangeLocales(List<Locale>? locales) {
-    _syncWindowTitle(locales);
-  }
-
   void _onSettingsChanged() {
     final next = _currentAppearance;
     if (_appearance == next) return;
@@ -169,16 +164,6 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     }
     if (accentChanged) _syncAccent();
     _syncWindowBrightness();
-    _syncWindowTitle();
-  }
-
-  void _syncWindowTitle([List<Locale>? locales]) {
-    final resolved = widget.settings.language.locale ??
-        AppLanguage.resolve(locales ?? PlatformDispatcher.instance.locales);
-    final title = SurveyStrings(resolved.languageCode).translate('工程测量');
-    if (_lastWindowTitle == title) return;
-    _lastWindowTitle = title;
-    unawaited(NativeWindowBridge.setWindowTitle(title));
   }
 
   void _syncWindowBrightness() {
@@ -230,7 +215,7 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
           child: SettingsScope(
             settings: settings,
             child: MaterialApp(
-              onGenerateTitle: (context) => context.tr('工程测量'),
+              title: kAppName,
               debugShowCheckedModeBanner: false,
               scrollBehavior: const _AppScrollBehavior(),
               theme: workspaceTheme(

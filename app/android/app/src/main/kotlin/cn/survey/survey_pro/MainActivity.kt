@@ -34,7 +34,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
-/// Platform bridges for Survey Pro:
+/// Platform bridges for Survey GT:
 /// - `survey/theme`: Android 12+ Material You wallpaper accent color (`accentColor`)
 /// - `survey/files`: SAF document picker (`pickDocument`), MediaStore gallery save (`savePngToGallery`) & system share (`shareImageUri`)
 class MainActivity : FlutterActivity() {

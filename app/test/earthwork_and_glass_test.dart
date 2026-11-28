@@ -31,18 +31,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final toggle = find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable().first;
-    final homeTitle = find.descendant(
-      of: find.byType(HomePage),
-      matching: find.text('工程测量'),
-    ).first;
+    final toggle =
+        find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable().first;
+    final homeTitle = find
+        .descendant(
+          of: find.byType(HomePage),
+          matching: find.text('Survey GT'),
+        )
+        .first;
     final resumeCard = find.byKey(const ValueKey('home-resume'));
 
     final toggleRect = tester.getRect(toggle);
     final titleRect = tester.getRect(homeTitle);
     final resumeRect = tester.getRect(resumeCard);
 
-    expect((toggleRect.center.dy - titleRect.center.dy).abs(), lessThanOrEqualTo(1.0));
+    expect((toggleRect.center.dy - titleRect.center.dy).abs(),
+        lessThanOrEqualTo(1.0));
     expect((toggleRect.left - resumeRect.left).abs(), lessThanOrEqualTo(1.0));
     expect(tester.takeException(), isNull);
   });
@@ -82,7 +86,8 @@ void main() {
         of: split,
         matching: find.byType(ResultGrid),
       );
-      expect(resultGrid, findsWidgets, reason: '$mode should show ResultGrid in side pane');
+      expect(resultGrid, findsWidgets,
+          reason: '$mode should show ResultGrid in side pane');
       expect(
         tester.getRect(inputs).right,
         lessThanOrEqualTo(tester.getRect(resultGrid.first).left + 1.0),

@@ -8,7 +8,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $CrateDir = Join-Path $Root 'rust\survey_rust_core'
 
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-    Write-Warning 'Rust toolchain (cargo) not found on PATH. Survey Pro will run using Dart fallback compute parity.'
+    Write-Warning 'Rust toolchain (cargo) not found on PATH. Survey GT will run using Dart fallback compute parity.'
     exit 0
 }
 

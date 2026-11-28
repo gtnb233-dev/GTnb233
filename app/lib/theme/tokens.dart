@@ -12,7 +12,7 @@ const TextHeightBehavior kSurveyTextHeightBehavior = TextHeightBehavior(
   leadingDistribution: TextLeadingDistribution.even,
 );
 
-/// Survey Pro 设计系统的 4dp 间距网格。
+/// Survey GT 设计系统的 4dp 间距网格。
 abstract final class Insets {
   static const double xxs = 2;
   static const double xs = 4;

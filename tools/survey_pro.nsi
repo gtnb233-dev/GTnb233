@@ -1,9 +1,9 @@
-﻿Unicode true
+Unicode true
 !include "MUI2.nsh"
 !include "x64.nsh"
 !include "WinVer.nsh"
 
-!define APP_NAME "工程测量工具箱"
+!define APP_NAME "Survey GT"
 !define PRODUCT_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SurveyPro"
 
 Name "${APP_NAME} ${APP_VERSION}"
@@ -15,11 +15,11 @@ RequestExecutionLevel user
 SetCompressor /SOLID lzma
 VIProductVersion "${APP_VERSION}.0"
 VIAddVersionKey /LANG=2052 "ProductName" "${APP_NAME}"
-VIAddVersionKey /LANG=2052 "FileDescription" "Survey Pro 安装程序"
+VIAddVersionKey /LANG=2052 "FileDescription" "Survey GT 安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=2052 "ProductVersion" "${APP_VERSION}"
-VIAddVersionKey /LANG=2052 "CompanyName" "Survey Pro contributors"
-VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright (c) 2026 Survey Pro contributors"
+VIAddVersionKey /LANG=2052 "CompanyName" "Survey GT contributors"
+VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright (c) 2026 Survey GT contributors"
 
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -51,7 +51,7 @@ Section "安装"
   CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\survey_pro.exe" "" "$INSTDIR\survey_pro.exe" 0
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${PRODUCT_KEY}" "Publisher" "Survey Pro contributors"
+  WriteRegStr HKCU "${PRODUCT_KEY}" "Publisher" "Survey GT contributors"
   WriteRegStr HKCU "${PRODUCT_KEY}" "DisplayIcon" "$INSTDIR\survey_pro.exe"
   WriteRegStr HKCU "${PRODUCT_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${PRODUCT_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'

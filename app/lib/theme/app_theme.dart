@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'tokens.dart';
 import 'ui_style.dart';
 
-/// Survey Pro 的默认钴蓝主色。
+/// Survey GT 的默认钴蓝主色。
 const Color kSeed = IosColors.systemBlueLight;
 
-/// Survey Pro 的画布颜色。
+/// Survey GT 的画布颜色。
 const Color _darkScaffold = IosColors.darkGroupedBg;
 const Color _lightScaffold = IosColors.lightGroupedBg;
 
@@ -48,7 +48,7 @@ TextTheme _withEvenLeading(TextTheme text) {
 
 /// 构造主题。
 ///
-/// [seed] 是种子色：默认是 Survey Pro 钴蓝（#0066FF）；开了莫奈取色后由调用方传入
+/// [seed] 是种子色：默认是 Survey GT 钴蓝（#0066FF）；开了莫奈取色后由调用方传入
 /// （Android 12+ 读系统强调色，其它平台用手选种子）。
 /// [style] 决定界面语言：经典（Apple iOS HIG 统一风格）、Miuix 或 Material。
 ThemeData buildAppTheme(

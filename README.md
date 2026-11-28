@@ -1,36 +1,37 @@
 <div align="center">
-  <img src="docs/screenshots/app_icon_256.png" width="88" height="88" alt="Survey Pro 深色石墨包豪斯 K 图标" />
-  <h1>Survey Pro · 工程测量工具箱</h1>
+  <img src="docs/screenshots/app_icon_256.png" width="88" height="88" alt="Survey GT 深色石墨包豪斯 K 图标" />
+  <h1>Survey GT · 工程测量工具箱</h1>
   <p>面向工程测量外业、内业平差与测绘实训的开源工具箱，支持 Windows 和 Android，所有测量计算均在本机离线完成。</p>
   <p>内置 19 项测量工具，覆盖四等水准、导线平差、坐标转换、放样和 TIN 土方。可用 LivePlot 查看点位与路线，导出 DXF、Excel、CSV、TXT 和 PNG 成果。</p>
   <p>
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-windows-x64.zip"><strong>Windows x64 便携版</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-android-arm64-v8a.apk"><strong>Android ARM64</strong></a> ·
-    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.1.0">查看 v1.1.0 发布说明</a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-windows-x64.zip"><strong>Windows x64 便携版</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-arm64-v8a.apk"><strong>Android ARM64</strong></a> ·
+    <a href="https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.0">查看 v1.0 发布说明</a> ·
     <a href="#源码与本地构建">源码与构建</a>
   </p>
 </div>
 
 ## 下载与安装
 
-当前正式版为 **v1.1.0**。
+当前正式版为 **Survey GT 1.0**，包含包豪斯 K 图标和本轮动效升级。
 
 | 平台 | 适用设备 | 下载 |
 | --- | --- | --- |
-| **Windows x64 便携版** | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-windows-x64.zip) |
-| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-android-arm64-v8a.apk) |
-| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-android-universal.apk) |
-| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-android-armeabi-v7a.apk) |
-| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/survey_pro-1.1.0-android-x86_64.apk) |
+| **Windows x64 便携版** | Windows 10／11，解压即用 | [下载 ZIP](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-windows-x64.zip) |
+| **Android ARM64** | 大多数 64 位手机，推荐 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-arm64-v8a.apk) |
+| **Android 通用版** | 不确定设备架构时选择 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-universal.apk) |
+| Android ARMv7 | 旧款 32 位 Android 设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-armeabi-v7a.apk) |
+| Android x86_64 | x86_64 模拟器或设备 | [下载 APK](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/survey_gt-1.0-android-x86_64.apk) |
 
 - **Windows**：解压 ZIP 后运行 `survey_pro.exe`。请保留 ZIP 中的目录结构及同目录的 DLL。
-- **Android**：需要 Android 7.0 或更高版本。覆盖安装时选择与原安装包相同的架构。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.1.0/SHA256SUMS.txt)
+- **Android**：需要 Android 7.0 或更高版本。从旧版覆盖安装时，请选择与原安装包相同的架构。 [SHA-256 校验清单](https://github.com/gtnb233-dev/GTnb233/releases/download/v1.0/SHA256SUMS.txt)
 
 ## 核心亮点
 
 - **19 个工具页的智能导入**支持从右上角导入 DXF、CSV、DAT、TXT，或识别剪贴板中的 Excel 表格、聊天文本与坐标清单。写入前可预览，并选择追加或覆盖。
 - **外业采点与放样**支持读取 `$GPGGA`、`$GNGGA` 定位报文。Windows 和 Android 可从剪贴板填入，Android 还可连接已配对的蓝牙 SPP 接收机。后方交会结果可一键设为放样测站，进入下一步放样。
 - **草稿快照与公式图解**支持保存、逐字段对比和恢复快照。公式计算器提供六种几何图解填槽、积木拼图和自由输入，可实时查看代入过程与结果。
+- **轻量开屏与导航**支持可跳过的 K 字冷启动、设置与工具库全屏过渡、竖屏跟手返回，以及宽屏锚点菜单。最近草稿可置顶、重命名和删除。
 - **100% 本地离线 · 19 项工程测量全覆盖**
   涵盖控制点库、四等水准（双面尺法实时检核与自动跳格）、导线平差、坐标正反算与交会、坐标转换（高斯/四参/七参）、曲线放样、断面/方格网/TIN 土方计算；内置 22 套离线教案与标准算例，断网可用。
 - **Rust + Flutter 混合计算引擎**
@@ -48,15 +49,15 @@
 
 多语言覆盖导航、设置、首页、全部 19 项测量工具、弹窗、22 套离线教案、42 个结构化错误提示及 Excel / CSV / TXT / PNG 导出模板（英文模式通过全量零汉字 Zero-CJK 巡检，小语种缺失词条统一回退至英文）。语言设置沿用现有测量坐标约定。
 
-## v1.1.0 界面预览
+## v1.0 界面预览
 
-截图由 v1.1.0 源码在 Flutter 中渲染，测量页使用内置示例数据。
+截图由 v1.0 源码在 Flutter 中渲染，测量页使用内置示例数据。
 
 **Windows 宽屏 · 导线平差与 LivePlot**
 
 左侧导航提供坐标预设、全局搜索与常用工具。导线平差的页头与侧栏顶部控件对齐，集成草稿状态、单位直切和更多操作。右侧 LivePlot 分屏显示导线点位与连线。
 
-<img src="docs/screenshots/v1.1.0/windows-traverse-liveplot.png" width="980" alt="Windows 宽屏导线平差，左侧为导航，中央为导线录入，右侧为 LivePlot 分屏" />
+<img src="docs/screenshots/survey-gt-1.0/windows-traverse-liveplot.png" width="980" alt="Windows 宽屏导线平差，左侧为导航，中央为导线录入，右侧为 LivePlot 分屏" />
 
 **Android 竖屏 · 首页、四等水准与公式图解**
 
@@ -64,9 +65,9 @@
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/v1.1.0/android-portrait-home.png" width="280" alt="Android 竖屏首页，顶部并排展示继续上次与工具库卡片" /><br />竖屏首页</td>
-    <td align="center"><img src="docs/screenshots/v1.1.0/android-leveling4.png" width="280" alt="Android 四等水准测量页，含智能导入和双面尺手簿" /><br />四等水准测量</td>
-    <td align="center"><img src="docs/screenshots/v1.1.0/android-formula-diagram.png" width="280" alt="Android 公式计算器，显示斜距改平距示意图与输入槽" /><br />公式图解</td>
+    <td align="center"><img src="docs/screenshots/survey-gt-1.0/android-portrait-home.png" width="280" alt="Android 竖屏首页，顶部并排展示继续上次与工具库卡片" /><br />竖屏首页</td>
+    <td align="center"><img src="docs/screenshots/survey-gt-1.0/android-leveling4.png" width="280" alt="Android 四等水准测量页，含智能导入和双面尺手簿" /><br />四等水准测量</td>
+    <td align="center"><img src="docs/screenshots/survey-gt-1.0/android-formula-diagram.png" width="280" alt="Android 公式计算器，显示斜距改平距示意图与输入槽" /><br />公式图解</td>
   </tr>
 </table>
 
@@ -124,5 +125,5 @@ Windows 安装程序用 NSIS 3.x 生成。完成 Zig 版 Windows 构建后，在
 
 ## 版本与反馈
 
-- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.1.0)
+- [最新版与下载校验](https://github.com/gtnb233-dev/GTnb233/releases/tag/v1.0)
 - [问题反馈](https://github.com/gtnb233-dev/GTnb233/issues) · 反馈计算或显示问题时，请附上应用版本、平台和可复现的输入示例。

@@ -8,15 +8,17 @@ import 'package:survey_pro/state/settings.dart';
 
 void main() {
   setUp(() {
-    final dispatcher = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    final dispatcher =
+        TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
     dispatcher.localesTestValue = const [Locale('zh', 'CN')];
     addTearDown(dispatcher.clearLocalesTestValue);
   });
 
   testWidgets('应用能启动并显示首页标题', (tester) async {
-    await tester.pumpWidget(SurveyApp(settings: AppSettings(), drafts: DraftStore()));
+    await tester
+        .pumpWidget(SurveyApp(settings: AppSettings(), drafts: DraftStore()));
     await tester.pumpAndSettle();
-    expect(find.text('工程测量'), findsWidgets);
+    expect(find.text('Survey GT'), findsWidgets);
   });
 
   test('核心算法与 UI 共享同一套约定（x 为北、y 为东）', () {

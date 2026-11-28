@@ -100,13 +100,13 @@ void EnsureDesktopShortcut(const std::vector<std::string>& args) {
     return;
   }
 
-  // "工程测量工具箱.lnk"
+  // Survey GT desktop shortcut
   std::wstring lnk_path(desktop_dir);
   if (!lnk_path.empty() && lnk_path.back() != L'\\' &&
       lnk_path.back() != L'/') {
     lnk_path.push_back(L'\\');
   }
-  lnk_path += L"\u5DE5\u7A0B\u6D4B\u91CF\u5DE5\u5177\u7BB1.lnk";
+  lnk_path += L"Survey GT.lnk";
 
   IShellLinkW* link = nullptr;
   HRESULT hr = ::CoCreateInstance(
@@ -148,7 +148,7 @@ void EnsureDesktopShortcut(const std::vector<std::string>& args) {
     link->SetWorkingDirectory(exe_dir.c_str());
   }
   link->SetDescription(
-      L"\u5DE5\u7A0B\u6D4B\u91CF\u5DE5\u5177\u7BB1 (Survey Pro)");
+      L"\u5DE5\u7A0B\u6D4B\u91CF\u5DE5\u5177\u7BB1 (Survey GT)");
   link->SetIconLocation(exe_path, 0);
   persist->Save(lnk_path.c_str(), TRUE);
 

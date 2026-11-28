@@ -39,8 +39,7 @@ const toolEnglishMessages = <String, String>{
   '输入有效参数后将自动绘制图形': 'Enter valid parameters to render the plot',
 
   // Input helpers
-  '按 度/分/秒 填写，空格或小数点自动跳格':
-      'Enter D / M / S; press Space or . to advance',
+  '按 度/分/秒 填写，空格或小数点自动跳格': 'Enter D / M / S; press Space or . to advance',
   '按 整数.小数 填写，空格或小数点自动跳格':
       'Enter integer.fraction; press Space or . to advance',
   '空格或小数点跳格': 'Space or . to advance',
@@ -58,8 +57,7 @@ const toolEnglishMessages = <String, String>{
   '起算数据': 'Starting data',
   '观测数据': 'Observed data',
   '已知点与起算数据': 'Known & starting data',
-  '输入已知起点坐标与起始方位角':
-      'Enter known starting coordinates and initial azimuth',
+  '输入已知起点坐标与起始方位角': 'Enter known starting coordinates and initial azimuth',
   '起始方位角': 'Initial azimuth',
   '起始方位角快捷选择（可选角 · 起点红线朝正北 0°）':
       'Quick initial azimuth (optional · red line points due North 0°)',
@@ -81,10 +79,8 @@ const toolEnglishMessages = <String, String>{
   '外角和': 'Exterior sum',
   '自动：在多边形内角和与外角和理论值之间就近判定':
       'Auto: choose closer theoretical sum between interior and exterior',
-  '内角和：强制按 (n−2)×180° 检核（闭合多边形内角）':
-      'Interior sum: check against (n−2)×180°',
-  '外角和：强制按 (n+2)×180° 检核（闭合多边形外角）':
-      'Exterior sum: check against (n+2)×180°',
+  '内角和：强制按 (n−2)×180° 检核（闭合多边形内角）': 'Interior sum: check against (n−2)×180°',
+  '外角和：强制按 (n+2)×180° 检核（闭合多边形外角）': 'Exterior sum: check against (n+2)×180°',
   '角度闭合差限差': 'Angular misclosure limit',
   '二级 ±24″√n': 'Class II ±24″√n',
   '图根 ±40″√n': 'Control ±40″√n',
@@ -255,7 +251,7 @@ const toolEnglishMessages = <String, String>{
   '当前暂无可导出的计算成果，请先完善输入':
       'No calculation results to export yet; complete the inputs first',
   '暂无可导出的计算成果': 'No calculation results to export',
-  '工程测量工具箱': 'Survey Pro',
+  '工程测量工具箱': 'Survey GT',
   'CSV 文本': 'CSV text',
   'Excel 表格': 'Excel sheet',
   'TXT 文本': 'Text report',
@@ -541,8 +537,7 @@ const toolEnglishMessages = <String, String>{
   '改正数 vΔx/vΔy = 改正后增量 − 原增量；改正后列即平差后坐标增量。':
       'vΔx/vΔy = adjusted increment − raw increment.',
   '改正数(mm)': 'Corr (mm)',
-  '改正数已按 mm 输出，末行为终点合计':
-      'Corrections in mm; final row shows route totals',
+  '改正数已按 mm 输出，末行为终点合计': 'Corrections in mm; final row shows route totals',
   '改正数按测段距离成比例分配（mm）。':
       'Corrections distributed proportionally to segment distances (mm).',
   '数字 1, 2, 3…': 'Numbers 1, 2, 3…',
@@ -579,16 +574,13 @@ const toolEnglishMessages = <String, String>{
   '评定结果': 'Assessment',
   '请填写起点坐标': 'Enter starting coordinates',
   '请填写起点高程': 'Enter starting elevation',
-  '请至少输入一个转折角与一条边长':
-      'Enter at least one turn angle and one side length',
+  '请至少输入一个转折角与一条边长': 'Enter at least one turn angle and one side length',
   '距离(km)': 'Dist (km)',
   '转折角数': 'Turn angles',
   '转折角（每行一个）': 'Turn angles (one per line)',
-  '输入已知起点坐标与起始边方位角':
-      'Enter known starting coordinates and initial azimuth',
+  '输入已知起点坐标与起始边方位角': 'Enter known starting coordinates and initial azimuth',
   '输入起算数据后显示导线图形': 'Enter starting data to render traverse plot',
-  '输入起算起点与终点坐标、起算边与终边方位角':
-      'Enter start/end coordinates and start/end azimuths',
+  '输入起算起点与终点坐标、起算边与终边方位角': 'Enter start/end coordinates and start/end azimuths',
   '长度 L (km)': 'Length L (km)',
   '闭合导线边数 = 转折角数': 'Closed traverse: sides = turn angles',
   '闭合导线：边数 = 转折角数；支持 90 30 15、90.30.15 或 90.3015':
@@ -642,8 +634,7 @@ const toolEnglishMessages = <String, String>{
   '手簿工程图': 'Field book plot',
   '手簿表': 'Book table',
   '逐站卡片': 'Station cards',
-  '将移除该站观测读数，且不可撤销':
-      'This removes the station readings and cannot be undone',
+  '将移除该站观测读数，且不可撤销': 'This removes the station readings and cannot be undone',
   '尺常数 K': 'Staff constant K',
   '已标记': 'Flagged',
   '已载入四等水准规范算例': 'Loaded 4th-order levelling textbook example',
@@ -667,10 +658,8 @@ const toolEnglishMessages = <String, String>{
   '视线 100 m': 'Sight 100 m',
   '视线 80 m': 'Sight 80 m',
   '视距检核': 'Stadia check',
-  '请填写前后直读距离与四个尺面读数':
-      'Enter BS/FS distances and all four staff readings',
-  '请至少填满一站 8 个读数（mm）':
-      'Complete at least one station with 8 readings (mm)',
+  '请填写前后直读距离与四个尺面读数': 'Enter BS/FS distances and all four staff readings',
+  '请至少填满一站 8 个读数（mm）': 'Complete at least one station with 8 readings (mm)',
   '路线': 'Route',
   '路线成果': 'Route results',
   '载入': 'Load',
@@ -695,8 +684,7 @@ const toolEnglishMessages = <String, String>{
   '后距合计': 'Total BS dist',
   '双面尺观测手簿（每行一站）': 'Double-face field book (one station per line)',
   '双面尺观测（读数 mm）': 'Double-face obs (mm)',
-  '后上丝 后下丝 前上丝 前下丝 后黑 后红 前黑 前红':
-      'BS-U BS-L FS-U FS-L BS-B BS-R FS-B FS-R',
+  '后上丝 后下丝 前上丝 前下丝 后黑 后红 前黑 前红': 'BS-U BS-L FS-U FS-L BS-B BS-R FS-B FS-R',
   '四等水准计算并检核成功': '4th-order levelling checked',
   '常用同尺 4687/4787，或后 4787/前 4687（红黑面常数差 100）':
       'Common constants: 4687/4787, or BS 4787 / FS 4687 (diff 100)',
@@ -784,10 +772,8 @@ const toolEnglishMessages = <String, String>{
   '圆曲线长 Ly': 'Circular arc Ly',
   '圆曲线长为负时说明转角小于两倍缓和曲线角，应按凸形/复曲线另行处理。':
       'Negative circular arc means deflection < 2β₀; adjust R or ls.',
-  '圆曲线长为负：转角小于两倍缓和曲线角，':
-      'Negative circular arc: deflection < 2β₀,',
-  '应按「凸形/复曲线」另行处理（增大 R 或减小 ls）。':
-      'increase R or reduce ls.',
+  '圆曲线长为负：转角小于两倍缓和曲线角，': 'Negative circular arc: deflection < 2β₀,',
+  '应按「凸形/复曲线」另行处理（增大 R 或减小 ls）。': 'increase R or reduce ls.',
   '坡度差 ω': 'Grade change ω',
   '基本型：缓和曲线 + 圆曲线 + 缓和曲线': 'Spiral–Curve–Spiral (SCS)',
   '外距 E': 'External E',
@@ -832,8 +818,7 @@ const toolEnglishMessages = <String, String>{
   '距 ZH/ZY 的曲线长': 'Arc length from ZH/ZY',
   '输入前后坡度（%）与竖曲线半径、变坡点里程高程':
       'Enter grades (%), vertical radius R, and PVI chainage/elevation',
-  '输入转角 α、半径 R 与交点 JD 里程':
-      'Enter deflection α, radius R, and PI chainage',
+  '输入转角 α、半径 R 与交点 JD 里程': 'Enter deflection α, radius R, and PI chainage',
   '输入转角 α、圆曲线半径 R、缓和段长 ls 与交点里程':
       'Enter deflection α, radius R, spiral ls, and PI chainage',
 
@@ -872,8 +857,7 @@ const toolEnglishMessages = <String, String>{
       'Copy grid cell CSV (Row/Col/Corners/Zero-line/Cut/Fill)',
   '复制边长方位角 CSV（边/边长/方位角）': 'Copy side/azimuth CSV (Side/Length/Azimuth)',
   '复制顶点坐标 CSV（点号/X/Y）': 'Copy vertex CSV (Point/X/Y)',
-  '平均断面法（道路）与方格网法（场地）':
-      'Average end-area (road) and grid method (site)',
+  '平均断面法（道路）与方格网法（场地）': 'Average end-area (road) and grid method (site)',
   '总土方量': 'Total volume',
   '按坐标解析法（鞋带公式）计算多边形面积与周长':
       'Compute polygon area and perimeter using shoelace formula',
@@ -883,8 +867,7 @@ const toolEnglishMessages = <String, String>{
       'Enter in chainage order; last spacing cell is disabled',
   '按里程顺序录入（断面积比间距多 1 个）':
       'Enter in chainage order (one more area than spacings)',
-  '按顶点顺序逐边反算，末边回到首点':
-      'Inverse along vertex order, closing last side to start',
+  '按顶点顺序逐边反算，末边回到首点': 'Inverse along vertex order, closing last side to start',
   '按顺/逆时针填入顶点，首尾自动闭合（新增行自动递增点名）':
       'Enter vertices in order; auto-closes (new rows auto-increment IDs)',
   '支持换行或逗号分隔': 'Newline or comma separated',
@@ -896,8 +879,7 @@ const toolEnglishMessages = <String, String>{
   '方格网土方计算成功': 'Grid volume calculated',
   '是': 'Yes',
   '末行为总计（总长 / 总方量）': 'Final row shows totals (length / volume)',
-  '格式：点名, X, Y（支持空格或逗号分隔）':
-      'Format: Point, X, Y (space or comma separated)',
+  '格式：点名, X, Y（支持空格或逗号分隔）': 'Format: Point, X, Y (space or comma separated)',
   '格数': 'Cells',
   '格网数据': 'Grid data',
   '格网边长': 'Grid cell size',
@@ -992,8 +974,7 @@ const toolEnglishMessages = <String, String>{
       'False easting follows Gauss forward setting (default 500000).',
   '假东（y 常数）': 'False easting',
   '公共点': 'Common points',
-  '公共点不足 2 个或点位重合，无法拟合':
-      'Need at least 2 distinct common points to fit',
+  '公共点不足 2 个或点位重合，无法拟合': 'Need at least 2 distinct common points to fit',
   '公共点不足 2 个，无法拟合': 'Need at least 2 common points to fit',
   '公共点不足 3 个或点位退化，无法解算七参数':
       'Need at least 3 non-collinear points for 7-parameter fit',
@@ -1003,8 +984,7 @@ const toolEnglishMessages = <String, String>{
   '公共点数据（至少 3 个）': 'Common points (min 3)',
   '公共点（每行 点名, B, L, H, X, Y, Z）':
       'Common points (Point, B, L, H, X, Y, Z per line)',
-  '公共点（每行 点名, X, Y, X′, Y′）':
-      'Common points (Point, X, Y, X′, Y′ per line)',
+  '公共点（每行 点名, X, Y, X′, Y′）': 'Common points (Point, X, Y, X′, Y′ per line)',
   '公共点（每行 点名, X, Y, Z, X′, Y′, Z′）':
       'Common points (Point, X, Y, Z, X′, Y′, Z′ per line)',
   '公共点（至少 2 组）': 'Common points (min 2)',
@@ -1023,8 +1003,7 @@ const toolEnglishMessages = <String, String>{
   '反算参数超出投影范围，请检查 x、y 与中央子午线':
       'Inverse parameters out of range; check x, y, and central meridian',
   '可填 0（仅要平面坐标时）': 'Enter 0 if only 2D coordinates are needed',
-  '各公共点回代残差接近 0，矢量方向示意图':
-      'All residuals near zero; vector direction sketch',
+  '各公共点回代残差接近 0，矢量方向示意图': 'All residuals near zero; vector direction sketch',
   '四参数残差矢量图': '4P residual vector plot',
   '四参数逐点残差': '4P point residuals',
   '四参数：X′ = dx + k·(X·cosθ − Y·sinθ)（平面相似变换，k 与 θ 为尺度与旋转）。':
@@ -1038,8 +1017,7 @@ const toolEnglishMessages = <String, String>{
   '坐标转换 · 高斯正算': 'Conversion · Gauss forward',
   '复制七参数逐点残差 CSV（点名/ΔX/ΔY/ΔZ/残差）':
       'Copy 7P residuals CSV (Point/ΔX/ΔY/ΔZ/Residual)',
-  '复制四参数逐点残差 CSV（点名/ΔX/ΔY/残差）':
-      'Copy 4P residuals CSV (Point/ΔX/ΔY/Residual)',
+  '复制四参数逐点残差 CSV（点名/ΔX/ΔY/残差）': 'Copy 4P residuals CSV (Point/ΔX/ΔY/Residual)',
   '大地 → 空间直角': 'BLH → ECEF',
   '大地↔空间直角': 'BLH ↔ ECEF',
   '空间直角 → 大地': 'ECEF → BLH',
@@ -1105,10 +1083,8 @@ const toolEnglishMessages = <String, String>{
       'Per line: Point / X / Y / Z / X′ / Y′ / Z′',
   '每行：点名, B(°), L(°), H(m), X(m), Y(m), Z(m)':
       'Per line: Point, B(°), L(°), H(m), X(m), Y(m), Z(m)',
-  '每行：点名, X, Y, X′, Y′（至少 2 组）':
-      'Per line: Point, X, Y, X′, Y′ (min 2)',
-  '每行：点名, X, Y, Z, X′, Y′, Z′':
-      'Per line: Point, X, Y, Z, X′, Y′, Z′',
+  '每行：点名, X, Y, X′, Y′（至少 2 组）': 'Per line: Point, X, Y, X′, Y′ (min 2)',
+  '每行：点名, X, Y, Z, X′, Y′, Z′': 'Per line: Point, X, Y, Z, X′, Y′, Z′',
   '添加公共点': 'Add common point',
   '点数': 'Points',
   '用参数正算一个点': 'Transform a point',
@@ -1137,8 +1113,7 @@ const toolEnglishMessages = <String, String>{
       'Enter valid latitude B and longitude L (decimal or DMS)',
   '转换参数': 'Transformation parameters',
   '转换参数（布尔莎七参数）': 'Transformation parameters (Bursa-Wolf 7P)',
-  '输出来源用 B, L, H（自动转空间直角）':
-      'Source input as B, L, H (auto-converted to ECEF)',
+  '输出来源用 B, L, H（自动转空间直角）': 'Source input as B, L, H (auto-converted to ECEF)',
   '逐点残差': 'Point residuals',
   '高斯-克吕格正反算（3°/6° 带）与四参数平面相似变换':
       'Gauss–Krüger projection (3°/6° zones) & 2D 4-parameter fit',
@@ -1163,8 +1138,7 @@ const toolEnglishMessages = <String, String>{
   'Ⅱ 南东': 'II (S…E)',
   'Ⅲ 南西': 'III (S…W)',
   'Ⅳ 北西': 'IV (N…W)',
-  'Ⅰ 北东 / Ⅱ 南东 / Ⅲ 南西 / Ⅳ 北西':
-      'I N…E / II S…E / III S…W / IV N…W',
+  'Ⅰ 北东 / Ⅱ 南东 / Ⅲ 南西 / Ⅳ 北西': 'I N…E / II S…E / III S…W / IV N…W',
   '北东': 'N…E (NE)',
   '南东': 'S…E (SE)',
   '南西': 'S…W (SW)',
@@ -1313,8 +1287,7 @@ const toolEnglishMessages = <String, String>{
       'Duplicate control point name exists; please distinguish or rename',
   '已导入 {count} 个控制点': 'Imported {count} control points',
   '已导出 {format}：{path}': 'Exported {format}: {path}',
-  '已将 {count} 个控制点投影到 LivePlot':
-      'Projected {count} control points to LivePlot',
+  '已将 {count} 个控制点投影到 LivePlot': 'Projected {count} control points to LivePlot',
   '当前草稿': 'Active draft',
   '批量导入': 'Batch import',
   '投影到 LivePlot': 'Project to LivePlot',
@@ -1375,8 +1348,7 @@ const toolEnglishMessages = <String, String>{
       'Tap "Add control point" or "Batch import" at top-right to add points',
   '断面面积沿线变化图（总方量 {total} m³）':
       'Cross-section area along alignment (Total {total} m³)',
-  '竖曲线纵断面图（{type} · E={ext}m）':
-      'Vertical curve profile ({type} · E={ext}m)',
+  '竖曲线纵断面图（{type} · E={ext}m）': 'Vertical curve profile ({type} · E={ext}m)',
   '凸形': 'Crest',
   '凹形': 'Sag',
 
@@ -1406,8 +1378,7 @@ const toolEnglishMessages = <String, String>{
   '点位说明（可选）': 'Point note (optional)',
   '工程控制点管理、搜索、导入与单点坐标选用':
       'Manage project control points, search, import, and pick coordinates',
-  '请先在控制点库中添加或导入控制点':
-      'Add or import control points in the library first',
+  '请先在控制点库中添加或导入控制点': 'Add or import control points in the library first',
 
   // Formula Calculator: Diagram Slots & Block Builder
   '图解填槽': 'Diagram Slots',
@@ -1425,8 +1396,7 @@ const toolEnglishMessages = <String, String>{
   '已知斜距 S 与竖直角 α，求高差 Δh 与坡度 i':
       'Given slope distance S and vertical angle α, find Δh and slope i',
   '余弦定理求边': 'Law of Cosines (Side)',
-  '已知两边 a、b 及夹角 C，求第三边 c':
-      'Given sides a, b and included angle C, find side c',
+  '已知两边 a、b 及夹角 C，求第三边 c': 'Given sides a, b and included angle C, find side c',
   '边长 a': 'Side a',
   '边长 b': 'Side b',
   '夹角 C': 'Angle C',
@@ -1437,16 +1407,14 @@ const toolEnglishMessages = <String, String>{
   '邻边 b': 'Adjacent side b',
   '对边 c': 'Opposite side c',
   '正弦定理求边': 'Law of Sines (Side)',
-  '已知边 a 及两角 A、B，求对边 b':
-      'Given side a and angles A, B, find opposite side b',
+  '已知边 a 及两角 A、B，求对边 b': 'Given side a and angles A, B, find opposite side b',
   '已知边 a': 'Known side a',
   '对角 A': 'Opposite angle A',
   '对角 B': 'Opposite angle B',
   '请填写全部槽位数值': 'Enter values for all slots',
   '北增量 ΔX': 'Northing ΔX',
   '东增量 ΔY': 'Easting ΔY',
-  '平距 D 为 0，无法计算坡度':
-      'Horizontal distance D is 0; cannot compute slope',
+  '平距 D 为 0，无法计算坡度': 'Horizontal distance D is 0; cannot compute slope',
   '高差 Δh': 'Height diff. Δh',
   '坡度 i': 'Slope i',
   '边长须大于 0': 'Side length must be greater than 0',
@@ -1486,8 +1454,7 @@ const toolEnglishMessages = <String, String>{
   '确认导入': 'Confirm import',
   '剪贴板为空': 'Clipboard is empty',
   '剪贴板': 'Clipboard',
-  '未识别到有效坐标或 DXF 实体':
-      'No valid coordinates or DXF entities recognized',
+  '未识别到有效坐标或 DXF 实体': 'No valid coordinates or DXF entities recognized',
   '保存版本快照': 'Save version snapshot',
   '版本快照对比': 'Version snapshot diff',
   '平差前': 'Before adjustment',
@@ -1520,10 +1487,8 @@ const toolEnglishMessages = <String, String>{
   '模拟 GNSS': 'Simulated GNSS',
   '未连接外设': 'No receiver connected',
   '文件读取失败：{error}': 'Failed to read file: {error}',
-  '未检测到 GNSS 定位信号或设备未连接':
-      'No GNSS fix detected or receiver disconnected',
-  'GNSS 定位尚未固定或数据无效':
-      'GNSS fix unavailable or invalid NMEA sentence',
+  '未检测到 GNSS 定位信号或设备未连接': 'No GNSS fix detected or receiver disconnected',
+  'GNSS 定位尚未固定或数据无效': 'GNSS fix unavailable or invalid NMEA sentence',
   '已填入 GNSS 坐标（X={x}, Y={y}, H={h}）':
       'Filled GNSS coordinates (X={x}, Y={y}, H={h})',
   '已填入 GNSS 高程（H={h} m）': 'Filled GNSS elevation (H={h} m)',

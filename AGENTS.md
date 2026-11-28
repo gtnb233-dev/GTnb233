@@ -1,4 +1,4 @@
-# Survey Pro (`survey-pro-open-source`) 工程协作红线
+# Survey GT (`survey-pro-open-source`) 工程协作红线
 
 本文件为本仓库的 **Codex 与 Antigravity 共享工程红线（Engineering Guardrails）**。所有在本仓库中执行的界面改动、功能开发、重构与发布前验证均须严格遵守以下规范。
 
@@ -7,7 +7,7 @@
 ## 1. Windows 与 Android 壳层红线
 
 - **窗口与主工作区**：Windows 使用系统原生标题栏及窗口控件。Windows 和 Android 的工作区使用单层页头，侧栏关闭时占宽 0dp。
-- **统一侧栏**：Windows 与 Android 横竖屏从页面左上圆钮展开或隐藏侧栏。宽屏展开时使用 280dp 分栏，手机竖屏和窄窗使用覆盖式侧栏。点击 Survey Pro 返回首页，顶部提供全局搜索与坐标预设气泡，底部固定「新建测量」与「设置」。
+- **统一侧栏**：Windows 与 Android 横竖屏从页面左上圆钮展开或隐藏侧栏。宽屏展开时使用 280dp 分栏，手机竖屏和窄窗使用覆盖式侧栏。点击 Survey GT 返回首页，顶部提供全局搜索与坐标预设气泡，底部固定「新建测量」与「设置」。
 - **首页入口**：顶部「继续上次」与「工具库」使用两张等高卡片。宽屏 LivePlot 分屏从首页操作区打开。
 - **Android 竖屏底栏**：手机和平板默认隐藏底栏。开启「设置 → 外观与导航」中的竖屏选项后，一级页面显示四项 Liquid Glass 底栏。工具页支持系统返回、260ms Cupertino 跟手右滑和「更多操作 → 返回」。
 

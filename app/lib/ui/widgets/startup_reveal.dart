@@ -71,7 +71,7 @@ class _StartupRevealState extends State<StartupReveal>
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
         stack: stack,
-        library: 'Survey Pro startup',
+        library: 'Survey GT startup',
       ));
     }
     if (mounted) setState(() => _ready = true);

@@ -520,8 +520,8 @@ class SettingsPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const LocalText(
-                          '工程测量',
+                        const Text(
+                          kAppName,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,

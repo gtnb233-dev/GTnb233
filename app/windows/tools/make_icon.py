@@ -1,4 +1,4 @@
-"""Generate Survey Pro icons for Windows, Android and the README from the K vector."""
+"""Generate Survey GT icons for Windows, Android and the README from the K vector."""
 from __future__ import annotations
 
 import math

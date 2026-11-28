@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../app_info.dart';
 import '../l10n/survey_strings.dart';
 import '../nav/tools.dart';
 import '../platform/native_bridge_contract.dart';
@@ -665,7 +666,7 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                             foregroundColor: colors.onSurface,
                           ),
                           child: const Text(
-                            'Survey Pro',
+                            kAppName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textHeightBehavior: kSurveyTextHeightBehavior,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app_info.dart';
 import '../../l10n/survey_strings.dart';
 import '../../nav/tools.dart';
 import '../../state/drafts.dart';
@@ -54,7 +55,7 @@ class HomePage extends StatelessWidget {
           onTap: () => openTool(context, tool),
         );
     return PageScaffold(
-      title: '工程测量',
+      title: kAppName,
       trailing: [
         if (onLivePlot != null)
           IconButton(

@@ -185,7 +185,7 @@ const englishMessages = <String, String>{
   '跟随系统': 'Follow system',
   '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。':
       'Menus and tool lists use your selected language. Some technical screens and export templates may use English or Chinese.',
-  '工程测量': 'Survey Pro',
+  '工程测量': 'Survey GT',
   '离线测量工作台 · {version}': 'Offline surveying · {version}',
   '显示约定与交互偏好，全部保存在本机': 'Preferences are saved on this device',
   '主题与显示': 'Theme and display',
@@ -568,7 +568,7 @@ const regionalMessages = <String, Map<String, String>>{
     '跟随系统': 'Tevedzera sisitimu',
     '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。':
         'Mamenu nerondedzero yezvishandiso zvinoshandisa mutauro wawasarudza. Zvimwe zvikamu zvinogona kuva neChirungu kana chiChinese.',
-    '工程测量': 'Survey Pro',
+    '工程测量': 'Survey GT',
     '离线测量工作台 · {version}': 'Kuyera pasina indaneti · {version}',
     '显示约定与交互偏好，全部保存在本机': 'Marongero anochengetwa pamudziyo uyu',
     '主题与显示': 'Dingindira nechiratidziro',
@@ -671,7 +671,7 @@ const regionalMessages = <String, Map<String, String>>{
     '跟随系统': 'Landela uhlelo',
     '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。':
         'Amamenyu lohlu lwamathuluzi kusebenzisa ulimi olukhethileyo. Ezinye izingxenye zingasebenzisa isiNgisi kumbe isiTshayina.',
-    '工程测量': 'Survey Pro',
+    '工程测量': 'Survey GT',
     '离线测量工作台 · {version}': 'Ukulinganisa ngaphandle kwe-inthanethi · {version}',
     '显示约定与交互偏好，全部保存在本机': 'Izilungiselelo zigcinwa kule divayisi',
     '主题与显示': 'Indikimba lesiboniso',
@@ -782,7 +782,7 @@ const regionalMessages = <String, Map<String, String>>{
     '跟随系统': 'Langue du système',
     '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。':
         'Les menus et la liste des outils utilisent votre langue. Certains écrans techniques et modèles restent en anglais ou en chinois.',
-    '工程测量': 'Survey Pro',
+    '工程测量': 'Survey GT',
     '离线测量工作台 · {version}': 'Topographie hors ligne · {version}',
     '显示约定与交互偏好，全部保存在本机': 'Préférences enregistrées sur cet appareil',
     '主题与显示': 'Thème et affichage',
@@ -877,7 +877,7 @@ const regionalMessages = <String, Map<String, String>>{
     '跟随系统': 'Seguir o sistema',
     '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。':
         'Os menus e a lista de ferramentas usam o idioma escolhido. Alguns ecrãs técnicos e modelos continuam em inglês ou chinês.',
-    '工程测量': 'Survey Pro',
+    '工程测量': 'Survey GT',
     '离线测量工作台 · {version}': 'Topografia offline · {version}',
     '显示约定与交互偏好，全部保存在本机': 'Preferências guardadas neste dispositivo',
     '主题与显示': 'Tema e ecrã',
@@ -972,7 +972,7 @@ const regionalMessages = <String, Map<String, String>>{
     '跟随系统': 'Usar idioma del sistema',
     '菜单和工具列表会切换语言。部分专业计算界面和导出模板仍可能使用英语或中文。':
         'Los menús y la lista de herramientas usan el idioma elegido. Algunas pantallas técnicas y plantillas siguen en inglés o chino.',
-    '工程测量': 'Survey Pro',
+    '工程测量': 'Survey GT',
     '离线测量工作台 · {version}': 'Topografía sin conexión · {version}',
     '显示约定与交互偏好，全部保存在本机': 'Preferencias guardadas en este dispositivo',
     '主题与显示': 'Tema y pantalla',
