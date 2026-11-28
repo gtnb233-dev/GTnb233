@@ -159,6 +159,7 @@ class _ResectionPageState extends State<ResectionPage>
     final unit = settings.lengthUnit;
     final digits = unit.displayDigits(settings.coordDigits);
     final store = DraftScope.read(context);
+    // Persist the solved station before the stakeout page opens its draft.
     store.putAll('batch_stakeout', <String, String>{
       'sx': fmt(unit.fromMeters(p.x), digits),
       'sy': fmt(unit.fromMeters(p.y), digits),

@@ -1446,8 +1446,8 @@ const toolEnglishMessages = <String, String>{
   '导出为 DXF': 'Export as DXF',
   '数据导入': 'Data import',
   '导入坐标': 'Import coordinates',
-  '从文件导入（SAF / 系统文件）': 'Import from file (SAF / System)',
-  '从剪贴板智能识别': 'Smart parse from clipboard',
+  '从文件导入': 'Import from file',
+  '从剪贴板导入': 'Import from clipboard',
   '导入预览确认': 'Import preview confirmation',
   '导入模式': 'Import mode',
   '追加': 'Append',
@@ -1492,11 +1492,7 @@ const toolEnglishMessages = <String, String>{
   '已填入 GNSS 坐标（X={x}, Y={y}, H={h}）':
       'Filled GNSS coordinates (X={x}, Y={y}, H={h})',
   '已填入 GNSS 高程（H={h} m）': 'Filled GNSS elevation (H={h} m)',
-  '选择坐标或 DXF 数据的导入来源，导入前将展示预览确认表':
-      'Select an import source for coordinates or DXF data; a preview confirmation table will appear before importing.',
   '支持 DXF、CSV、DAT、TXT 坐标文件': 'Supports DXF, CSV, DAT, and TXT coordinate files',
-  '自动清洗微信/QQ聊天、Excel多行及逗号/空格坐标':
-      'Auto-cleans WeChat/QQ messages, Excel multi-line pastes, and comma/space coordinates',
   '剪贴板为空，请先复制坐标或 DXF 文本':
       'Clipboard is empty; copy coordinates or DXF text first',
   '已导入 {count} 个坐标点': 'Imported {count} coordinate points',

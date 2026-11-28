@@ -440,27 +440,22 @@ Future<bool> showSmartImportFlow(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              sheetCtx.tr('选择坐标或 DXF 数据的导入来源，导入前将展示预览确认表'),
-              style: Theme.of(sheetCtx).textTheme.bodySmall,
-            ),
-            const SizedBox(height: Insets.m),
             ListTile(
               key: const ValueKey('smart-import-file'),
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.folder_open_outlined),
-              title: Text(sheetCtx.tr('从文件导入（SAF / 系统文件）')),
+              title: Text(sheetCtx.tr('从文件导入')),
               subtitle: Text(sheetCtx.tr('支持 DXF、CSV、DAT、TXT 坐标文件')),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => pick(_ImportSourceChoice.file),
             ),
             const Divider(height: 1),
+            // The same parser handles chat text, Excel rows and delimited coordinates.
             ListTile(
               key: const ValueKey('smart-import-clipboard'),
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.content_paste_go_rounded),
-              title: Text(sheetCtx.tr('从剪贴板智能识别')),
-              subtitle: Text(sheetCtx.tr('自动清洗微信/QQ聊天、Excel多行及逗号/空格坐标')),
+              title: Text(sheetCtx.tr('从剪贴板导入')),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => pick(_ImportSourceChoice.clipboard),
             ),

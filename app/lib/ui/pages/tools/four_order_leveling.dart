@@ -233,6 +233,7 @@ class _FourOrderLevelingPageState extends State<FourOrderLevelingPage>
   bool _alternateRods = true;
   double _sightLimit = 80;
   double _stationLimit = kDoubleStaffDistanceDiffToleranceM;
+  // Station checks and workbook exports share the tolerance saved in the draft.
   double get _distanceLimit => _grade == LevelingGrade.fourth
       ? _stationLimit
       : kDoubleStaffDistanceDiffToleranceM;
