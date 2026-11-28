@@ -26,7 +26,7 @@ class WorkspaceNavigatorObserver extends NavigatorObserver {
   }
 }
 
-const workspaceSidebarDuration = Duration(milliseconds: 220);
+const workspaceSidebarDuration = Duration(milliseconds: 180);
 const workspaceSlideDuration = Duration(milliseconds: 260);
 const workspaceMotionCurve = Cubic(0.22, 1, 0.36, 1);
 const _fadeThroughSplit = .30;
@@ -46,10 +46,12 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
     super.settings,
     this.sidebarEntrance = false,
     this.reduceMotion = false,
+    this.fullWidth = false,
   }) : super(allowSnapshotting: false);
 
   final bool sidebarEntrance;
   final bool reduceMotion;
+  final bool fullWidth;
   bool _sidebarExit = false;
 
   void prepareSidebarExit() {
@@ -100,7 +102,7 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
     bool allowSnapshotting,
     Widget? child,
   ) {
-    final compact = workspaceUsesCompactLayout(context);
+    final compact = fullWidth || workspaceUsesCompactLayout(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final direction = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
     return ClipRect(
@@ -112,14 +114,16 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
           final progress = popGestureInProgress
               ? value
               : workspaceMotionCurve.transform(value);
-          final fade = _fadeThrough(secondaryAnimation, compact: compact) &&
+          final fade = _sidebarExit &&
+              secondaryAnimation.status == AnimationStatus.reverse &&
+              !compact &&
               !reduceMotion;
           final reversing =
               secondaryAnimation.status == AnimationStatus.reverse;
           final incoming = _incomingProgress(1 - value);
           final moving = !secondaryAnimation.isCompleted &&
               !secondaryAnimation.isDismissed;
-          final slide = !fade && !reduceMotion;
+          final slide = !fade && !reduceMotion && !sidebarEntrance;
           return GlassBlurSuspensionScope(
             suspended: moving || GlassBlurSuspensionScope.isSuspended(context),
             child: Opacity(
@@ -137,9 +141,10 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
                       child!,
                       if (slide && progress > 0)
                         IgnorePointer(
-                          child: ColoredBox(
-                              color: const Color(0xff000000)
-                                  .withValues(alpha: .12 * progress)),
+                          child: Opacity(
+                            opacity: .12 * progress,
+                            child: const ColoredBox(color: Color(0xff000000)),
+                          ),
                         ),
                     ],
                   ),
@@ -159,7 +164,7 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final compact = workspaceUsesCompactLayout(context);
+    final compact = fullWidth || workspaceUsesCompactLayout(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final direction = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
     final page = RepaintBoundary(
@@ -189,24 +194,30 @@ class WorkspacePageRoute<T> extends CupertinoPageRoute<T> {
           final fade =
               _fadeThrough(animation, compact: compact) && !reduceMotion;
           final reversing = animation.status == AnimationStatus.reverse;
-          final incoming = _incomingProgress(value);
+          final fastEntrance = fade && !reversing;
+          final motionChild = Opacity(
+            opacity: fade
+                ? (reversing
+                    ? _outgoingOpacity(1 - value)
+                    : .62 + .38 * progress)
+                : 1,
+            child: child,
+          );
           return GlassBlurSuspensionScope(
             suspended: !animation.isCompleted ||
                 GlassBlurSuspensionScope.isSuspended(context),
-            child: Opacity(
-              opacity: fade
-                  ? (reversing ? _outgoingOpacity(1 - value) : incoming)
-                  : 1,
-              child: Transform.scale(
-                scale: fade && !reversing ? .985 + .015 * incoming : 1,
-                child: FractionalTranslation(
-                  translation: Offset(
-                      fade || reduceMotion
-                          ? 0
-                          : direction * (compact ? 1 : .12) * (1 - progress),
-                      0),
-                  child: child,
-                ),
+            child: FractionalTranslation(
+              translation: Offset(
+                  fade || reduceMotion
+                      ? 0
+                      : direction * (compact ? 1 : .12) * (1 - progress),
+                  0),
+              child: ColoredBox(
+                key: const ValueKey('workspace-opaque-transition-surface'),
+                color: fastEntrance
+                    ? Theme.of(context).scaffoldBackgroundColor
+                    : const Color(0x00000000),
+                child: motionChild,
               ),
             ),
           );
@@ -278,6 +289,7 @@ class _ToolStack extends StatelessWidget {
           pages: {for (final entry in entries) entry.key: entry.page},
           active: entries.last.key,
           duration: workspaceSidebarDuration,
+          opaqueSwitch: true,
         ),
       );
 }
@@ -289,11 +301,13 @@ class WorkspacePageDeck extends StatefulWidget {
     required this.pages,
     required this.active,
     required this.duration,
+    this.opaqueSwitch = false,
   });
 
   final Map<Object, Widget> pages;
   final Object active;
   final Duration duration;
+  final bool opaqueSwitch;
 
   @override
   State<WorkspacePageDeck> createState() => _WorkspacePageDeckState();
@@ -308,14 +322,19 @@ class _WorkspacePageDeckState extends State<WorkspacePageDeck>
   double _startOpacity = 1;
 
   bool get _showOutgoing =>
-      _outgoing != null && _motion.value < _fadeThroughSplit;
+      !widget.opaqueSwitch &&
+      _outgoing != null &&
+      _motion.value < _fadeThroughSplit;
 
-  double get _opacity => _showOutgoing
-      ? _startOpacity * _outgoingOpacity(_motion.value)
-      : _outgoing == null
-          ? _startOpacity +
-              (1 - _startOpacity) * Curves.easeOutCubic.transform(_motion.value)
-          : _incomingProgress(_motion.value);
+  double get _opacity => widget.opaqueSwitch
+      ? .62 + .38 * Curves.easeOutCubic.transform(_motion.value)
+      : _showOutgoing
+          ? _startOpacity * _outgoingOpacity(_motion.value)
+          : _outgoing == null
+              ? _startOpacity +
+                  (1 - _startOpacity) *
+                      Curves.easeOutCubic.transform(_motion.value)
+              : _incomingProgress(_motion.value);
 
   @override
   void didUpdateWidget(covariant WorkspacePageDeck oldWidget) {
@@ -386,7 +405,10 @@ class _WorkspacePageDeckState extends State<WorkspacePageDeck>
               child: Opacity(
                 opacity: visible ? _opacity : 1,
                 child: Transform.scale(
-                  scale: visible && active && _outgoing != null
+                  scale: !widget.opaqueSwitch &&
+                          visible &&
+                          active &&
+                          _outgoing != null
                       ? .985 + .015 * _opacity
                       : 1,
                   child: WorkspaceEntranceScope(

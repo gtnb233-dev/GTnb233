@@ -18,6 +18,7 @@ import 'theme/monet.dart';
 import 'theme/tokens.dart';
 import 'theme/ui_style.dart';
 import 'ui/shell.dart';
+import 'ui/widgets/startup_reveal.dart';
 import 'ui/widgets/workspace_commands.dart';
 
 /// 允许 Windows 鼠标左键拖拽横向表格/手簿（与触屏行为一致）。
@@ -48,15 +49,14 @@ Future<void> main() async {
   final settings = AppSettings();
   await settings.load();
   final drafts = DraftStore();
-  await drafts.load();
   final controlPoints = ControlPointStore();
-  await controlPoints.load();
   final livePlot = LivePlotController();
   runApp(SurveyApp(
     settings: settings,
     drafts: drafts,
     controlPoints: controlPoints,
     livePlot: livePlot,
+    coldStart: Future.wait<void>([drafts.load(), controlPoints.load()]),
   ));
 }
 
@@ -67,12 +67,14 @@ class SurveyApp extends StatefulWidget {
     required this.drafts,
     this.controlPoints,
     this.livePlot,
+    this.coldStart,
   });
 
   final AppSettings settings;
   final DraftStore drafts;
   final ControlPointStore? controlPoints;
   final LivePlotController? livePlot;
+  final Future<void>? coldStart;
 
   @override
   State<SurveyApp> createState() => _SurveyAppState();
@@ -120,6 +122,7 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
     );
     _appearance = _currentAppearance;
     widget.settings.addListener(_onSettingsChanged);
+    unawaited(NativeWindowBridge.setStartupTheme(_appearance.$1.name));
     _syncAccent();
     _syncWindowBrightness();
     _syncWindowTitle();
@@ -157,9 +160,13 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
   void _onSettingsChanged() {
     final next = _currentAppearance;
     if (_appearance == next) return;
+    final themeChanged = _appearance.$1 != next.$1;
     final accentChanged =
         _appearance.$3 != next.$3 || _appearance.$4 != next.$4;
     setState(() => _appearance = next);
+    if (themeChanged) {
+      unawaited(NativeWindowBridge.setStartupTheme(next.$1.name));
+    }
     if (accentChanged) _syncAccent();
     _syncWindowBrightness();
     _syncWindowTitle();
@@ -250,7 +257,14 @@ class _SurveyAppState extends State<SurveyApp> with WidgetsBindingObserver {
                   child: DefaultTextHeightBehavior(
                     textHeightBehavior: kSurveyTextHeightBehavior,
                     child: WorkspaceCommandsEnabled(
-                        child: child ?? const SizedBox.shrink()),
+                      child: widget.coldStart == null
+                          ? child ?? const SizedBox.shrink()
+                          : StartupReveal(
+                              ready: widget.coldStart!,
+                              skip: settings.skipStartupAnimation,
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                    ),
                   ),
                 );
               },

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/survey_strings.dart';
 import '../nav/tools.dart';
+import '../platform/native_bridge_contract.dart';
 import '../state/drafts.dart';
 import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
@@ -18,7 +21,9 @@ import 'widgets/command_palette.dart';
 import 'widgets/glass_nav.dart';
 import 'widgets/liquid_glass.dart';
 import 'widgets/outline_symbol.dart';
+import 'widgets/overlays.dart';
 import 'widgets/workspace_commands.dart';
+import 'widgets/workspace_popover.dart';
 import 'widgets/workspace_sidebar_control.dart';
 import 'workspace_page_route.dart';
 
@@ -89,6 +94,29 @@ class _AppShellState extends State<AppShell> {
   void _openSidebarTool(ToolDef tool) {
     openTool(_workspaceContext, tool,
         fromSidebar: true, replaceExistingTool: true);
+  }
+
+  Future<void> _openFullscreen(int index) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (!reduceMotion) {
+      unawaited(NativeWindowBridge.setFullscreenBackGesture(true));
+    }
+    try {
+      await navigator.push(WorkspacePageRoute<void>(
+        settings: RouteSettings(
+            name: index == 3 ? 'workspace/library' : 'workspace/settings'),
+        fullWidth: true,
+        reduceMotion: reduceMotion,
+        builder: (_) => index == 3
+            ? const ToolsPage(fullscreen: true)
+            : const SettingsPage(fullscreen: true),
+      ));
+    } finally {
+      if (!reduceMotion) {
+        unawaited(NativeWindowBridge.setFullscreenBackGesture(false));
+      }
+    }
   }
 
   @override
@@ -249,7 +277,11 @@ class _AppShellState extends State<AppShell> {
                     activeArgument: _navObserver.activeArgument,
                     onPage: (index) {
                       closeOverlay();
-                      _go(index);
+                      if (index == 3 || index == 4) {
+                        _openFullscreen(index);
+                      } else {
+                        _go(index);
+                      }
                     },
                     onOpenTool: (tool) {
                       closeOverlay();
@@ -356,60 +388,87 @@ class _WorkspaceColumnsState extends State<_WorkspaceColumns>
               return GlassBlurSuspensionScope(
                 suspended: _motion.isAnimating ||
                     GlassBlurSuspensionScope.isSuspended(context),
-                child: Stack(
+                child: ClipRect(
+                    child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Row(
-                      children: [
-                        if (visible && !overlay)
-                          SizedBox(
-                            key: const ValueKey('workspace-sidebar-space'),
-                            width: panelWidth * progress,
-                          ),
-                        Expanded(
-                          key: const ValueKey('workspace-content'),
-                          child: ExcludeSemantics(
-                            excluding: visible && overlay,
-                            child: ExcludeFocus(
-                              excluding: visible && overlay,
-                              child: IgnorePointer(
-                                  ignoring: visible && overlay, child: child),
+                    ClipRect(
+                        child: Transform.translate(
+                            offset: Offset(
+                              overlay || progress == 1
+                                  ? 0
+                                  : panelWidth *
+                                      progress *
+                                      (Directionality.of(context) ==
+                                              TextDirection.rtl
+                                          ? -1
+                                          : 1),
+                              0,
                             ),
-                          ),
-                        ),
-                        if (widget.trailing != null) widget.trailing!,
-                      ],
-                    ),
+                            child: Row(
+                              children: [
+                                if (progress == 1 && !overlay)
+                                  SizedBox(
+                                    key: const ValueKey(
+                                        'workspace-sidebar-space'),
+                                    width: panelWidth,
+                                  ),
+                                Expanded(
+                                  key: const ValueKey('workspace-content'),
+                                  child: ExcludeSemantics(
+                                    excluding: visible && overlay,
+                                    child: ExcludeFocus(
+                                      excluding: visible && overlay,
+                                      child: IgnorePointer(
+                                          ignoring: visible && overlay,
+                                          child: child),
+                                    ),
+                                  ),
+                                ),
+                                if (widget.trailing != null) widget.trailing!,
+                              ],
+                            ))),
                     if (visible && overlay)
                       GestureDetector(
                         key: const ValueKey('workspace-sidebar-scrim'),
                         excludeFromSemantics: true,
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.open ? widget.close : null,
-                        child: ColoredBox(
-                            color:
-                                Colors.black.withValues(alpha: .22 * progress)),
+                        child: Opacity(
+                          opacity: .22 * progress,
+                          child: const ColoredBox(color: Colors.black),
+                        ),
                       ),
                     if (visible)
                       PositionedDirectional(
                         top: 0,
                         bottom: 0,
-                        start: (progress - 1) * panelWidth,
+                        start: 0,
                         width: panelWidth,
-                        child: ClipRect(
-                          key: const ValueKey('workspace-sidebar'),
-                          child: IgnorePointer(
-                            ignoring: !widget.open,
-                            child: ExcludeFocus(
-                              excluding: !widget.open,
-                              child: RepaintBoundary(child: widget.sidebar),
+                        child: Transform.translate(
+                            offset: Offset(
+                              (progress - 1) *
+                                  panelWidth *
+                                  (Directionality.of(context) ==
+                                          TextDirection.rtl
+                                      ? -1
+                                      : 1),
+                              0,
                             ),
-                          ),
-                        ),
+                            child: ClipRect(
+                              key: const ValueKey('workspace-sidebar'),
+                              child: IgnorePointer(
+                                ignoring: !widget.open,
+                                child: ExcludeFocus(
+                                  excluding: !widget.open,
+                                  child: RepaintBoundary(child: widget.sidebar),
+                                ),
+                              ),
+                            )),
                       ),
                     if (visible && overlay && widget.open)
                       PositionedDirectional(
-                        start: panelWidth * progress + 8,
+                        start: panelWidth + 8,
                         top: safeTop + kTopBarTopInset,
                         child: SizedBox(
                           height: kTopBarHeight,
@@ -420,7 +479,7 @@ class _WorkspaceColumnsState extends State<_WorkspaceColumns>
                         ),
                       ),
                   ],
-                ),
+                )),
               );
             },
           );
@@ -455,12 +514,92 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
   final _openProjects = <String>{};
   bool _recentExpanded = true;
 
+  Future<void> _draftMenu(BuildContext anchor, DraftStore store, String id,
+      {required bool active}) async {
+    final choice = await showWorkspacePopover<String>(
+      anchor: anchor,
+      label: anchor.tr('草稿操作'),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (key, label, icon) in [
+            (
+              'pin',
+              store.isPinned(id) ? '取消置顶草稿' : '置顶草稿',
+              Icons.push_pin_outlined
+            ),
+            ('rename', '重命名草稿', Icons.edit_outlined),
+            ('delete', '删除草稿', Icons.delete_outline_rounded),
+          ])
+            ListTile(
+              dense: true,
+              leading: Icon(icon, size: 19),
+              title: Text(context.tr(label)),
+              onTap: () => Navigator.of(context).pop(key),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'pin') {
+      await store.togglePinned(id);
+    } else if (choice == 'rename') {
+      final suggested = draftTitle(context, store, id);
+      var name = suggested;
+      final result = await workspacePanel<String>(
+        context,
+        '重命名草稿',
+        Builder(
+            builder: (sheetContext) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      initialValue: suggested,
+                      autofocus: true,
+                      decoration:
+                          InputDecoration(labelText: sheetContext.tr('草稿名称')),
+                      onChanged: (value) => name = value,
+                      onFieldSubmitted: (value) =>
+                          Navigator.of(sheetContext).pop(value),
+                    ),
+                    const SizedBox(height: Insets.s),
+                    FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(name),
+                      child: const LocalText('保存'),
+                    ),
+                  ],
+                )),
+      );
+      if (result != null) await store.rename(id, result);
+    } else if (await SurveyModal.confirm(
+      context,
+      title: '删除草稿',
+      message: '删除后将移除本机草稿及其版本快照。',
+      destructive: true,
+    )) {
+      if (mounted) {
+        final settings = SettingsScope.read(context);
+        if (active) widget.onPage(0);
+        if (settings.lastDraftId == id) {
+          await settings.setLastTool(id.split('/').first);
+        }
+      }
+      await store.delete(id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = SettingsScope.of(context);
     final colors = Theme.of(context).colorScheme;
     final drafts = DraftScope.maybeOf(context);
     final recent = drafts?.recentIds ?? const <String>[];
+    Iterable<String> pinnedFirst(List<String> ids) => [
+          for (final id in ids)
+            if (drafts!.isPinned(id)) id,
+          for (final id in ids)
+            if (!drafts!.isPinned(id)) id,
+        ];
     final pinned = settings.pinnedToolIds.map(toolById).whereType<ToolDef>();
     final route = widget.activeRouteName;
     final argument = widget.activeArgument;
@@ -477,16 +616,24 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
     final scope = widget.actionContext;
     final preset = settings.workspaceCoordinatePreset;
 
-    Widget draftEntry(String id, bool selected) => _SidebarEntry(
-          title: draftTitle(context, drafts, id),
-          icon: Icons.description_outlined,
-          onTap: () {
-            widget.beforeOpeningDraft();
-            openWorkspaceDraft(scope(), id, fromSidebar: true);
-          },
-          selected: selected,
-          quiet: true,
-        );
+    Widget draftEntry(String id, bool selected) => Builder(builder: (anchor) {
+          final store = drafts!;
+          return _SidebarEntry(
+            key: ValueKey('sidebar-draft-$id'),
+            title: draftTitle(context, drafts, id),
+            icon: store.isPinned(id)
+                ? Icons.push_pin_outlined
+                : Icons.description_outlined,
+            onTap: () {
+              widget.beforeOpeningDraft();
+              openWorkspaceDraft(scope(), id, fromSidebar: true);
+            },
+            selected: selected,
+            onOptions: () => _draftMenu(anchor, store, id,
+                active: id == selectedDraft || id == activeTool),
+            quiet: true,
+          );
+        });
 
     return Material(
       color: colors.brightness == Brightness.dark
@@ -561,83 +708,89 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                 ),
               ),
               const SizedBox(height: 8),
-              PopupMenuButton<WorkspaceCoordinatePreset>(
-                key: const ValueKey('sidebar-coordinate-preset'),
-                tooltip: context.tr('坐标系预设'),
-                position: PopupMenuPosition.under,
-                offset: const Offset(0, 4),
-                elevation: 6,
-                color: colors.surfaceContainerHigh,
-                surfaceTintColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                        color: colors.outlineVariant.withValues(alpha: .55),
-                        width: .7)),
-                onSelected: settings.setWorkspaceCoordinatePreset,
-                itemBuilder: (context) => [
-                  for (final choice in WorkspaceCoordinatePreset.values)
-                    PopupMenuItem(
-                      key: ValueKey('coordinate-preset-${choice.name}'),
-                      value: choice,
-                      child: Row(
-                        children: [
-                          Expanded(
-                              child: Text(context.tr(choice.label),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis)),
-                          if (choice == preset)
-                            Icon(Icons.check_rounded,
-                                size: 18, color: colors.primary),
-                        ],
-                      ),
-                    ),
-                ],
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: kSidebarIconSlotWidth,
-                          child: Center(
-                            child: OutlineSymbol(Icons.public, size: 20),
+              Builder(
+                  builder: (anchor) => InkWell(
+                        key: const ValueKey('sidebar-coordinate-preset'),
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          final selected = await showWorkspacePopover<
+                              WorkspaceCoordinatePreset>(
+                            anchor: anchor,
+                            label: anchor.tr('坐标系预设'),
+                            builder: (menuContext) => Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final choice
+                                    in WorkspaceCoordinatePreset.values)
+                                  ListTile(
+                                    key: ValueKey(
+                                        'coordinate-preset-${choice.name}'),
+                                    dense: true,
+                                    title: Text(menuContext.tr(choice.label)),
+                                    trailing: choice == preset
+                                        ? Icon(Icons.check_rounded,
+                                            size: 18, color: colors.primary)
+                                        : null,
+                                    onTap: () =>
+                                        Navigator.of(menuContext).pop(choice),
+                                  ),
+                              ],
+                            ),
+                          );
+                          if (selected != null) {
+                            await settings
+                                .setWorkspaceCoordinatePreset(selected);
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: kSidebarIconSlotWidth,
+                                  child: Center(
+                                    child:
+                                        OutlineSymbol(Icons.public, size: 20),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(context.tr('坐标系预设'),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textHeightBehavior:
+                                              kSurveyTextHeightBehavior,
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: colors.onSurfaceVariant)),
+                                      Text(context.tr(preset.label),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textHeightBehavior:
+                                              kSurveyTextHeightBehavior,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                ),
+                                const OutlineSymbol(Icons.expand_more_rounded,
+                                    size: 18),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(context.tr('坐标系预设'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textHeightBehavior: kSurveyTextHeightBehavior,
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: colors.onSurfaceVariant)),
-                              Text(context.tr(preset.label),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textHeightBehavior: kSurveyTextHeightBehavior,
-                                  style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
-                        const OutlineSymbol(Icons.expand_more_rounded,
-                            size: 18),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+                      )),
               Divider(height: 16, thickness: .7, color: colors.outlineVariant),
               Expanded(
                 child: ListView(
@@ -659,6 +812,12 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                               const OutlineSymbol(Icons.tune_rounded, size: 18),
                         ),
                       ],
+                    ),
+                    _SidebarEntry(
+                      key: const ValueKey('sidebar-tool-library'),
+                      title: context.tr('工具库'),
+                      icon: Icons.widgets_outlined,
+                      onTap: () => widget.onPage(3),
                     ),
                     for (final tool in pinned)
                       _SidebarEntry(
@@ -695,7 +854,7 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                           quiet: true,
                         ),
                         if (_openProjects.contains(project))
-                          for (final id in ids)
+                          for (final id in pinnedFirst(ids))
                             draftEntry(
                                 id, !_recentExpanded && id == selectedDraft),
                       ],
@@ -709,7 +868,7 @@ class _WorkspaceSidebarState extends State<_WorkspaceSidebar> {
                                   fontSize: 13,
                                   color: colors.onSurfaceVariant)),
                         ),
-                      for (final id in recent)
+                      for (final id in pinnedFirst(recent))
                         draftEntry(id, id == selectedDraft),
                     ],
                   ],
@@ -888,11 +1047,13 @@ class _SidebarEntry extends StatelessWidget {
       required this.title,
       required this.icon,
       required this.onTap,
+      this.onOptions,
       this.selected = false,
       this.quiet = false});
   final String title;
   final IconData icon;
   final VoidCallback onTap;
+  final VoidCallback? onOptions;
   final bool selected;
   final bool quiet;
 
@@ -906,40 +1067,46 @@ class _SidebarEntry extends StatelessWidget {
             : colors.onSurface;
     return Semantics(
       selected: selected,
-      child: Material(
-        color: selected
-            ? colors.primary.withValues(alpha: .12)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
+      child: SpringPress(
+        scaleDown: .985,
+        duration: const Duration(milliseconds: 80),
+        child: Material(
+          color: selected
+              ? colors.primary.withValues(alpha: .12)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: kSidebarIconSlotWidth,
-                    child: Center(
-                      child: OutlineSymbol(icon, color: foreground, size: 19),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            onLongPress: onOptions,
+            onSecondaryTap: onOptions,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: kSidebarIconSlotWidth,
+                      child: Center(
+                        child: OutlineSymbol(icon, color: foreground, size: 19),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: Text(title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textHeightBehavior: kSurveyTextHeightBehavior,
-                          style: TextStyle(
-                              color: foreground,
-                              fontSize: quiet ? 14 : 16,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500))),
-                ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textHeightBehavior: kSurveyTextHeightBehavior,
+                            style: TextStyle(
+                                color: foreground,
+                                fontSize: quiet ? 14 : 16,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500))),
+                  ],
+                ),
               ),
             ),
           ),

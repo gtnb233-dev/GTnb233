@@ -102,11 +102,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Navigate to Settings on wide, then shrink to narrow where GlassNavBar shows.
-    await tester.tap(
-      find.byTooltip(const SurveyStrings('sn').translate('设置')).first,
-    );
-    await tester.pumpAndSettle();
+    // The optional portrait tab remains in the workspace navigator.
     await settings.setSidebarCollapsed(true);
     tester.view.physicalSize = const Size(320, 640);
     await tester.pumpAndSettle();
@@ -121,6 +117,8 @@ void main() {
     expect(_tab('Ikhaya'), findsOneWidget);
     expect(SurveyStrings.of(navContext).languageCode, 'nd');
 
+    await tester.tap(_tab(const SurveyStrings('nd').translate('设置')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('app-language')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('English').last);
@@ -221,9 +219,7 @@ void main() {
     expect(find.text('Clear'), findsOneWidget);
 
     expect(
-      _collectCjkViolations(tester)
-          .where((s) => s != 'Text: 中文（简体）')
-          .toList(),
+      _collectCjkViolations(tester).where((s) => s != 'Text: 中文（简体）').toList(),
       isEmpty,
     );
     expect(tester.takeException(), isNull);
@@ -317,11 +313,11 @@ void main() {
       await tester.tap(find.byTooltip('Export sheet'));
       await tester.pumpAndSettle();
       expect(
-      _collectCjkViolations(tester)
-          .where((s) => s != 'Text: 中文（简体）')
-          .toList(),
-      isEmpty,
-    );
+        _collectCjkViolations(tester)
+            .where((s) => s != 'Text: 中文（简体）')
+            .toList(),
+        isEmpty,
+      );
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
@@ -332,11 +328,11 @@ void main() {
       ));
       await tester.pumpAndSettle();
       expect(
-      _collectCjkViolations(tester)
-          .where((s) => s != 'Text: 中文（简体）')
-          .toList(),
-      isEmpty,
-    );
+        _collectCjkViolations(tester)
+            .where((s) => s != 'Text: 中文（简体）')
+            .toList(),
+        isEmpty,
+      );
       expect(tester.takeException(), isNull);
     });
 
@@ -381,7 +377,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    test('tutorials, survey_core trError, and CSV/TXT/XLSX outputs have zero CJK in English',
+    test(
+        'tutorials, survey_core trError, and CSV/TXT/XLSX outputs have zero CJK in English',
         () {
       const en = SurveyStrings('en');
 
@@ -421,7 +418,8 @@ void main() {
             'limitDenominator': '4000',
           },
         );
-        expect(_cjkPattern.hasMatch(msg), isFalse, reason: 'trError(${code.name}): $msg');
+        expect(_cjkPattern.hasMatch(msg), isFalse,
+            reason: 'trError(${code.name}): $msg');
       }
 
       // 3. CSV / TXT / XLSX XML outputs
@@ -467,8 +465,10 @@ void main() {
       ).localizeLabels(en.translate);
       final csv = ExportService.toCsv(table);
       final txt = ExportService.toText(table);
-      expect(_cjkPattern.hasMatch(csv), isFalse, reason: 'CSV leaked CJK: $csv');
-      expect(_cjkPattern.hasMatch(txt), isFalse, reason: 'TXT leaked CJK: $txt');
+      expect(_cjkPattern.hasMatch(csv), isFalse,
+          reason: 'CSV leaked CJK: $csv');
+      expect(_cjkPattern.hasMatch(txt), isFalse,
+          reason: 'TXT leaked CJK: $txt');
     });
   });
 }

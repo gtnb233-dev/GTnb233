@@ -40,14 +40,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final searchBtn = find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first;
-    final toggleBtn = find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable().first;
+    final searchBtn =
+        find.byKey(const ValueKey('sidebar-search-btn')).hitTestable().first;
+    final toggleBtn =
+        find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable().first;
     expect(searchBtn, findsOneWidget);
     expect(toggleBtn, findsOneWidget);
 
     final searchRect = tester.getRect(searchBtn);
     final toggleRect = tester.getRect(toggleBtn);
-    expect((searchRect.center.dy - toggleRect.center.dy).abs(), lessThanOrEqualTo(1.0));
+    expect((searchRect.center.dy - toggleRect.center.dy).abs(),
+        lessThanOrEqualTo(1.0));
 
     // Toggle sidebar 280dp -> 0dp -> 280dp on Home.
     final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
@@ -55,32 +58,35 @@ void main() {
     await tester.tap(toggleBtn);
     await tester.pumpAndSettle();
     expect(sidebar, findsNothing);
-    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(), findsOneWidget);
+    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(),
+        findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
+    await tester
+        .tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
     await tester.pumpAndSettle();
     expect(tester.getSize(sidebar).width, 280);
 
-    // Navigate to Settings and verify toggle stays visible in both states.
+    // The Settings route covers the sidebar and restores it on Back.
     await tester.tap(find.byKey(const ValueKey('sidebar-settings')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
+    expect(sidebar.hitTestable(), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('workspace-fullscreen-back')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(), findsOneWidget);
+    expect(sidebar.hitTestable(), findsOneWidget);
 
-    // Expand sidebar, open a tool page, and verify toggle stays visible.
-    await tester.tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
-    await tester.pumpAndSettle();
+    // Open a tool page and verify its workspace toggle stays visible.
     await tester.tap(
       find.descendant(of: sidebar, matching: find.text('四等水准测量')),
     );
     await tester.pumpAndSettle();
     expect(find.byType(FourOrderLevelingPage), findsOneWidget);
-    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
+    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(),
+        findsOneWidget);
+    await tester
+        .tap(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable());
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(), findsOneWidget);
+    expect(find.byKey(const ValueKey('sidebar-toggle-btn')).hitTestable(),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     debugDefaultTargetPlatformOverride = null;
   });
@@ -105,7 +111,8 @@ void main() {
           .setMockMethodCallHandler(channel, null);
     });
 
-    test('NativeFilesBridge.pickDocument decodes bytes and returns null on cancel',
+    test(
+        'NativeFilesBridge.pickDocument decodes bytes and returns null on cancel',
         () async {
       nextResponse = {
         'name': 'pts.csv',
@@ -161,7 +168,8 @@ void main() {
       // 1. CSV/DAT/TXT import
       nextResponse = {
         'name': 'points.csv',
-        'bytes': Uint8List.fromList(utf8.encode('P1,1000,2000,10\nP2,1100,2100,12')),
+        'bytes':
+            Uint8List.fromList(utf8.encode('P1,1000,2000,10\nP2,1100,2100,12')),
       };
       await triggerImport();
       expect(store.points.length, 2);
@@ -171,7 +179,8 @@ void main() {
       nextResponse = {
         'name': 'survey.dxf',
         'bytes': Uint8List.fromList(
-          utf8.encode('0\nSECTION\n2\nENTITIES\n0\nPOINT\n10\n300\n20\n400\n0\nENDSEC\n0\nEOF'),
+          utf8.encode(
+              '0\nSECTION\n2\nENTITIES\n0\nPOINT\n10\n300\n20\n400\n0\nENDSEC\n0\nEOF'),
         ),
       };
       await triggerImport();
@@ -185,7 +194,8 @@ void main() {
       // 4. Corrupt payload shows warning toast without crash
       nextResponse = {
         'name': 'broken.txt',
-        'bytes': Uint8List.fromList(utf8.encode('not_a_valid_point_file_!@#\$')),
+        'bytes':
+            Uint8List.fromList(utf8.encode('not_a_valid_point_file_!@#\$')),
       };
       await triggerImport();
       expect(find.textContaining('未识别到有效控制点数据'), findsWidgets);

@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import 'foundation.dart';
 import 'measurement_columns.dart';
 import 'overlays.dart';
+import 'value_reveal.dart';
 
 /// 单个成果项：左标签、右数值（支持桌面悬停高亮与复制提示、次要备注 [note]）。
 class ResultTile extends StatefulWidget {
@@ -120,13 +121,10 @@ class _ResultTileState extends State<ResultTile> {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      transitionBuilder: (child, anim) =>
-                          FadeTransition(opacity: anim, child: child),
+                    ValueReveal(
+                      value: (widget.value, widget.unit),
                       child: Text(
                         widget.value,
-                        key: ValueKey<String>(widget.value),
                         maxLines: 1,
                         softWrap: false,
                         style: TextStyle(
@@ -460,18 +458,21 @@ class _MetricTileState extends State<MetricTile> {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text(
-                    widget.value,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: widget.accent ?? scheme.onSurface,
-                      letterSpacing: -0.3,
-                      fontFamily: kSurveyMono,
-                      fontFamilyFallback: const ['Noto Sans SC'],
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  ValueReveal(
+                    value: (widget.value, widget.unit),
+                    child: Text(
+                      widget.value,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: widget.accent ?? scheme.onSurface,
+                        letterSpacing: -0.3,
+                        fontFamily: kSurveyMono,
+                        fontFamilyFallback: const ['Noto Sans SC'],
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                   if (widget.unit != null) ...[

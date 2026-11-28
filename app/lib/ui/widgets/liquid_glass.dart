@@ -71,9 +71,8 @@ class LiquidGlassSurface extends StatelessWidget {
       final suspendBlur = (!kIsWeb && Platform.isAndroid) ||
           GlassBlurSuspensionScope.isSuspended(context);
       final translucent = !suspendBlur;
-      final glassAlpha = isDark
-          ? (translucent ? 0.74 : 0.92)
-          : (translucent ? 0.72 : 0.92);
+      final glassAlpha =
+          isDark ? (translucent ? 0.74 : 0.92) : (translucent ? 0.72 : 0.92);
       final glassFill = tintColor != null
           ? tintColor!.withValues(alpha: glassAlpha)
           : (isDark
@@ -194,10 +193,14 @@ class SpringPress extends StatefulWidget {
 
 class _SpringPressState extends State<SpringPress> {
   bool _pressed = false;
+  bool _animating = false;
 
   void _setPressed(bool v) {
     if (_pressed == v || !mounted) return;
-    setState(() => _pressed = v);
+    setState(() {
+      _pressed = v;
+      _animating = !MediaQuery.disableAnimationsOf(context);
+    });
   }
 
   @override
@@ -208,13 +211,20 @@ class _SpringPressState extends State<SpringPress> {
       scale: _pressed && !reduceMotion ? widget.scaleDown : 1.0,
       duration: reduceMotion ? Duration.zero : widget.duration,
       curve: Motion.ease,
-      child: widget.onTap == null
-          ? widget.child
-          : GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: widget.onTap,
-              child: widget.child,
-            ),
+      onEnd: () {
+        if (_animating) setState(() => _animating = false);
+      },
+      child: GlassBlurSuspensionScope(
+        suspended: (_animating && !reduceMotion) ||
+            GlassBlurSuspensionScope.isSuspended(context),
+        child: widget.onTap == null
+            ? widget.child
+            : GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: widget.onTap,
+                child: widget.child,
+              ),
+      ),
     );
     return Listener(
       onPointerDown: (_) => _setPressed(true),

@@ -64,7 +64,7 @@ void main() {
   }
 
   testWidgets(
-      'wide tool routes slide opaquely and fade cached tools in sequence',
+      'wide tool routes slide opaquely and switch cached tools without overlap',
       (tester) async {
     await pumpAndroid(tester, const Size(915, 412));
     selectTool(tester, 'inverse');
@@ -93,11 +93,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 35));
     final traverse = find.byType(TraversePage);
-    expect(paintedOpacity(inverse), inExclusiveRange(0.0, 1.0));
-    expect(paintedOpacity(traverse), 0);
+    expect(paintedOpacity(inverse), 0);
+    expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
     await tester.pump(const Duration(milliseconds: 31));
     expect(paintedOpacity(inverse), 0);
-    expect(paintedOpacity(traverse), closeTo(0, .001));
+    expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
     await tester.pump(const Duration(milliseconds: 36));
     expect(paintedOpacity(inverse), 0);
     expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
@@ -153,12 +153,18 @@ void main() {
         matching: find.byKey(const ValueKey('sidebar-tool-traverse'))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 32));
-    expect(paintedOpacity(tools), inExclusiveRange(0.0, 1.0));
-    expect(paintedOpacity(traverse), 0);
+    expect(paintedOpacity(tools), 1);
+    expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
+    expect(
+        find.ancestor(
+            of: traverse,
+            matching: find
+                .byKey(const ValueKey('workspace-opaque-transition-surface'))),
+        findsOneWidget);
     final route = ModalRoute.of(tester.element(traverse))!;
     expect(route.transitionDuration, workspaceSidebarDuration);
     await tester.pump(const Duration(milliseconds: 75));
-    expect(paintedOpacity(tools), 0);
+    expect(paintedOpacity(tools), 1);
     expect(paintedOpacity(traverse), inExclusiveRange(0.0, 1.0));
     await tester.pumpAndSettle();
 
@@ -261,7 +267,7 @@ void main() {
   });
 
   testWidgets(
-      'sidebar width animates from zero and tools accordion still animates',
+      'sidebar translates without relayout mid-frame and tools accordion still animates',
       (tester) async {
     await pumpAndroid(tester, const Size(915, 412));
     final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
@@ -273,7 +279,10 @@ void main() {
     await tester.tap(toggle);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 75));
-    expect(tester.getSize(space).width, inExclusiveRange(0.0, 280.0));
+    expect(space, findsNothing);
+    expect(tester.getSize(content).width, fullWidth);
+    expect(tester.getTopLeft(content).dx, inExclusiveRange(0.0, 280.0));
+    expect(tester.getTopLeft(sidebar).dx, inExclusiveRange(-280.0, 0.0));
     await tester.pumpAndSettle();
     expect(tester.getSize(sidebar).width, 280);
     expect(tester.getSize(content).width, fullWidth - 280);
@@ -295,7 +304,7 @@ void main() {
     final rotation =
         find.descendant(of: group, matching: find.byType(AnimatedRotation));
     expect(tester.widget<AnimatedRotation>(rotation).duration,
-        workspaceSidebarDuration);
+        const Duration(milliseconds: 220));
     final row = find.byKey(const ValueKey('toolbox-tool-inverse'));
     await tester.ensureVisible(row);
     await tester.pumpAndSettle();

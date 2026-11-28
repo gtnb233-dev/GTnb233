@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
 /// 原生窗口与主题集成的冻结 MethodChannel 契约名称（Wave 1 M1）。
@@ -36,6 +37,29 @@ abstract final class NativeWindowBridge {
       // No-op on non-native / test hosts.
     } on PlatformException {
       // No-op on unsupported hosts.
+    }
+  }
+
+  /// Keep the Android system splash aligned with the saved app theme.
+  static Future<void> setStartupTheme(String theme) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('setStartupTheme', theme);
+    } on MissingPluginException {
+      // Older native runners already follow the system theme.
+    } on PlatformException {
+      // The Flutter theme remains available if native sync fails.
+    }
+  }
+
+  static Future<void> setFullscreenBackGesture(bool enabled) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('setFullscreenBackGesture', enabled);
+    } on MissingPluginException {
+      // Unsupported hosts keep their normal edge gesture behavior.
+    } on PlatformException {
+      // System Back remains available.
     }
   }
 

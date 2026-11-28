@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
+import 'value_reveal.dart';
+
+const _gaugeMotion = Duration(milliseconds: 240);
 
 /// 限差进度仪表条：直观展示当前计算值占限差的比例与余量，
 /// 或在推荐区间模式下展示所处区间（如交会角 30°–150°）。
@@ -91,7 +94,8 @@ class ToleranceGauge extends StatelessWidget {
                   Container(
                     height: 6,
                     decoration: BoxDecoration(
-                      color: scheme.error.withValues(alpha: isDark ? 0.30 : 0.20),
+                      color:
+                          scheme.error.withValues(alpha: isDark ? 0.30 : 0.20),
                       borderRadius: BorderRadius.circular(Radii.pill),
                     ),
                   ),
@@ -106,8 +110,18 @@ class ToleranceGauge extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Positioned(
-                    left: (w * pos - 5).clamp(0.0, (w - 10).clamp(0.0, w)),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(end: pos),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : _gaugeMotion,
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) => Transform.translate(
+                      offset: Offset(
+                          (w * value - 5).clamp(0.0, (w - 10).clamp(0.0, w)),
+                          0),
+                      child: child,
+                    ),
                     child: Container(
                       width: 10,
                       height: 10,
@@ -128,10 +142,10 @@ class ToleranceGauge extends StatelessWidget {
 
     final absLimit = _limit.abs();
     final absVal = _value.abs();
-    final ratio = absLimit <= 1e-12
-        ? (absVal <= 1e-12 ? 0.0 : 1.5)
-        : (absVal / absLimit);
-    final passed = ok ?? (absLimit <= 1e-12 ? absVal <= 1e-12 : absVal <= absLimit);
+    final ratio =
+        absLimit <= 1e-12 ? (absVal <= 1e-12 ? 0.0 : 1.5) : (absVal / absLimit);
+    final passed =
+        ok ?? (absLimit <= 1e-12 ? absVal <= 1e-12 : absVal <= absLimit);
     final statusColor = !passed
         ? red
         : ratio >= 0.70
@@ -159,7 +173,8 @@ class ToleranceGauge extends StatelessWidget {
                 Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: isDark ? IosColors.darkTertiary : IosColors.lightFill,
+                    color:
+                        isDark ? IosColors.darkTertiary : IosColors.lightFill,
                     borderRadius: BorderRadius.circular(Radii.chip),
                     border: Border.all(
                       color: IosColors.separator(b),
@@ -167,9 +182,19 @@ class ToleranceGauge extends StatelessWidget {
                     ),
                   ),
                 ),
-                FractionallySizedBox(
-                  widthFactor: fillRatio,
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: fillRatio),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : _gaugeMotion,
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) => Transform.scale(
+                    scaleX: value,
+                    alignment: Alignment.centerLeft,
+                    child: child,
+                  ),
                   child: Container(
+                    width: double.infinity,
                     height: 6,
                     decoration: BoxDecoration(
                       color: statusColor,
@@ -253,25 +278,30 @@ class _GaugeFrame extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(Radii.pill),
-                ),
-                child: Text(
-                  context.tr(statusText),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    leadingDistribution: TextLeadingDistribution.even,
-                    color: statusColor,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
+              ValueReveal(
+                  value: statusColor,
+                  fromOpacity: 1,
+                  fromScale: .92,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                    ),
+                    child: Text(
+                      context.tr(statusText),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        leadingDistribution: TextLeadingDistribution.even,
+                        color: statusColor,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  )),
             ],
           ),
           const SizedBox(height: 5),

@@ -216,10 +216,7 @@ abstract final class SmartImportParser {
             polyX = double.tryParse(value);
           case '20':
             final py = double.tryParse(value);
-            if (polyX != null &&
-                py != null &&
-                polyX!.isFinite &&
-                py.isFinite) {
+            if (polyX != null && py != null && polyX!.isFinite && py.isFinite) {
               final idx = points.length + polyVertices.length + 1;
               polyVertices.add(SmartImportPoint(
                 name: 'V$idx',
@@ -540,6 +537,7 @@ Future<bool> showSmartImportFlow(
   onImported?.call();
 
   if (context.mounted) {
+    LivePlotScope.maybeRead(context)?.revealRoutes();
     SurveyToast.success(
       context,
       context.tr(

@@ -14,7 +14,9 @@ import '../widgets/widgets.dart';
 
 /// 工具库：搜索 + 分类浏览全部工具。
 class ToolsPage extends StatefulWidget {
-  const ToolsPage({super.key});
+  const ToolsPage({super.key, this.fullscreen = false});
+
+  final bool fullscreen;
 
   @override
   State<ToolsPage> createState() => _ToolsPageState();
@@ -51,6 +53,7 @@ class _ToolsPageState extends State<ToolsPage> {
       grouped.putIfAbsent(t.group, () => <ToolDef>[]).add(t);
     }
     return PageScaffold(
+      fullscreen: widget.fullscreen,
       title: '工具库',
       caption: context.tr('{count} 个测量工具，按分类浏览', {'count': kTools.length}),
       children: [
@@ -333,7 +336,7 @@ class _ToolRow extends StatelessWidget {
     final pinned = settings?.isPinned(tool.id) ?? false;
     return SpringPress(
       scaleDown: .985,
-      duration: const Duration(milliseconds: 90),
+      duration: const Duration(milliseconds: 80),
       child: InkWell(
         key: ValueKey<String>('toolbox-tool-${tool.id}'),
         onTap: () => openTool(context, tool),

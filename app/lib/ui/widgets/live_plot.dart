@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -590,12 +591,26 @@ class LivePlot extends StatefulWidget {
   State<LivePlot> createState() => _LivePlotState();
 }
 
-class _LivePlotState extends State<LivePlot>
-    with SingleTickerProviderStateMixin {
+class _LivePlotState extends State<LivePlot> with TickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 120),
   );
+  late final _reveal = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+    value: 1,
+  );
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 880),
+    value: 1,
+  );
+  late final _plotMotion = Listenable.merge([_controller, _reveal]);
+  LivePlotController? _plotController;
+  Timer? _pulseTimer;
+  bool _motionEnabled = false;
+  bool _shownRoute = false;
   final GlobalKey _boundaryKey = GlobalKey();
   late PlotRange _from;
   late PlotRange _to;
@@ -637,18 +652,77 @@ class _LivePlotState extends State<LivePlot>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextController = LivePlotScope.maybeRead(context);
+    if (_plotController != nextController) {
+      _plotController?.routeReveal.removeListener(_revealRoutes);
+      _plotController = nextController;
+      _plotController?.routeReveal.addListener(_revealRoutes);
+    }
+    _motionEnabled = TickerMode.of(context) &&
+        (ModalRoute.of(context)?.isCurrent ?? true) &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!_motionEnabled) {
+      _reveal.value = 1;
+      _controller.value = 1;
+    } else if (!_shownRoute && _hasRoute) {
+      _revealRoutes();
+    }
+    _syncPulse();
+  }
+
+  bool get _hasRoute => widget.lines.isNotEmpty || widget.paths.isNotEmpty;
+
+  PlotPoint? get _activePoint {
+    final selected = widget.selectedIndex;
+    if (selected != null && selected >= 0 && selected < widget.points.length) {
+      return widget.points[selected];
+    }
+    return widget.points.where((point) => point.emphasis).firstOrNull;
+  }
+
+  void _revealRoutes() {
+    if (!_motionEnabled || !_hasRoute) return;
+    _shownRoute = true;
+    _reveal.forward(from: 0);
+  }
+
+  void _syncPulse() {
+    if (_motionEnabled && _activePoint != null) {
+      _pulseTimer ??= Timer.periodic(const Duration(milliseconds: 2700), (_) {
+        if (mounted) _pulse.forward(from: 0);
+      });
+    } else {
+      _pulseTimer?.cancel();
+      _pulseTimer = null;
+      _pulse.value = 1;
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant LivePlot oldWidget) {
     super.didUpdateWidget(oldWidget);
     final next = _targetRange();
     if (next != _to) {
       _from = _animatedAutoRange();
       _to = next;
-      _controller.forward(from: 0);
+      if (_motionEnabled) {
+        _controller.forward(from: 0);
+      } else {
+        _controller.value = 1;
+      }
     }
+    if (!_shownRoute && _hasRoute) _revealRoutes();
+    _syncPulse();
   }
 
   @override
   void dispose() {
+    _plotController?.routeReveal.removeListener(_revealRoutes);
+    _pulseTimer?.cancel();
+    _pulse.dispose();
+    _reveal.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -984,7 +1058,7 @@ class _LivePlotState extends State<LivePlot>
                               child: RepaintBoundary(
                                 key: _boundaryKey,
                                 child: AnimatedBuilder(
-                                  animation: _controller,
+                                  animation: _plotMotion,
                                   builder: (context, _) => CustomPaint(
                                     size: size,
                                     painter: _PlotPainter(
@@ -1026,6 +1100,10 @@ class _LivePlotState extends State<LivePlot>
                                         context,
                                       ).style.fontFamilyFallback,
                                       selectedIndex: widget.selectedIndex,
+                                      reveal: _exportingPng || !_motionEnabled
+                                          ? 1
+                                          : Curves.easeOutCubic
+                                              .transform(_reveal.value),
                                       hoverLocal: _hoverLocal,
                                       draggingIndex: _dragIndex,
                                       dragX: _dragX,
@@ -1033,6 +1111,11 @@ class _LivePlotState extends State<LivePlot>
                                       dragOriginX: _dragOriginX,
                                       dragOriginY: _dragOriginY,
                                     ),
+                                    child: !_exportingPng &&
+                                            _motionEnabled &&
+                                            _dragIndex == null
+                                        ? _activeRing(size, scheme)
+                                        : null,
                                   ),
                                 ),
                               ),
@@ -1214,6 +1297,23 @@ class _LivePlotState extends State<LivePlot>
                   );
                 },
               ),
+      ),
+    );
+  }
+
+  Widget? _activeRing(Size size, ColorScheme scheme) {
+    final point = _activePoint;
+    if (point == null) return null;
+    final range = _currentRange();
+    final scale = math.min(size.width, size.height) / range.span;
+    final x = (point.x - range.centerX) * scale;
+    final y = (point.y - range.centerY) * scale;
+    final center = Offset(size.width / 2, size.height / 2) +
+        (widget.surveyNorthUp ? Offset(y, -x) : Offset(x, -y));
+    return RepaintBoundary(
+      child: CustomPaint(
+        size: size,
+        painter: _PlotPulse(center, point.color ?? scheme.primary, _pulse),
       ),
     );
   }
@@ -1407,6 +1507,31 @@ class _PlotToolIcon extends StatelessWidget {
   }
 }
 
+class _PlotPulse extends CustomPainter {
+  _PlotPulse(this.center, this.color, this.motion) : super(repaint: motion);
+
+  final Offset center;
+  final Color color;
+  final Animation<double> motion;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = motion.value;
+    if (t >= 1 || !(Offset.zero & size).contains(center)) return;
+    canvas.drawCircle(
+        center,
+        9 + 10 * t,
+        Paint()
+          ..color = color.withValues(alpha: .24 * math.sin(math.pi * t))
+          ..strokeWidth = 1.3
+          ..style = PaintingStyle.stroke);
+  }
+
+  @override
+  bool shouldRepaint(_PlotPulse oldDelegate) =>
+      oldDelegate.center != center || oldDelegate.color != color;
+}
+
 class _PlotPainter extends CustomPainter {
   _PlotPainter({
     required this.range,
@@ -1429,6 +1554,7 @@ class _PlotPainter extends CustomPainter {
     this.fontFamily,
     this.fontFamilyFallback,
     this.selectedIndex,
+    this.reveal = 1,
     this.hoverLocal,
     this.draggingIndex,
     this.dragX,
@@ -1440,6 +1566,7 @@ class _PlotPainter extends CustomPainter {
   /// 正在拖的点（下标与本地覆盖坐标）；null 表示没有拖拽。
   final int? draggingIndex;
   final int? selectedIndex;
+  final double reveal;
   final Offset? hoverLocal;
   final double? dragX;
   final double? dragY;
@@ -1610,6 +1737,7 @@ class _PlotPainter extends CustomPainter {
   }
 
   void _paintPaths(Canvas canvas, Size size, double scale) {
+    if (reveal == 0) return;
     for (final p in paths) {
       if (p.points.length < 2) continue;
       final paint = Paint()
@@ -1620,16 +1748,22 @@ class _PlotPainter extends CustomPainter {
         ..style = PaintingStyle.stroke;
       if (p.dashed) {
         for (var i = 0; i + 1 < p.points.length; i++) {
+          final part = (reveal * (p.points.length - 1) - i).clamp(0.0, 1.0);
+          if (part == 0) break;
+          final start = Offset(
+            _sx(p.points[i].x, p.points[i].y, size, scale),
+            _sy(p.points[i].x, p.points[i].y, size, scale),
+          );
           _drawDashed(
             canvas,
-            Offset(
-              _sx(p.points[i].x, p.points[i].y, size, scale),
-              _sy(p.points[i].x, p.points[i].y, size, scale),
-            ),
-            Offset(
-              _sx(p.points[i + 1].x, p.points[i + 1].y, size, scale),
-              _sy(p.points[i + 1].x, p.points[i + 1].y, size, scale),
-            ),
+            start,
+            Offset.lerp(
+                start,
+                Offset(
+                  _sx(p.points[i + 1].x, p.points[i + 1].y, size, scale),
+                  _sy(p.points[i + 1].x, p.points[i + 1].y, size, scale),
+                ),
+                part)!,
             paint,
           );
         }
@@ -1646,10 +1780,17 @@ class _PlotPainter extends CustomPainter {
             path.lineTo(o.dx, o.dy);
           }
         }
-        canvas.drawPath(path, paint);
+        if (reveal == 1) {
+          canvas.drawPath(path, paint);
+        } else {
+          for (final metric in path.computeMetrics()) {
+            canvas.drawPath(
+                metric.extractPath(0, metric.length * reveal), paint);
+          }
+        }
       }
       final label = p.label;
-      if (label != null && label.isNotEmpty) {
+      if (reveal == 1 && label != null && label.isNotEmpty) {
         final mid = p.points[p.points.length ~/ 2];
         _drawText(
           canvas,
@@ -1665,7 +1806,9 @@ class _PlotPainter extends CustomPainter {
   }
 
   void _paintLines(Canvas canvas, Size size, double scale) {
-    for (final line in lines) {
+    for (final (index, line) in lines.indexed) {
+      final part = (reveal * lines.length - index).clamp(0.0, 1.0);
+      if (part == 0) break;
       final lineColor = line.color ?? scheme.primary.withValues(alpha: 0.75);
       final isNorthRay = line.color?.toARGB32() == 0xFFFF3B30 ||
           line.color?.toARGB32() == 0xFFD32F2F;
@@ -1682,13 +1825,14 @@ class _PlotPainter extends CustomPainter {
         _sx(line.to.x, line.to.y, size, scale),
         _sy(line.to.x, line.to.y, size, scale),
       );
+      final tip = Offset.lerp(a, b, part)!;
       if (line.dashed) {
-        _drawDashed(canvas, a, b, paint);
+        _drawDashed(canvas, a, tip, paint);
       } else {
-        canvas.drawLine(a, b, paint);
+        canvas.drawLine(a, tip, paint);
       }
       final label = line.label;
-      if (label != null && label.isNotEmpty) {
+      if (part == 1 && label != null && label.isNotEmpty) {
         final mid = Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
         final dir = b - a;
         final normal = dir.distance == 0
@@ -2035,6 +2179,7 @@ class _PlotPainter extends CustomPainter {
           !_listEq(old.fontFamilyFallback ?? const [],
               fontFamilyFallback ?? const []) ||
           old.selectedIndex != selectedIndex ||
+          old.reveal != reveal ||
           old.hoverLocal != hoverLocal ||
           old.draggingIndex != draggingIndex ||
           old.dragX != dragX ||

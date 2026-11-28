@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../content/tutorials.dart';
 import '../../l10n/survey_strings.dart';
+import '../../state/live_plot_controller.dart';
 import '../../theme/tokens.dart';
 import 'foundation.dart';
 import 'overlays.dart';
@@ -224,7 +225,10 @@ class _PageTutorialState extends State<PageTutorial> {
                         Expanded(child: _label(context, context.tr('算例'))),
                         if (widget.onLoadSample != null)
                           TextButton.icon(
-                            onPressed: widget.onLoadSample,
+                            onPressed: () {
+                              widget.onLoadSample!();
+                              LivePlotScope.maybeRead(context)?.revealRoutes();
+                            },
                             icon: const Icon(Icons.science_outlined, size: 15),
                             label: Text(context.tr('载入算例')),
                             style: TextButton.styleFrom(

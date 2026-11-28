@@ -14,7 +14,9 @@ import '../widgets/widgets.dart';
 
 /// 设置页：主题、角度格式、小数位与反馈。
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.fullscreen = false});
+
+  final bool fullscreen;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +25,7 @@ class SettingsPage extends StatelessWidget {
     final savedDraftCount = drafts?.savedCount ?? 0;
     final scheme = Theme.of(context).colorScheme;
     return PageScaffold(
+      fullscreen: fullscreen,
       title: '设置',
       caption: '显示约定与交互偏好，全部保存在本机',
       children: [
@@ -114,6 +117,14 @@ class SettingsPage extends StatelessWidget {
           ),
           child: Column(
             children: [
+              SurveySwitchTile(
+                key: const ValueKey('skip-startup-animation'),
+                contentPadding: EdgeInsets.zero,
+                value: s.skipStartupAnimation,
+                onChanged: s.setSkipStartupAnimation,
+                title: const LocalText('跳过开屏动画（极速启动）'),
+              ),
+              const Divider(height: 1),
               if (WorkspaceHost.isAndroid(context)) ...[
                 SurveySwitchTile(
                   key: const ValueKey('android-portrait-glass-nav-setting'),

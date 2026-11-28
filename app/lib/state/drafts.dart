@@ -30,8 +30,7 @@ class DraftSnapshot {
     final id = raw['id']?.toString();
     final label = raw['label']?.toString();
     final createdRaw = raw['createdAt']?.toString();
-    final createdAt =
-        createdRaw == null ? null : DateTime.tryParse(createdRaw);
+    final createdAt = createdRaw == null ? null : DateTime.tryParse(createdRaw);
     final fieldsRaw = raw['fields'];
     if (id == null ||
         id.isEmpty ||
@@ -45,8 +44,7 @@ class DraftSnapshot {
       label: label,
       createdAt: createdAt,
       fields: Map<String, String>.unmodifiable(<String, String>{
-        for (final e in fieldsRaw.entries)
-          e.key.toString(): e.value.toString(),
+        for (final e in fieldsRaw.entries) e.key.toString(): e.value.toString(),
       }),
     );
   }
@@ -65,10 +63,14 @@ class DraftStore extends ChangeNotifier {
   static const String _stampPrefix = 'draft_at.';
   static const String _projectPrefix = 'draft_project.';
   static const String _snapshotPrefix = 'draft_snapshots.';
+  static const String _namePrefix = 'draft_name.';
+  static const String _pinPrefix = 'draft_pinned.';
 
   final Map<String, Map<String, String>> _cache = {};
   final Map<String, DateTime> _savedAt = {};
   final Map<String, String> _projects = {};
+  final Map<String, String> _names = {};
+  final Set<String> _pinned = {};
   final Map<String, List<DraftSnapshot>> _snapshots = {};
   final Map<String, int> _restoreRevisions = {};
   final Map<String, Timer> _timers = {};
@@ -100,6 +102,15 @@ class DraftStore extends ChangeNotifier {
         if (parsed != null) _savedAt[pageId] = parsed;
         final proj = p.getString('$_projectPrefix$pageId');
         if (proj != null && proj.isNotEmpty) _projects[pageId] = proj;
+      } else if (key.startsWith(_namePrefix)) {
+        final title = p.getString(key);
+        if (title != null && title.isNotEmpty) {
+          _names[key.substring(_namePrefix.length)] = title;
+        }
+      } else if (key.startsWith(_pinPrefix)) {
+        if (p.getBool(key) == true) {
+          _pinned.add(key.substring(_pinPrefix.length));
+        }
       } else if (key.startsWith(_snapshotPrefix)) {
         final pageId = key.substring(_snapshotPrefix.length);
         final raw = p.getString(key);
@@ -233,6 +244,24 @@ class DraftStore extends ChangeNotifier {
 
   /// 当前已保存草稿的页面数量。
   int get savedCount => recentIds.length;
+  String? displayName(String id) => _names[id] ?? _cache[id]?['_title'];
+  bool isPinned(String id) => _pinned.contains(id);
+
+  Future<void> rename(String id, String title) async {
+    final value = title.trim();
+    if (!_cache.containsKey(id) || value.isEmpty) return;
+    _names[id] = value;
+    notifyListeners();
+    await _enqueue((p) => p.setString('$_namePrefix$id', value));
+  }
+
+  Future<void> togglePinned(String id) async {
+    if (!_cache.containsKey(id)) return;
+    final pin = !_pinned.remove(id);
+    if (pin) _pinned.add(id);
+    notifyListeners();
+    await _enqueue((p) => p.setBool('$_pinPrefix$id', pin));
+  }
 
   List<String> get recentIds {
     final ids = _cache.keys.where((id) => !id.startsWith('_')).toList();
@@ -284,14 +313,30 @@ class DraftStore extends ChangeNotifier {
       await _flush(pageId);
       return;
     }
+    await _removeDraft(pageId);
+  }
+
+  Future<void> delete(String pageId) async {
+    _snapshots.remove(pageId);
+    await _removeDraft(pageId, includeSnapshots: true);
+  }
+
+  Future<void> _removeDraft(String pageId,
+      {bool includeSnapshots = false}) async {
+    _timers.remove(pageId)?.cancel();
     _cache.remove(pageId);
     _savedAt.remove(pageId);
     _projects.remove(pageId);
+    _names.remove(pageId);
+    _pinned.remove(pageId);
     notifyListeners();
     await _enqueue((p) async {
       await p.remove('$_prefix$pageId');
       await p.remove('$_stampPrefix$pageId');
       await p.remove('$_projectPrefix$pageId');
+      await p.remove('$_namePrefix$pageId');
+      await p.remove('$_pinPrefix$pageId');
+      if (includeSnapshots) await p.remove('$_snapshotPrefix$pageId');
     });
   }
 
@@ -303,6 +348,8 @@ class DraftStore extends ChangeNotifier {
       _cache.remove(id);
       _savedAt.remove(id);
       _projects.remove(id);
+      _names.remove(id);
+      _pinned.remove(id);
     }
     notifyListeners();
     await _enqueue((p) async {
@@ -310,6 +357,8 @@ class DraftStore extends ChangeNotifier {
         await p.remove('$_prefix$id');
         await p.remove('$_stampPrefix$id');
         await p.remove('$_projectPrefix$id');
+        await p.remove('$_namePrefix$id');
+        await p.remove('$_pinPrefix$id');
       }
     });
   }

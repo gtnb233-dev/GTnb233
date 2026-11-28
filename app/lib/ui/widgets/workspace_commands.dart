@@ -22,7 +22,7 @@ import 'workspace_points.dart';
 export 'workspace_points.dart' show WorkspaceLivePlotPanel;
 
 String draftTitle(BuildContext context, DraftStore? store, String id) =>
-    store?.value(id, '_title') ??
+    store?.displayName(id) ??
     context.tr(id == 'intersection/resection'
         ? '三点后方交会'
         : toolById(id.split('/').first)?.title ?? '草稿');

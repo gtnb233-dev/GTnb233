@@ -101,6 +101,7 @@ class AppSettings extends ChangeNotifier {
   static const _kWorkspaceEllipsoid = 'workspace_ellipsoid';
   static const _kWorkspaceCoordinatePreset = 'workspace_coordinate_preset';
   static const _kPortraitGlassNav = 'android_portrait_glass_nav';
+  static const _kSkipStartupAnimation = 'skip_startup_animation';
   static const _kUiStyle = 'ui_style';
   static const _kGlassNav = 'glass_nav';
   static const _kMonet = 'monet';
@@ -142,6 +143,7 @@ class AppSettings extends ChangeNotifier {
   WorkspaceCoordinatePreset _workspaceCoordinatePreset =
       WorkspaceCoordinatePreset.cgcs2000ThreeDegree;
   bool _portraitGlassNav = false;
+  bool _skipStartupAnimation = false;
 
   UiStyle _uiStyle = UiStyle.classic;
 
@@ -193,6 +195,7 @@ class AppSettings extends ChangeNotifier {
   WorkspaceCoordinatePreset get workspaceCoordinatePreset =>
       _workspaceCoordinatePreset;
   bool get portraitGlassNav => _portraitGlassNav;
+  bool get skipStartupAnimation => _skipStartupAnimation;
 
   /// 当前界面风格。
   UiStyle get uiStyle => _uiStyle;
@@ -246,6 +249,7 @@ class AppSettings extends ChangeNotifier {
             ? WorkspaceCoordinatePreset.wgs84
             : WorkspaceCoordinatePreset.cgcs2000ThreeDegree);
     _portraitGlassNav = p.getBool(_kPortraitGlassNav) ?? false;
+    _skipStartupAnimation = p.getBool(_kSkipStartupAnimation) ?? false;
     _uiStyle = UiStyle.parse(p.getString(_kUiStyle));
     _glassNav = p.getBool(_kGlassNav);
     _monet = p.getBool(_kMonet) ?? false;
@@ -264,6 +268,13 @@ class AppSettings extends ChangeNotifier {
   Future<void> _persist(Future<void> Function(SharedPreferences) fn) async {
     final p = await SharedPreferences.getInstance();
     await fn(p);
+  }
+
+  Future<void> setSkipStartupAnimation(bool value) async {
+    if (_skipStartupAnimation == value) return;
+    _skipStartupAnimation = value;
+    notifyListeners();
+    await _persist((p) => p.setBool(_kSkipStartupAnimation, value));
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {

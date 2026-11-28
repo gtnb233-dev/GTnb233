@@ -4,6 +4,7 @@ import '../../l10n/survey_strings.dart';
 import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
 import 'compact_controls.dart';
+import 'value_reveal.dart';
 
 /// 卡片基调。
 enum CardTone {
@@ -79,7 +80,7 @@ class SurfaceCard extends StatelessWidget {
       ],
     );
     final content = Padding(padding: padding, child: child);
-    return Container(
+    final card = Container(
       margin: margin,
       decoration: decoration,
       clipBehavior: Clip.antiAlias,
@@ -90,6 +91,11 @@ class SurfaceCard extends StatelessWidget {
               child: InkWell(onTap: onTap, child: content),
             ),
     );
+    return SpringPress(
+        scaleDown: .985,
+        duration: const Duration(milliseconds: 80),
+        enabled: onTap != null,
+        child: card);
   }
 }
 
@@ -213,7 +219,7 @@ class Pill extends StatelessWidget {
       PillTone.info => IosColors.blue(b),
     };
     final fg = isDark ? base.withValues(alpha: 0.95) : base;
-    return Container(
+    final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: base.withValues(alpha: isDark ? 0.14 : 0.09),
@@ -254,6 +260,10 @@ class Pill extends StatelessWidget {
         ],
       ),
     );
+    return tone == PillTone.neutral || tone == PillTone.info
+        ? badge
+        : ValueReveal(
+            value: tone, fromOpacity: 1, fromScale: .92, child: badge);
   }
 }
 
@@ -297,7 +307,7 @@ class PrimaryAction extends StatelessWidget {
           );
     return SpringPress(
       scaleDown: .985,
-      duration: const Duration(milliseconds: 90),
+      duration: const Duration(milliseconds: 80),
       enabled: !busy && onPressed != null,
       child: SizedBox(
         width: double.infinity,

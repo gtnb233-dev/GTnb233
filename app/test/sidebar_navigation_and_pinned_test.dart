@@ -164,17 +164,16 @@ void main() {
     await tester.tap(toggle);
     await tester.pumpAndSettle();
     final preset = find.byKey(const ValueKey('sidebar-coordinate-preset'));
-    final button =
-        tester.widget<PopupMenuButton<WorkspaceCoordinatePreset>>(preset);
-    final shape = button.shape! as RoundedRectangleBorder;
-    expect(shape.borderRadius.resolve(TextDirection.ltr).topLeft.x, 16);
-    expect(button.position, PopupMenuPosition.under);
     await tester.tap(preset);
     await tester.pumpAndSettle();
+    final popover = find.byKey(const ValueKey('workspace-popover'));
+    expect(popover, findsOneWidget);
     final first =
         find.byKey(const ValueKey('coordinate-preset-cgcs2000ThreeDegree'));
     final second =
         find.byKey(const ValueKey('coordinate-preset-cgcs2000SixDegree'));
+    expect(tester.getTopLeft(first).dy,
+        greaterThan(tester.getBottomLeft(preset).dy));
     expect(
         find.descendant(of: first, matching: find.byIcon(Icons.check_rounded)),
         findsOneWidget);
@@ -239,10 +238,15 @@ void main() {
     await tester.tap(setting);
     await tester.pumpAndSettle();
     expect(settings.portraitGlassNav, isTrue);
+    expect(nav, findsNothing);
+    await tester.tap(find.byKey(const ValueKey('workspace-fullscreen-back')));
+    await tester.pumpAndSettle();
     expect(nav, findsOneWidget);
     final reloaded = AppSettings();
     await reloaded.load();
     expect(reloaded.portraitGlassNav, isTrue);
+    await tester.tap(find.descendant(of: nav, matching: find.text('设置')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(setting);
     await tester.pumpAndSettle();
     await tester.tap(setting);

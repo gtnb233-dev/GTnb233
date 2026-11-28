@@ -166,6 +166,7 @@ class _ResectionPageState extends State<ResectionPage>
     await store.flushPage('batch_stakeout');
     if (!mounted) return;
     final stakeoutTool = kTools.firstWhere((t) => t.id == 'batch_stakeout');
+    LivePlotScope.maybeRead(context)?.revealRoutes();
     await openTool(context, stakeoutTool);
   }
 

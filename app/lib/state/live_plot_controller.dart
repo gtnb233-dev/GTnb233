@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/widgets.dart';
 
 /// 实时绘图快照的数据来源类型。
@@ -183,12 +184,22 @@ class LivePlotController extends ChangeNotifier {
   LivePlotSnapshot? _current;
   LivePlotSourceKind _sourceKind = LivePlotSourceKind.activeDraft;
   bool _splitOpen = false;
+  final _routeReveal = ValueNotifier<int>(0);
 
   LivePlotSnapshot? get current => _current;
   List<LivePlotSnapshot> get recentSnapshots =>
       List<LivePlotSnapshot>.unmodifiable(_recentSnapshots);
   LivePlotSourceKind get sourceKind => _sourceKind;
   bool get splitOpen => _splitOpen;
+  ValueListenable<int> get routeReveal => _routeReveal;
+
+  void revealRoutes() => _routeReveal.value++;
+
+  @override
+  void dispose() {
+    _routeReveal.dispose();
+    super.dispose();
+  }
 
   void updateSnapshot(
     LivePlotSnapshot snapshot, {

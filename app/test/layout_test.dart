@@ -444,7 +444,10 @@ void main() {
       expect(find.byTooltip('导出表格'), findsOneWidget);
       await tester.tap(find.byTooltip('更多操作'));
       await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byType(BottomSheet),
+          size.width < 600 ? findsOneWidget : findsNothing);
+      expect(find.byKey(const ValueKey('workspace-popover')),
+          size.width >= 600 ? findsOneWidget : findsNothing);
       expect(find.text('自定义顶栏快捷动作'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

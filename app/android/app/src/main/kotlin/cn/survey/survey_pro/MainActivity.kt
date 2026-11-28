@@ -3,6 +3,7 @@ package cn.survey.survey_pro
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.UiModeManager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
@@ -51,6 +52,7 @@ class MainActivity : FlutterActivity() {
 
     private var pendingPickDocumentResult: MethodChannel.Result? = null
     private var pendingReceiverList: MethodChannel.Result? = null
+    private var fullscreenBackGesture = false
     private val gnssExecutor = Executors.newSingleThreadExecutor()
     private val gnssReader = Executors.newSingleThreadExecutor()
     private val gnssLock = Any()
@@ -66,21 +68,24 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val content = findViewById<View>(android.R.id.content)
         content.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
-            val density = view.resources.displayMetrics.density
-            val landscape = view.width > view.height
-            val widthDp = view.width / density
-            val compact = widthDp < 720 && (!landscape || widthDp < 640)
-            if (!compact || view.height == 0) {
-                view.systemGestureExclusionRects = emptyList()
-            } else {
-                // Android reserves part of each edge for system Back. Give the
-                // middle of the compact left edge to the Flutter drag recognizers.
-                val height = minOf(view.height, (200 * density).roundToInt())
-                val top = (view.height - height) / 2
-                view.systemGestureExclusionRects =
-                    listOf(Rect(0, top, (20 * density).roundToInt(), top + height))
-            }
+            updateBackGestureExclusion(view)
         }
+    }
+
+    private fun updateBackGestureExclusion(view: View) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val landscape = view.width > view.height
+        if ((!fullscreenBackGesture && landscape) || view.height == 0) {
+            view.systemGestureExclusionRects = emptyList()
+            return
+        }
+        // Reserve only the middle of the leading edge for Cupertino Back.
+        val density = view.resources.displayMetrics.density
+        val height = minOf(view.height, (200 * density).roundToInt())
+        val top = (view.height - height) / 2
+        val width = (20 * density).roundToInt()
+        val left = if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) view.width - width else 0
+        view.systemGestureExclusionRects = listOf(Rect(left, top, left + width, top + height))
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -91,6 +96,27 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "accentColor" -> result.success(systemAccentColor())
+                    "setStartupTheme" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val mode = when (call.arguments) {
+                                "light" -> UiModeManager.MODE_NIGHT_NO
+                                "dark" -> UiModeManager.MODE_NIGHT_YES
+                                "system" -> UiModeManager.MODE_NIGHT_AUTO
+                                else -> {
+                                    result.error("INVALID_THEME", null, null)
+                                    return@setMethodCallHandler
+                                }
+                            }
+                            // App-local night qualifiers also select the next OS splash.
+                            getSystemService(UiModeManager::class.java)?.setApplicationNightMode(mode)
+                        }
+                        result.success(null)
+                    }
+                    "setFullscreenBackGesture" -> {
+                        fullscreenBackGesture = call.arguments == true
+                        updateBackGestureExclusion(findViewById(android.R.id.content))
+                        result.success(null)
+                    }
                     "setKeepScreenOn" -> {
                         val enabled = (call.arguments as? Boolean) ?: false
                         runOnUiThread {

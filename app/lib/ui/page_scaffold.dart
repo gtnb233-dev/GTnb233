@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../export/export_service.dart';
 import '../l10n/survey_strings.dart';
 import '../state/drafts.dart';
+import '../state/live_plot_controller.dart';
 import '../state/settings.dart';
 import '../theme/tokens.dart';
 import '../theme/workspace_layout.dart';
@@ -16,6 +17,7 @@ import 'widgets/smart_import.dart';
 import 'widgets/snapshot_diff_sheet.dart';
 import 'widgets/tutorial_panel.dart';
 import 'widgets/workspace_commands.dart';
+import 'widgets/workspace_popover.dart';
 import 'widgets/workspace_sidebar_control.dart';
 
 /// 一级页面骨架：可滚动大标题 + 内容区。
@@ -32,6 +34,7 @@ class PageScaffold extends StatelessWidget {
     this.fab,
     this.toolbar,
     this.maxWidth = Insets.contentMaxWidth,
+    this.fullscreen = false,
   });
 
   final String title;
@@ -46,6 +49,7 @@ class PageScaffold extends StatelessWidget {
   final Widget? header;
   final Widget? fab;
   final double maxWidth;
+  final bool fullscreen;
 
   @override
   Widget build(BuildContext context) {
@@ -61,112 +65,118 @@ class PageScaffold extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final pad = constraints.maxWidth >= 900 ? Insets.xxl : Insets.l;
-            return SingleChildScrollView(
+            final heading = ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: kTopBarHeight),
+              child: Row(
+                crossAxisAlignment: caption == null
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (fullscreen) ...[
+                    SizedBox(
+                      height: kTopBarHeight,
+                      child: Center(
+                        child: IconButton(
+                          key: const ValueKey('workspace-fullscreen-back'),
+                          tooltip: context.tr('返回'),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          onPressed: () => Navigator.maybePop(context),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Insets.s),
+                  ] else if (sidebar != null) ...[
+                    SizedBox(
+                      height: kTopBarHeight,
+                      child: Center(
+                        child: sidebar.open && sidebar.overlay
+                            ? const SizedBox(width: kTopBarButtonSize)
+                            : WorkspaceSidebarControl(
+                                open: sidebar.open,
+                                onToggle: sidebar.onToggle,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: Insets.s),
+                  ],
+                  Expanded(
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(minHeight: kTopBarHeight),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr(title),
+                            textHeightBehavior: kSurveyTextHeightBehavior,
+                            style: TextStyle(
+                              fontSize: constraints.maxWidth >= 900 ? 32 : 28,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.7,
+                              color: scheme.onSurface,
+                              height: 1.15,
+                              leadingDistribution: TextLeadingDistribution.even,
+                            ),
+                          ),
+                          if (caption != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              context.tr(caption!),
+                              textHeightBehavior: kSurveyTextHeightBehavior,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: scheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: Insets.s),
+                    SizedBox(
+                      height: kTopBarHeight,
+                      child: Center(
+                        child: IconButtonTheme(
+                          data: IconButtonThemeData(
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size.square(
+                                kTopBarButtonSize,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: _spaced(trailing!),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+            final scroll = SingleChildScrollView(
               physics: compact
                   ? const BouncingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics())
                   : null,
-              padding:
-                  EdgeInsets.fromLTRB(pad, kTopBarTopInset, pad, Insets.xl),
+              padding: EdgeInsets.fromLTRB(
+                  pad, fullscreen ? 0 : kTopBarTopInset, pad, Insets.xl),
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(minHeight: kTopBarHeight),
-                        child: Row(
-                          crossAxisAlignment: caption == null
-                              ? CrossAxisAlignment.center
-                              : CrossAxisAlignment.start,
-                          children: [
-                            if (sidebar != null) ...[
-                              SizedBox(
-                                height: kTopBarHeight,
-                                child: Center(
-                                  child: sidebar.open && sidebar.overlay
-                                      ? const SizedBox(width: kTopBarButtonSize)
-                                      : WorkspaceSidebarControl(
-                                          open: sidebar.open,
-                                          onToggle: sidebar.onToggle,
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(width: Insets.s),
-                            ],
-                            Expanded(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                    minHeight: kTopBarHeight),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      context.tr(title),
-                                      textHeightBehavior:
-                                          kSurveyTextHeightBehavior,
-                                      style: TextStyle(
-                                        fontSize: constraints.maxWidth >= 900
-                                            ? 32
-                                            : 28,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.7,
-                                        color: scheme.onSurface,
-                                        height: 1.15,
-                                        leadingDistribution:
-                                            TextLeadingDistribution.even,
-                                      ),
-                                    ),
-                                    if (caption != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        context.tr(caption!),
-                                        textHeightBehavior:
-                                            kSurveyTextHeightBehavior,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: scheme.onSurfaceVariant,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (trailing != null) ...[
-                              const SizedBox(width: Insets.s),
-                              SizedBox(
-                                height: kTopBarHeight,
-                                child: Center(
-                                  child: IconButtonTheme(
-                                    data: IconButtonThemeData(
-                                      style: IconButton.styleFrom(
-                                        minimumSize: const Size.square(
-                                          kTopBarButtonSize,
-                                        ),
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: _spaced(trailing!),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                      if (!fullscreen) heading,
                       if (toolbar != null) ...[
                         const SizedBox(height: Insets.m),
                         toolbar!,
@@ -181,6 +191,21 @@ class PageScaffold extends StatelessWidget {
                   ),
                 ),
               ),
+            );
+            if (!fullscreen) return scroll;
+            return Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(pad, kTopBarTopInset, pad, 0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: heading,
+                    ),
+                  ),
+                ),
+                Expanded(child: scroll),
+              ],
             );
           },
         ),
@@ -434,7 +459,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               tooltip: _headerActionLabel(context, id),
               visualDensity: VisualDensity.compact,
               iconSize: 18,
-              onPressed: sampleCb,
+              onPressed: () {
+                sampleCb();
+                LivePlotScope.maybeRead(context)?.revealRoutes();
+              },
               icon: const Icon(Icons.auto_fix_high_outlined, size: 18),
             ),
           );
@@ -619,7 +647,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         ),
       );
 
-  Future<void> _showCompactActions() async {
+  Future<void> _showCompactActions(BuildContext anchor) async {
     final android = WorkspaceHost.isAndroid(context);
     final settings = SettingsScope.maybeOf(context);
     final pageActions = _pageActions;
@@ -641,103 +669,113 @@ class _DetailScaffoldState extends State<DetailScaffold> {
             ?.where((action) => !identical(action, widget.mobilePrimaryAction))
             .toList() ??
         const <Widget>[];
-    final command = await workspacePanel<String>(
-      context,
-      '更多操作',
-      Builder(builder: (sheetContext) {
-        void choose(String action) {
-          if (ModalRoute.of(sheetContext)?.isCurrent ?? false) {
-            Navigator.of(sheetContext).pop(action);
-          }
+    Widget menu(BuildContext sheetContext) {
+      void choose(String action) {
+        if (ModalRoute.of(sheetContext)?.isCurrent ?? false) {
+          Navigator.of(sheetContext).pop(action);
         }
+      }
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (settings != null) ...[
-              _groupHeader(context, '顶栏快捷动作'),
-              ListTile(
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (settings != null) ...[
+            _groupHeader(context, '顶栏快捷动作'),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.tune_rounded),
+              title: Text(context.tr('自定义顶栏快捷动作')),
+              subtitle: Text(
+                settings.pinnedHeaderActions
+                    .map((id) => _headerActionLabel(context, id))
+                    .join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => choose('customize_pinned'),
+            ),
+            const Divider(height: Insets.m),
+            _groupHeader(context, '外业显示'),
+            AnimatedBuilder(
+              animation: settings,
+              builder: (ctx, _) => SwitchListTile.adaptive(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.tune_rounded),
-                title: Text(context.tr('自定义顶栏快捷动作')),
-                subtitle: Text(
-                  settings.pinnedHeaderActions
-                      .map((id) => _headerActionLabel(context, id))
-                      .join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => choose('customize_pinned'),
+                secondary: const Icon(Icons.light_mode_outlined),
+                title: Text(ctx.tr('外业保持屏幕常亮')),
+                subtitle: Text(ctx.tr('保持屏幕常亮，方便外业连续录数')),
+                value: settings.keepScreenOn,
+                onChanged: (v) => settings.setKeepScreenOn(v),
               ),
-              const Divider(height: Insets.m),
-              _groupHeader(context, '外业显示'),
-              AnimatedBuilder(
-                animation: settings,
-                builder: (ctx, _) => SwitchListTile.adaptive(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.light_mode_outlined),
-                  title: Text(ctx.tr('外业保持屏幕常亮')),
-                  subtitle: Text(ctx.tr('保持屏幕常亮，方便外业连续录数')),
-                  value: settings.keepScreenOn,
-                  onChanged: (v) => settings.setKeepScreenOn(v),
-                ),
-              ),
-              const Divider(height: Insets.m),
-            ],
-            if (unpinned.isNotEmpty ||
-                actions.isNotEmpty ||
-                canReturn ||
-                drafts != null)
-              _groupHeader(sheetContext, '工具与辅助操作'),
-            if (drafts != null) ...[
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                key: const ValueKey('more-action-save-snapshot'),
-                leading: const Icon(Icons.bookmark_add_outlined),
-                title: Text(sheetContext.tr('保存版本快照')),
-                onTap: () => choose('save_snapshot'),
-              ),
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                key: const ValueKey('more-action-snapshot-diff'),
-                leading: const Icon(Icons.compare_arrows_rounded),
-                title: Text(sheetContext.tr('版本快照对比')),
-                onTap: () => choose('snapshot_diff'),
-              ),
-            ],
-            if (canReturn)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                key: const ValueKey('more-action-back'),
-                leading: const Icon(Icons.arrow_back),
-                title: const LocalText('返回'),
-                onTap: () => choose('back'),
-              ),
-            if (actions.isNotEmpty) ...[
-              Wrap(spacing: 8, runSpacing: 8, children: actions),
-              const SizedBox(height: Insets.s),
-            ],
-            for (final id in unpinned)
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                key: ValueKey('more-action-$id'),
-                leading: Icon(_headerActionIcon(id)),
-                title: Text(_headerActionLabel(sheetContext, id)),
-                onTap: () => choose(id),
-              ),
+            ),
+            const Divider(height: Insets.m),
           ],
-        );
-      }),
-      useBottomSheet: android,
-    );
+          if (unpinned.isNotEmpty ||
+              actions.isNotEmpty ||
+              canReturn ||
+              drafts != null)
+            _groupHeader(sheetContext, '工具与辅助操作'),
+          if (drafts != null) ...[
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              key: const ValueKey('more-action-save-snapshot'),
+              leading: const Icon(Icons.bookmark_add_outlined),
+              title: Text(sheetContext.tr('保存版本快照')),
+              onTap: () => choose('save_snapshot'),
+            ),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              key: const ValueKey('more-action-snapshot-diff'),
+              leading: const Icon(Icons.compare_arrows_rounded),
+              title: Text(sheetContext.tr('版本快照对比')),
+              onTap: () => choose('snapshot_diff'),
+            ),
+          ],
+          if (canReturn)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              key: const ValueKey('more-action-back'),
+              leading: const Icon(Icons.arrow_back),
+              title: const LocalText('返回'),
+              onTap: () => choose('back'),
+            ),
+          if (actions.isNotEmpty) ...[
+            Wrap(spacing: 8, runSpacing: 8, children: actions),
+            const SizedBox(height: Insets.s),
+          ],
+          for (final id in unpinned)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              key: ValueKey('more-action-$id'),
+              leading: Icon(_headerActionIcon(id)),
+              title: Text(_headerActionLabel(sheetContext, id)),
+              onTap: () => choose(id),
+            ),
+        ],
+      );
+    }
+
+    final command = await (MediaQuery.sizeOf(anchor).width >= 600
+        ? showWorkspacePopover<String>(
+            anchor: anchor,
+            label: context.tr('更多操作'),
+            width: 320,
+            trailing: true,
+            builder: menu,
+          )
+        : workspacePanel<String>(
+            context,
+            '更多操作',
+            Builder(builder: menu),
+            useBottomSheet: android,
+          ));
     if (!mounted) return;
     switch (command) {
       case 'back':
@@ -784,7 +822,10 @@ class _DetailScaffoldState extends State<DetailScaffold> {
       case 'point_names':
         pageActions?.onPointNames?.call();
       case 'sample':
-        sampleCb?.call();
+        if (sampleCb != null) {
+          sampleCb();
+          LivePlotScope.maybeRead(context)?.revealRoutes();
+        }
       case 'clear':
         if (pageActions?.onClear != null) {
           await PageActions.runClear(
@@ -845,8 +886,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                   icon: LiquidGlassSurface(
                     width: kTopBarButtonSize,
                     height: kTopBarButtonSize,
-                    borderRadius:
-                        BorderRadius.circular(kTopBarButtonSize / 2),
+                    borderRadius: BorderRadius.circular(kTopBarButtonSize / 2),
                     elevated: true,
                     blurSigma: 12,
                     child: const Center(
@@ -867,40 +907,40 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Row(
-                children: [
-                  Flexible(
-                    flex: 3,
-                    child: Text(
-                      context.tr(widget.title),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                Row(
+                  children: [
+                    Flexible(
+                      flex: 3,
+                      child: Text(
+                        context.tr(widget.title),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                  if (draftBadge != null) ...[
-                    const SizedBox(width: 6),
-                    Flexible(flex: 2, child: draftBadge),
+                    if (draftBadge != null) ...[
+                      const SizedBox(width: 6),
+                      Flexible(flex: 2, child: draftBadge),
+                    ],
                   ],
-                ],
-              ),
-              if ((widget.mobileSubtitle ?? widget.subtitle)
-                  case final subtitle?)
-                Text(
-                  context.tr(subtitle),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 12,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
                 ),
-            ],
+                if ((widget.mobileSubtitle ?? widget.subtitle)
+                    case final subtitle?)
+                  Text(
+                    context.tr(subtitle),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
         ),
       ],
     );
@@ -931,11 +971,13 @@ class _DetailScaffoldState extends State<DetailScaffold> {
               SizedBox(
                 width: 40,
                 height: 42,
-                child: IconButton(
-                  tooltip: context.tr('更多操作'),
-                  iconSize: 20,
-                  onPressed: _showCompactActions,
-                  icon: const Icon(Icons.more_horiz_rounded),
+                child: Builder(
+                  builder: (anchor) => IconButton(
+                    tooltip: context.tr('更多操作'),
+                    iconSize: 20,
+                    onPressed: () => _showCompactActions(anchor),
+                    icon: const Icon(Icons.more_horiz_rounded),
+                  ),
                 ),
               ),
             ],
@@ -953,8 +995,7 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   ConstrainedBox(
-                    constraints:
-                        const BoxConstraints(minHeight: kTopBarHeight),
+                    constraints: const BoxConstraints(minHeight: kTopBarHeight),
                     child: heading,
                   ),
                   SingleChildScrollView(
@@ -1006,10 +1047,9 @@ class _DetailScaffoldState extends State<DetailScaffold> {
         constraints.maxWidth - controlsWidth - (hasLeading ? 79 : 24) < 110;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final scaleExtra = math.max(0.0, (textScale - 1.0) * 40.0);
-    final headerHeight = (stackedHeader
-            ? 112.0
-            : kTopBarTopInset + kTopBarHeight + 6.0) +
-        scaleExtra;
+    final headerHeight =
+        (stackedHeader ? 112.0 : kTopBarTopInset + kTopBarHeight + 6.0) +
+            scaleExtra;
     final twoPane = !workspaceUsesCompactLayout(context) &&
         (widget.sideVisual != null || widget.reserveSideVisual) &&
         constraints.maxWidth >= 560;
@@ -1147,10 +1187,8 @@ class _DetailScaffoldState extends State<DetailScaffold> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          theme.scaffoldBackgroundColor
-                              .withValues(alpha: 0.96),
-                          theme.scaffoldBackgroundColor
-                              .withValues(alpha: 0.92),
+                          theme.scaffoldBackgroundColor.withValues(alpha: 0.96),
+                          theme.scaffoldBackgroundColor.withValues(alpha: 0.92),
                           theme.scaffoldBackgroundColor.withValues(alpha: 0),
                         ],
                         stops: [
